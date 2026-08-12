@@ -1,0 +1,2368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Composição de Caixa — Carneiro Ganhador Loterias</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --azul-caixa:#0033A0;
+    --azul-escuro:#00205B;
+    --laranja-caixa:#F39200;
+    --laranja-hover:#D97F00;
+    --cinza-fundo:#F2F4F8;
+    --cinza-borda:#DCE1EA;
+    --verde-venda:#1E8E3E;
+    --vermelho-estorno:#D93025;
+    --texto-escuro:#1A1A2E;
+    --texto-claro:#6B7280;
+    --branco:#FFFFFF;
+    --sombra:0 2px 8px rgba(0,32,91,0.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overscroll-behavior-y:none;}
+  body{
+    font-family:'Segoe UI',Roboto,Arial,sans-serif;
+    background:var(--cinza-fundo);
+    color:var(--texto-escuro);
+    min-height:100vh;
+  }
+  .oculto{display:none !important;}
+
+  /* ===== LOGIN ===== */
+  #tela-login{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(160deg,var(--azul-escuro) 0%,var(--azul-caixa) 55%,var(--laranja-caixa) 180%);
+    padding:20px;
+  }
+  .card-login{
+    background:var(--branco);
+    border-radius:16px;
+    padding:32px 28px;
+    width:100%;
+    max-width:400px;
+    box-shadow:0 12px 40px rgba(0,0,0,0.25);
+    max-height:92vh;
+    overflow-y:auto;
+  }
+  .logo-box{display:flex;flex-direction:column;align-items:center;margin-bottom:22px;}
+  .logo-emblema{
+    width:60px;height:60px;border-radius:14px;
+    background:linear-gradient(135deg,var(--azul-caixa),var(--azul-escuro));
+    display:flex;align-items:center;justify-content:center;
+    position:relative;margin-bottom:12px;
+  }
+  .logo-emblema::after{
+    content:"";position:absolute;width:20px;height:20px;
+    background:var(--laranja-caixa);border-radius:6px;
+    right:-7px;bottom:-7px;border:3px solid var(--branco);
+  }
+  .logo-emblema span{color:#fff;font-weight:800;font-size:19px;letter-spacing:1px;}
+  .logo-box h1{font-size:17px;color:var(--azul-escuro);font-weight:800;text-align:center;line-height:1.3;}
+  .logo-box p{font-size:12px;color:var(--texto-claro);margin-top:4px;text-align:center;}
+  .campo{margin-bottom:15px;}
+  .campo label{
+    display:block;font-size:12px;font-weight:700;color:var(--azul-escuro);
+    margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px;
+  }
+  .campo select, .campo input{
+    width:100%;padding:12px 14px;border:1.5px solid var(--cinza-borda);
+    border-radius:9px;font-size:14.5px;background:#fff;transition:border-color .15s;
+  }
+  .campo select:focus, .campo input:focus{outline:none;border-color:var(--azul-caixa);}
+  .btn-primario{
+    width:100%;padding:13px;background:var(--laranja-caixa);color:#fff;border:none;
+    border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;
+    transition:background .15s, transform .1s;letter-spacing:.3px;
+  }
+  .btn-primario:hover{background:var(--laranja-hover);}
+  .btn-primario:active{transform:scale(0.98);}
+  .btn-secundario{
+    width:100%;padding:11px;background:transparent;color:var(--azul-caixa);
+    border:1.5px solid var(--azul-caixa);border-radius:9px;font-size:13.5px;
+    font-weight:700;cursor:pointer;margin-top:10px;
+  }
+  .btn-secundario:hover{background:#EEF2FC;}
+  .link-texto{
+    display:block;text-align:center;margin-top:14px;font-size:12.5px;
+    color:var(--azul-caixa);font-weight:700;cursor:pointer;background:none;border:none;width:100%;
+  }
+  .msg-erro{
+    background:#FDEDEC;color:var(--vermelho-estorno);padding:10px 12px;border-radius:8px;
+    font-size:13px;margin-bottom:14px;border-left:3px solid var(--vermelho-estorno);
+  }
+  .msg-ok{
+    background:#EAF7ED;color:var(--verde-venda);padding:10px 12px;border-radius:8px;
+    font-size:13px;margin-bottom:14px;border-left:3px solid var(--verde-venda);
+  }
+  .msg-info{
+    background:#EEF2FC;color:var(--azul-caixa);padding:10px 12px;border-radius:8px;
+    font-size:12.5px;margin-bottom:14px;border-left:3px solid var(--azul-caixa);
+  }
+
+  /* ===== APP ===== */
+  #tela-app{min-height:100vh;display:flex;flex-direction:column;}
+  header.topo{
+    background:linear-gradient(120deg,var(--azul-escuro),var(--azul-caixa));
+    color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;
+    box-shadow:var(--sombra);position:sticky;top:0;z-index:20;
+  }
+  .topo-esq{display:flex;align-items:center;gap:10px;min-width:0;}
+  .logo-mini{
+    width:36px;height:36px;border-radius:9px;background:var(--laranja-caixa);
+    display:flex;align-items:center;justify-content:center;font-weight:800;
+    font-size:13px;flex-shrink:0;
+  }
+  .topo-esq h2{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .topo-esq p{font-size:10.5px;opacity:.85;}
+  .btn-sair{
+    background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.4);
+    padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;
+  }
+  .btn-sair:hover{background:rgba(255,255,255,0.25);}
+
+  main{max-width:760px;margin:0 auto;padding:16px 14px 100px;width:100%;flex:1;}
+
+  .status-sync{
+    display:flex;align-items:center;gap:6px;font-size:11px;color:var(--texto-claro);
+    margin-bottom:12px;justify-content:center;
+  }
+  .ponto-sync{width:7px;height:7px;border-radius:50%;background:var(--verde-venda);animation:pulso 1.8s infinite;}
+  @keyframes pulso{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .subtotal-wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:18px;}
+  .subtotal-card{
+    background:#fff;border-radius:14px;padding:14px 10px;text-align:center;
+    box-shadow:var(--sombra);border-top:4px solid var(--cinza-borda);
+  }
+  .subtotal-card.venda{border-top-color:var(--verde-venda);}
+  .subtotal-card.estorno{border-top-color:var(--vermelho-estorno);}
+  .subtotal-card.saldo{border-top-color:var(--laranja-caixa);}
+  .subtotal-card .rotulo{font-size:9.5px;font-weight:700;color:var(--texto-claro);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;}
+  .subtotal-card .valor{font-size:16.5px;font-weight:800;color:var(--texto-escuro);}
+  .subtotal-card.venda .valor{color:var(--verde-venda);}
+  .subtotal-card.estorno .valor{color:var(--vermelho-estorno);}
+  .subtotal-card.saldo .valor{color:var(--laranja-hover);}
+  .subtotal-card .qtd{font-size:9.5px;color:var(--texto-claro);margin-top:3px;}
+
+  .painel{background:#fff;border-radius:14px;padding:18px;box-shadow:var(--sombra);margin-bottom:16px;}
+  .painel h3{font-size:14px;color:var(--azul-escuro);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .painel h3::before{content:"";width:4px;height:15px;background:var(--laranja-caixa);border-radius:3px;}
+  .painel h4{font-size:12.5px;color:var(--azul-escuro);margin-bottom:8px;}
+
+  .linha-form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+  .tipo-botoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .tipo-btn{
+    padding:14px 6px;border-radius:9px;border:1.5px solid var(--cinza-borda);background:#fff;
+    font-size:13px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;color:var(--texto-claro);
+  }
+  .tipo-btn .sub{display:block;font-size:10px;font-weight:600;text-transform:none;opacity:.75;margin-top:2px;}
+  .tipo-btn.ativo-saida{background:#EAF7ED;border-color:var(--verde-venda);color:var(--verde-venda);}
+  .tipo-btn.ativo-troco{background:#FDEDEC;border-color:var(--vermelho-estorno);color:var(--vermelho-estorno);}
+
+  .badge-saida{background:#EAF7ED;color:var(--verde-venda);}
+  .badge-troco{background:#FDEDEC;color:var(--vermelho-estorno);}
+  .badge{font-size:10px;font-weight:700;padding:4px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
+  .historico-item{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--cinza-borda);font-size:13px;}
+  .historico-item:last-child{border-bottom:none;}
+  .hist-esq{display:flex;align-items:center;gap:9px;min-width:0;}
+  .hist-info .caixa{font-weight:700;color:var(--texto-escuro);font-size:12.5px;}
+  .hist-info .hora{font-size:11px;color:var(--texto-claro);}
+  .hist-valor{font-weight:800;white-space:nowrap;}
+  .hist-valor.saida{color:var(--verde-venda);}
+  .hist-valor.troco{color:var(--vermelho-estorno);}
+  .btn-excluir{background:none;border:none;color:var(--texto-claro);cursor:pointer;font-size:16px;padding:2px 6px;margin-left:4px;}
+  .btn-excluir:hover{color:var(--vermelho-estorno);}
+  .btn-excluir.restaurar{color:var(--azul-caixa);font-size:12px;font-weight:700;}
+  .btn-excluir.restaurar:hover{color:var(--azul-escuro);}
+  .historico-item.excluido .hist-esq, .historico-item.excluido .hist-valor{text-decoration:line-through;opacity:.5;}
+  .vazio{text-align:center;color:var(--texto-claro);font-size:13px;padding:26px 0;}
+
+  .tabela-geral table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .tabela-geral th{text-align:left;padding:8px 6px;color:var(--texto-claro);font-size:10.5px;text-transform:uppercase;border-bottom:2px solid var(--cinza-borda);}
+  .tabela-geral td{padding:9px 6px;border-bottom:1px solid var(--cinza-borda);}
+  .tabela-geral tr:last-child td{border-bottom:none;}
+
+  .aviso-fechamento{
+    font-size:12px;color:var(--texto-claro);margin-bottom:14px;background:var(--cinza-fundo);
+    padding:9px 12px;border-radius:8px;border-left:3px solid var(--laranja-caixa);
+  }
+  .composicao-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:14px 0 10px;}
+  .composicao-total{display:flex;flex-direction:column;align-items:flex-end;background:#FFF7EC;border:1.5px solid var(--laranja-caixa);border-radius:9px;padding:8px 14px;}
+  .composicao-total .rotulo{font-size:9.5px;color:var(--texto-claro);text-transform:uppercase;font-weight:700;}
+  .composicao-total .valor{font-size:16px;font-weight:800;color:var(--laranja-hover);}
+  .composicao-tabela{border:1.5px solid var(--cinza-borda);border-radius:10px;overflow:hidden;}
+  .composicao-linha{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;align-items:center;padding:9px 11px;border-bottom:1px solid var(--cinza-borda);}
+  .composicao-linha:last-child{border-bottom:none;}
+  .composicao-cabecalho{background:var(--cinza-fundo);font-size:10px;font-weight:700;text-transform:uppercase;color:var(--texto-claro);letter-spacing:.3px;}
+  .composicao-nome{font-size:12.5px;font-weight:600;color:var(--texto-escuro);}
+  .composicao-qtd{width:100%;padding:7px 8px;border:1.5px solid var(--cinza-borda);border-radius:7px;font-size:13px;text-align:center;}
+  .composicao-qtd:focus{outline:none;border-color:var(--azul-caixa);}
+  .composicao-subtotal{font-size:12.5px;font-weight:700;color:var(--verde-venda);text-align:right;}
+
+  .letra-label{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:20px;height:20px;border-radius:6px;background:var(--azul-caixa);color:#fff;
+    font-size:11px;font-weight:800;margin-right:6px;flex-shrink:0;
+  }
+  .bloco-letra{
+    border:1.5px solid var(--cinza-borda);border-radius:12px;padding:14px;margin-bottom:14px;
+  }
+  .bloco-letra .titulo-bloco{display:flex;align-items:center;font-size:12.5px;font-weight:700;color:var(--azul-escuro);margin-bottom:10px;}
+
+  .resumo-ab{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;}
+  .resumo-ab-item{background:var(--cinza-fundo);border-radius:9px;padding:9px 6px;text-align:center;}
+  .resumo-ab-item .rotulo{font-size:9px;color:var(--texto-claro);text-transform:uppercase;font-weight:700;}
+  .resumo-ab-item .valor{font-size:13.5px;font-weight:800;margin-top:3px;}
+
+  .totais-grandes{display:flex;flex-direction:column;gap:10px;margin:16px 0;}
+  .total-card{
+    border-radius:14px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;
+    background:#fff;border:1.5px solid var(--cinza-borda);
+  }
+  .total-card .nome{font-size:12px;font-weight:700;color:var(--texto-claro);}
+  .total-card .formula{font-size:10px;color:var(--texto-claro);margin-top:2px;}
+  .total-card .num{font-size:19px;font-weight:800;color:var(--azul-escuro);}
+  .total-card.total1{border-left:5px solid var(--azul-caixa);}
+  .total-card.total2{border-left:5px solid var(--laranja-caixa);}
+  .total-card.total3{border-left:5px solid var(--texto-claro);}
+  .total-card.total3.positivo{border-left-color:var(--verde-venda);background:#F4FBF5;}
+  .total-card.total3.negativo{border-left-color:var(--vermelho-estorno);background:#FDF5F4;}
+  .total-card.total3.positivo .num{color:var(--verde-venda);}
+  .total-card.total3.negativo .num{color:var(--vermelho-estorno);}
+
+  .historico-linha-filtro{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
+  .historico-linha-filtro .campo{margin-bottom:0;flex:1;min-width:150px;}
+  .tabela-historico-dias{overflow-x:auto;}
+  .tabela-historico-dias table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px;}
+  .tabela-historico-dias th{text-align:left;padding:8px 7px;color:var(--texto-claro);font-size:10px;text-transform:uppercase;border-bottom:2px solid var(--cinza-borda);white-space:nowrap;}
+  .tabela-historico-dias td{padding:8px 7px;border-bottom:1px solid var(--cinza-borda);white-space:nowrap;}
+  .tabela-historico-dias tr:last-child td{border-bottom:none;}
+  .tabela-historico-dias tr.linha-excluida td{text-decoration:line-through;opacity:.5;}
+  .id-transacao{font-family:'Courier New',monospace;font-size:10.5px;color:var(--texto-claro);}
+
+  .link-cliente{
+    background:none;border:none;padding:0;font:inherit;color:var(--azul-caixa);
+    font-weight:700;cursor:pointer;text-decoration:underline;text-align:left;
+  }
+  .link-cliente:hover{color:var(--azul-escuro);}
+
+  .legenda-grafico{display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--texto-claro);flex-wrap:wrap;}
+  .legenda-item{display:flex;align-items:center;gap:6px;}
+  .ponto-legenda{width:10px;height:10px;border-radius:3px;display:inline-block;flex-shrink:0;}
+  .grafico-fiado-wrap{
+    display:flex;align-items:flex-end;gap:14px;overflow-x:auto;
+    padding:26px 10px 4px;min-height:210px;border:1.5px solid var(--cinza-borda);border-radius:10px;
+  }
+  .grafico-dia{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;min-width:50px;}
+  .grafico-barras{display:flex;align-items:flex-end;gap:4px;height:160px;}
+  .grafico-barra{width:16px;border-radius:4px 4px 0 0;position:relative;min-height:2px;transition:height .2s;}
+  .grafico-barra.fiado{background:var(--vermelho-estorno);}
+  .grafico-barra.pagamento{background:var(--verde-venda);}
+  .grafico-valor{
+    font-size:9px;color:var(--texto-claro);position:absolute;top:-16px;left:50%;
+    transform:translateX(-50%);white-space:nowrap;font-weight:700;
+  }
+  .grafico-data-label{font-size:9.5px;color:var(--texto-claro);margin-top:6px;text-align:center;white-space:nowrap;}
+
+  .integracao-linha{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;}
+  .integracao-linha .campo{flex:1;min-width:220px;margin-bottom:0;}
+  .checkbox-linha{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12.5px;color:var(--texto-escuro);}
+  .checkbox-linha input{width:16px;height:16px;flex-shrink:0;}
+  .status-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;margin-bottom:12px;}
+  .status-pill.ativo{background:#EAF7ED;color:var(--verde-venda);}
+  .status-pill.inativo{background:var(--cinza-fundo);color:var(--texto-claro);}
+  .status-pill .ponto{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .btn-exportar{
+    width:100%;padding:12px;background:#fff;color:var(--azul-caixa);border:1.5px solid var(--azul-caixa);
+    border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;
+  }
+  .btn-exportar:hover{background:#EEF2FC;}
+
+  footer.rodape{text-align:center;font-size:10.5px;color:var(--texto-claro);padding:16px;}
+
+  /* ===== NAV INFERIOR ===== */
+  .bottom-nav{
+    position:fixed;left:0;right:0;bottom:0;background:#fff;
+    display:flex;box-shadow:0 -2px 12px rgba(0,0,0,0.10);z-index:30;
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+    max-width:760px;margin:0 auto;
+  }
+  .nav-btn{
+    flex:1;background:none;border:none;padding:9px 2px 8px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--texto-claro);
+    min-width:0;
+  }
+  .nav-btn .icone{font-size:18px;line-height:1;}
+  .nav-btn span:last-child{font-size:9px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .nav-btn.ativo{color:var(--azul-caixa);}
+  .nav-btn.ativo .icone{transform:scale(1.08);}
+
+  @media(max-width:420px){
+    .subtotal-wrap{gap:6px;}
+    .subtotal-card{padding:10px 5px;}
+    .subtotal-card .valor{font-size:14px;}
+    .linha-form{grid-template-columns:1fr;}
+    .composicao-linha{grid-template-columns:1.6fr .8fr 1fr;gap:6px;padding:8px 7px;}
+    .composicao-nome{font-size:11.5px;}
+    .composicao-total{align-items:flex-start;width:100%;}
+    .resumo-ab{grid-template-columns:1fr 1fr 1fr;}
+    .total-card .num{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= TELA DE LOGIN ================= -->
+<div id="tela-login">
+  <div class="card-login">
+    <div class="logo-box">
+      <div class="logo-emblema"><span>CG</span></div>
+      <h1>Composição de Caixa</h1>
+      <p>Carneiro Ganhador Loterias</p>
+    </div>
+
+    <div id="login-erro" class="msg-erro oculto"></div>
+
+    <!-- ---- LOGIN ---- -->
+    <div id="form-entrar">
+      <div class="campo">
+        <label>Funcionário(a)</label>
+        <select id="sel-usuario"><option value="">Selecione...</option></select>
+      </div>
+      <div class="campo">
+        <label>Senha</label>
+        <input type="password" id="inp-senha" placeholder="Digite sua senha">
+      </div>
+      <button class="btn-primario" onclick="fazerLogin()">Entrar</button>
+      <button class="btn-secundario" onclick="mostrarCadastro()">Cadastrar novo funcionário</button>
+      <button class="link-texto" onclick="mostrarRecuperacao()">Esqueci minha senha</button>
+    </div>
+
+    <!-- ---- CADASTRO ---- -->
+    <div id="form-cadastro" class="oculto">
+      <div class="campo">
+        <label>Nome completo</label>
+        <input type="text" id="cad-nome" placeholder="Nome do funcionário">
+      </div>
+      <div class="campo">
+        <label>Usuário (login)</label>
+        <input type="text" id="cad-usuario" placeholder="ex: joana.silva">
+      </div>
+      <div class="campo">
+        <label>Senha</label>
+        <input type="password" id="cad-senha" placeholder="Crie uma senha">
+      </div>
+      <div class="campo">
+        <label>Pergunta de segurança</label>
+        <select id="cad-pergunta">
+          <option value="Nome da sua mãe">Nome da sua mãe</option>
+          <option value="Cidade onde você nasceu">Cidade onde você nasceu</option>
+          <option value="Nome do seu primeiro animal de estimação">Nome do seu primeiro animal de estimação</option>
+          <option value="Apelido de infância">Apelido de infância</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Resposta de segurança</label>
+        <input type="text" id="cad-resposta" placeholder="Sua resposta (usada para recuperar a senha)">
+      </div>
+      <div class="checkbox-linha">
+        <input type="checkbox" id="cad-admin">
+        <label for="cad-admin">Cadastrar como Administrador(a)</label>
+      </div>
+      <button class="btn-primario" onclick="cadastrarUsuario()">Cadastrar</button>
+      <button class="btn-secundario" onclick="mostrarLogin()">Voltar ao login</button>
+    </div>
+
+    <!-- ---- RECUPERAR SENHA ---- -->
+    <div id="form-recuperar" class="oculto">
+      <div class="campo">
+        <label>Funcionário(a)</label>
+        <select id="rec-usuario" onchange="selecionarUsuarioRecuperacao()"><option value="">Selecione...</option></select>
+      </div>
+      <div id="rec-conteudo"></div>
+      <button class="btn-secundario" onclick="mostrarLogin()">Voltar ao login</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= TELA DO APP ================= -->
+<div id="tela-app" class="oculto">
+  <header class="topo">
+    <div class="topo-esq">
+      <div class="logo-mini">CG</div>
+      <div style="min-width:0;">
+        <h2 id="nome-usuario-topo">—</h2>
+        <p id="data-hoje-topo">—</p>
+      </div>
+    </div>
+    <button class="btn-sair" onclick="sair()">Sair</button>
+  </header>
+
+  <main>
+    <div class="status-sync"><span class="ponto-sync"></span> Sincronizado em tempo real</div>
+
+    <!-- ===== ABA: LANÇAMENTOS ===== -->
+    <div class="aba-conteudo" id="aba-lancamentos">
+      <div class="subtotal-wrap">
+        <div class="subtotal-card venda">
+          <div class="rotulo">Saídas hoje (a)</div>
+          <div class="valor" id="sub-vendas">R$ 0,00</div>
+          <div class="qtd" id="sub-vendas-qtd">0 lançamentos</div>
+        </div>
+        <div class="subtotal-card estorno">
+          <div class="rotulo">Troca entre caixas (b)</div>
+          <div class="valor" id="sub-estornos">R$ 0,00</div>
+          <div class="qtd" id="sub-estornos-qtd">0 lançamentos</div>
+        </div>
+        <div class="subtotal-card saldo">
+          <div class="rotulo">Saldo (a-b)</div>
+          <div class="valor" id="sub-saldo">R$ 0,00</div>
+          <div class="qtd" id="sub-total-qtd">0 no total</div>
+        </div>
+      </div>
+
+      <div class="painel">
+        <h3>Novo lançamento</h3>
+        <div class="tipo-botoes">
+          <button class="tipo-btn" id="btn-tipo-saida" onclick="selecionarTipo('Saida')">Saídas hoje<span class="sub">(a) saldo positivo</span></button>
+          <button class="tipo-btn" id="btn-tipo-troco" onclick="selecionarTipo('Troco')">Troca entre caixas<span class="sub">(b) saldo negativo</span></button>
+        </div>
+        <div class="campo" id="campo-atividade">
+          <label>Tipo de atividade</label>
+          <select id="sel-atividade" onchange="atualizarCampoClienteFiado()">
+            <option value="Fiado">Fiado</option>
+            <option value="Notas">Notas</option>
+            <option value="Prêmios">Prêmios</option>
+            <option value="Market Place">Market Place</option>
+            <option value="Brindes/Descontos">Brindes/Descontos</option>
+            <option value="Envio cofre antes do carro forte">Envio cofre antes do carro forte</option>
+            <option value="Envio cofre depois do carro forte">Envio cofre depois do carro forte</option>
+            <option value="Pix fora terminal">Pix fora terminal</option>
+            <option value="Conta Loja">Conta Loja</option>
+            <option value="Rede">Rede</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
+        <div class="campo oculto" id="campo-cliente-fiado">
+          <label>Cliente (Fiado)</label>
+          <select id="sel-cliente-fiado"><option value="">Selecione o cliente...</option></select>
+        </div>
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Terminal</label>
+            <select id="inp-caixa">
+              <option value="9943">9943</option>
+              <option value="9944">9944</option>
+              <option value="9945">9945</option>
+            </select>
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Valor (R$)</label>
+            <input type="number" id="inp-valor" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
+          </div>
+        </div>
+        <div class="campo">
+          <label>Observação</label>
+          <input type="text" id="inp-obs" placeholder="ex: Cliente que recebeu desconto ou que fez o pix ou que fez fiado.">
+        </div>
+        <button class="btn-primario" onclick="registrarLancamento()">Registrar</button>
+        <div id="registro-msg"></div>
+      </div>
+
+      <div class="painel">
+        <h3>Pagamento de Fiado</h3>
+        <p class="aviso-fechamento">Não entra no cálculo de Saídas/Troca nem nos Totais 1, 2 ou 3 — apenas abate o saldo de Fiado do cliente na Ficha de Clientes.</p>
+        <div class="campo">
+          <label>Cliente</label>
+          <select id="sel-cliente-pagamento"><option value="">Selecione...</option></select>
+        </div>
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Valor pago (R$)</label>
+            <input type="number" id="inp-valor-pagamento-fiado" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Observação</label>
+            <input type="text" id="inp-obs-pagamento-fiado" placeholder="opcional">
+          </div>
+        </div>
+        <button class="btn-primario" onclick="registrarPagamentoFiado()">Registrar Pagamento</button>
+        <div id="pagamento-fiado-msg"></div>
+      </div>
+
+      <div class="painel">
+        <h3>Histórico de transações</h3>
+        <div class="historico-linha-filtro">
+          <div class="campo"><label>De</label><input type="date" id="filtro-hist-inicio" onchange="atualizarTudo()"></div>
+          <div class="campo"><label>Até</label><input type="date" id="filtro-hist-fim" onchange="atualizarTudo()"></div>
+        </div>
+        <div id="lista-historico"><div class="vazio">Nenhum lançamento registrado neste período.</div></div>
+      </div>
+    </div>
+
+    <!-- ===== ABA: FECHAMENTO (COMPOSIÇÃO DE CAIXA) ===== -->
+    <div class="aba-conteudo oculto" id="aba-fechamento">
+      <div class="painel">
+        <h3>Composição de caixa</h3>
+        <p class="aviso-fechamento">Deve ser registrado uma vez por dia, por funcionário(a) e por terminal. Os valores usados no cálculo são somados por terminal.</p>
+        <div class="campo">
+          <label>Terminal</label>
+          <select id="fechamento-terminal" onchange="carregarFechamentoExistente()">
+            <option value="9943">9943</option>
+            <option value="9944">9944</option>
+            <option value="9945">9945</option>
+          </select>
+        </div>
+        <div id="fechamento-status"></div>
+
+        <div class="totais-grandes">
+          <div class="total-card total1">
+            <div>
+              <div class="nome">TOTAL1 — Composição de caixa (dia anterior)</div>
+              <div class="formula">(c + d + e) do dia anterior, mesmo terminal</div>
+            </div>
+            <div class="num" id="total1-valor">R$ 0,00</div>
+          </div>
+          <div class="total-card total2">
+            <div>
+              <div class="nome">TOTAL2 — Composição de caixa (hoje)</div>
+              <div class="formula">(a-b) + c + d + e</div>
+            </div>
+            <div class="num" id="total2-valor">R$ 0,00</div>
+          </div>
+          <div class="total-card total3 neutro" id="total3-card">
+            <div>
+              <div class="nome">TOTAL3 — Batimento de caixa</div>
+              <div class="formula">(TOTAL2 − TOTAL1) − f</div>
+            </div>
+            <div class="num" id="total3-valor">R$ 0,00</div>
+          </div>
+        </div>
+
+        <div class="bloco-letra">
+          <div class="titulo-bloco"><span class="letra-label">a-b</span> Registro de lançamentos hoje</div>
+          <div class="resumo-ab">
+            <div class="resumo-ab-item"><div class="rotulo">Saídas (a)</div><div class="valor" id="resumo-a" style="color:var(--verde-venda);">R$ 0,00</div></div>
+            <div class="resumo-ab-item"><div class="rotulo">Troca (b)</div><div class="valor" id="resumo-b" style="color:var(--vermelho-estorno);">R$ 0,00</div></div>
+            <div class="resumo-ab-item"><div class="rotulo">Saldo (a-b)</div><div class="valor" id="resumo-ab">R$ 0,00</div></div>
+          </div>
+        </div>
+
+        <div class="bloco-letra">
+          <div class="titulo-bloco"><span class="letra-label">c</span> Troco terminal fechamento</div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Valor (R$)</label>
+            <input type="number" id="inp-fechamento-c" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+          </div>
+        </div>
+
+        <div class="bloco-letra">
+          <div class="titulo-bloco"><span class="letra-label">d</span> Composição produtos fechamento</div>
+          <div class="composicao-header">
+            <h4 style="margin:0;">Composição final</h4>
+            <div class="composicao-total">
+              <span class="rotulo">Soma (d)</span>
+              <span class="valor" id="fechamento-total">R$ 0,00</span>
+            </div>
+          </div>
+          <div class="composicao-tabela">
+            <div class="composicao-linha composicao-cabecalho">
+              <span>Produto</span><span>Quantidade</span><span>Valor</span>
+            </div>
+            <div id="composicao-lista"></div>
+          </div>
+        </div>
+
+        <div class="bloco-letra">
+          <div class="titulo-bloco"><span class="letra-label">e</span> Bolão fechamento</div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Valor (R$)</label>
+            <input type="number" id="inp-fechamento-e" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+          </div>
+        </div>
+
+        <div class="bloco-letra">
+          <div class="titulo-bloco"><span class="letra-label">f</span> Valor do relatório terminal do dia</div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Valor (R$)</label>
+            <input type="number" id="inp-fechamento-f" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+          </div>
+        </div>
+
+        <button class="btn-primario" id="btn-registrar-fechamento" onclick="registrarFechamento()">Registrar Fechamento Caixa</button>
+        <div id="fechamento-msg"></div>
+      </div>
+    </div>
+
+    <!-- ===== ABA: HISTÓRICO DE DIAS ANTERIORES ===== -->
+    <!-- ===== ABA: CLIENTES (FICHA DE CLIENTES / FIADO) ===== -->
+    <div class="aba-conteudo oculto" id="aba-clientes">
+      <div class="painel">
+        <h3>Ficha de Clientes</h3>
+        <div class="tipo-botoes">
+          <button class="tipo-btn ativo-saida" id="btn-cliente-cadastrar" onclick="mostrarClienteAba('cadastrar')">Cadastrar</button>
+          <button class="tipo-btn" id="btn-cliente-consultar" onclick="mostrarClienteAba('consultar')">Consultar</button>
+        </div>
+
+        <div id="cliente-cadastrar-form">
+          <div class="campo">
+            <label>Nome do Cliente *</label>
+            <input type="text" id="cli-nome" placeholder="Nome completo do cliente" oninput="resetarAvisoDuplicado()">
+          </div>
+          <div class="campo">
+            <label>Celular (opcional)</label>
+            <input type="text" id="cli-celular" placeholder="(DDD) 9XXXX-XXXX">
+          </div>
+          <div class="campo">
+            <label>Observação</label>
+            <input type="text" id="cli-obs" placeholder="Observações sobre o cliente">
+          </div>
+          <div id="cliente-cad-aviso"></div>
+          <button class="btn-primario" id="btn-salvar-cliente" onclick="cadastrarCliente()">Cadastrar Cliente</button>
+          <div id="cliente-cad-msg"></div>
+        </div>
+
+        <div id="cliente-consultar-form" class="oculto">
+          <div class="campo">
+            <label>Selecionar cliente</label>
+            <select id="sel-cliente-consulta" onchange="consultarFichaCliente()"><option value="">Selecione...</option></select>
+          </div>
+          <div id="ficha-cliente-conteudo"><div class="vazio">Selecione um cliente para ver a ficha.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ABA: GESTÃO DE FIADO ===== -->
+    <div class="aba-conteudo oculto" id="aba-gestaofiado">
+      <div class="painel">
+        <h3>Saldo devedor por cliente</h3>
+        <p class="aviso-fechamento">Total de Fiado menos os pagamentos já registrados, em ordem decrescente. Toque no nome para abrir a ficha do cliente.</p>
+
+        <div class="composicao-total" style="width:100%;align-items:flex-start;margin-bottom:14px;">
+          <span class="rotulo">Total geral do saldo devedor</span>
+          <span class="valor" id="total-geral-saldo-devedor">R$ 0,00</span>
+        </div>
+
+        <div class="campo">
+          <label>Buscar cliente</label>
+          <input type="text" id="busca-cliente-fiado" placeholder="Digite o nome do cliente..." oninput="renderizarSaldosClientes()">
+        </div>
+
+        <div id="lista-saldos-clientes"><div class="vazio">Nenhum cliente com movimentação de fiado ainda.</div></div>
+      </div>
+
+      <div class="painel">
+        <h3>Fiado por dia</h3>
+        <div class="historico-linha-filtro">
+          <div class="campo"><label>De</label><input type="date" id="fiado-grafico-inicio"></div>
+          <div class="campo"><label>Até</label><input type="date" id="fiado-grafico-fim"></div>
+          <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="renderizarGraficoFiado()">Consultar</button>
+        </div>
+        <div class="legenda-grafico">
+          <span class="legenda-item"><span class="ponto-legenda" style="background:var(--vermelho-estorno);"></span> Fiado do dia</span>
+          <span class="legenda-item"><span class="ponto-legenda" style="background:var(--verde-venda);"></span> Pagamento do dia</span>
+        </div>
+        <div class="grafico-fiado-wrap" id="grafico-fiado-container"><div class="vazio">Selecione o período e clique em Consultar.</div></div>
+      </div>
+    </div>
+
+    <!-- ===== ABA: HISTÓRICO DE DIAS ANTERIORES ===== -->
+    <div class="aba-conteudo oculto" id="aba-historico">
+      <div class="painel">
+        <h3>Histórico de registros</h3>
+        <div class="historico-linha-filtro">
+          <div class="campo">
+            <label>Data</label>
+            <input type="date" id="filtro-data-historico">
+          </div>
+          <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="consultarHistoricoDias()">Consultar</button>
+        </div>
+        <div id="resultado-historico-dias"><div class="vazio">Escolha uma data para consultar os lançamentos.</div></div>
+      </div>
+    </div>
+
+    <!-- ===== ABA: GERAL ===== -->
+    <div class="aba-conteudo oculto" id="aba-geral">
+      <div class="painel">
+        <h3>Totais gerais</h3>
+        <div class="historico-linha-filtro">
+          <div class="campo">
+            <label>Data</label>
+            <input type="date" id="filtro-data-geral" onchange="atualizarPainelGeral()">
+          </div>
+          <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="atualizarPainelGeral()">Consultar</button>
+        </div>
+        <div class="tabela-geral" id="tabela-geral-conteudo"></div>
+      </div>
+    </div>
+
+    <!-- ===== ABA: ADMIN ===== -->
+    <div class="aba-conteudo oculto" id="aba-admin">
+      <div class="painel">
+        <h3>Acesso Administrador</h3>
+        <p class="aviso-fechamento">Totais de todos os blocos (a, b, c, d, e, f) e dos Totais 1/2/3, agrupados por funcionária, terminal e data.</p>
+        <div class="historico-linha-filtro">
+          <div class="campo"><label>De</label><input type="date" id="admin-data-inicio"></div>
+          <div class="campo"><label>Até</label><input type="date" id="admin-data-fim"></div>
+          <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="consultarPainelAdmin()">Consultar</button>
+        </div>
+        <div class="subtotal-wrap">
+          <div class="subtotal-card venda"><div class="rotulo">Total2 (período)</div><div class="valor" id="admin-total-total2">R$ 0,00</div></div>
+          <div class="subtotal-card estorno"><div class="rotulo">Total1 (dia anterior)</div><div class="valor" id="admin-total-total1">R$ 0,00</div></div>
+          <div class="subtotal-card saldo"><div class="rotulo">Total3 Batimento</div><div class="valor" id="admin-total-total3">R$ 0,00</div></div>
+        </div>
+        <div class="tabela-historico-dias" id="admin-tabela-detalhe"><div class="vazio">Escolha o período e clique em Consultar.</div></div>
+        <button class="btn-exportar" onclick="exportarExcelPeriodoAdmin()">⭳ Exportar Excel dos dias selecionados</button>
+      </div>
+
+      <div class="painel">
+        <h3>Redefinir senha de funcionário</h3>
+        <div class="campo">
+          <label>Funcionário(a)</label>
+          <select id="admin-reset-usuario"><option value="">Selecione...</option></select>
+        </div>
+        <div class="campo">
+          <label>Nova senha</label>
+          <input type="password" id="admin-reset-senha" placeholder="Nova senha">
+        </div>
+        <button class="btn-secundario" style="margin-top:0;" onclick="adminRedefinirSenha()">Redefinir senha</button>
+        <div id="admin-reset-msg"></div>
+      </div>
+
+      <div class="painel">
+        <h3>Integração com Excel (Office 365)</h3>
+        <p class="aviso-fechamento">Todos os registros ficam salvos de forma permanente. Exporte manualmente para Excel ou configure o envio automático em tempo real via Power Automate.</p>
+        <span class="status-pill inativo" id="pill-integracao"><span class="ponto"></span> Envio automático desativado</span>
+        <div class="integracao-linha">
+          <div class="campo">
+            <label>URL do Webhook (Power Automate)</label>
+            <input type="text" id="inp-webhook-url" placeholder="https://prod-00.westus.logic.azure.com/...">
+          </div>
+        </div>
+        <div class="checkbox-linha">
+          <input type="checkbox" id="chk-webhook-ativo">
+          <label for="chk-webhook-ativo">Enviar automaticamente cada lançamento/fechamento para a planilha do Office 365</label>
+        </div>
+        <button class="btn-secundario" style="margin-top:0;" onclick="salvarConfigIntegracao()">Salvar configuração</button>
+        <div id="integracao-msg"></div>
+        <button class="btn-exportar" onclick="exportarExcel()">⭳ Exportar tudo para Excel (.xlsx)</button>
+      </div>
+    </div>
+
+    <footer class="rodape">Dados armazenados de forma compartilhada e sincronizados em tempo real entre dispositivos.</footer>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn ativo" data-aba="lancamentos" onclick="trocarAba('lancamentos')"><span class="icone">📝</span><span>Lançamentos</span></button>
+    <button class="nav-btn" data-aba="fechamento" onclick="trocarAba('fechamento')"><span class="icone">🧮</span><span>Fechamento</span></button>
+    <button class="nav-btn" data-aba="clientes" onclick="trocarAba('clientes')"><span class="icone">👤</span><span>Clientes</span></button>
+    <button class="nav-btn oculto" id="nav-gestaofiado" data-aba="gestaofiado" onclick="abrirGestaoFiado()"><span class="icone">💳</span><span>Fiado</span></button>
+    <button class="nav-btn" data-aba="historico" onclick="trocarAba('historico')"><span class="icone">📅</span><span>Histórico</span></button>
+    <button class="nav-btn" data-aba="geral" onclick="abrirAbaGeral()"><span class="icone">👥</span><span>Geral</span></button>
+    <button class="nav-btn oculto" id="nav-admin" data-aba="admin" onclick="trocarAba('admin')"><span class="icone">⚙️</span><span>Admin</span></button>
+  </nav>
+</div>
+
+<script>
+// ---------- Conexão Supabase (substitui window.storage) ----------
+const SUPABASE_URL = 'https://psebppouysydhyvuujss.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vElgJP3XPT8jVsSTZ26MtA_b_1mC-7K';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// Mostra um erro legível na própria tela (topo, fixo), além do console,
+// para não depender de abrir o DevTools para diagnosticar.
+function reportarErroSupabase(contexto, error){
+  const detalhes = error ? (error.message || error.error_description || error.hint || JSON.stringify(error)) : 'Erro desconhecido';
+  const codigo = error && error.code ? ' (código: ' + error.code + ')' : '';
+  console.error('Supabase ['+contexto+']:', detalhes, codigo, error);
+
+  let banner = document.getElementById('banner-erro-supabase');
+  if(!banner){
+    banner = document.createElement('div');
+    banner.id = 'banner-erro-supabase';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:#D93025;color:#fff;padding:10px 14px;font-size:12px;font-family:sans-serif;text-align:center;';
+    document.body.prepend(banner);
+  }
+  banner.textContent = 'Erro no Supabase [' + contexto + ']: ' + detalhes + codigo;
+}
+
+// Adaptador que imita a interface original de window.storage (get/set/delete/list),
+// mas lê e grava na tabela app_storage do Supabase por trás dos panos.
+// Todas as funções carregarX/salvarX do app continuam iguais, sem precisar mudar nada além daqui.
+window.storage = {
+  async get(key, shared){
+    const { data, error } = await supabaseClient
+      .from('app_storage')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+    if(error){ reportarErroSupabase('leitura de "'+key+'"', error); return null; }
+    if(!data) return null;
+    return { key, value: JSON.stringify(data.value), shared: !!shared };
+  },
+
+  async set(key, value, shared){
+    const { error } = await supabaseClient
+      .from('app_storage')
+      .upsert({ key, value: JSON.parse(value), updated_at: new Date().toISOString() });
+    if(error){ reportarErroSupabase('gravação de "'+key+'"', error); return null; }
+    return { key, value, shared: !!shared };
+  },
+
+  async delete(key, shared){
+    const { error } = await supabaseClient.from('app_storage').delete().eq('key', key);
+    if(error){ reportarErroSupabase('exclusão de "'+key+'"', error); return null; }
+    return { key, deleted: true, shared: !!shared };
+  },
+
+  async list(prefix, shared){
+    let query = supabaseClient.from('app_storage').select('key');
+    if(prefix) query = query.like('key', prefix + '%');
+    const { data, error } = await query;
+    if(error){ reportarErroSupabase('listagem', error); return null; }
+    return { keys: data.map(d => d.key), prefix, shared: !!shared };
+  }
+};
+
+let USUARIO_LOGADO = null;
+let EH_ADMIN = false;
+let TIPO_SELECIONADO = 'Saida';
+let TODOS_USUARIOS = [];
+let INTERVALO_SYNC = null;
+
+function hojeISO(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function diaAnteriorISO(refISO){
+  const [y,m,d] = (refISO||hojeISO()).split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate()-1);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function horaAgora(){
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function formatarMoeda(v){
+  return 'R$ ' + Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function formatarValorDecimal(el){
+  const v = parseFloat(el.value);
+  el.value = isNaN(v) ? '0.00' : v.toFixed(2);
+}
+function formatarDataExtenso(){
+  const d = new Date();
+  return d.toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+}
+function escaparHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ---------- Navegação por abas ----------
+function trocarAba(nome){
+  document.querySelectorAll('.aba-conteudo').forEach(el => el.classList.add('oculto'));
+  document.getElementById('aba-'+nome).classList.remove('oculto');
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('ativo'));
+  const btnAtivo = document.querySelector('.nav-btn[data-aba="'+nome+'"]');
+  if(btnAtivo) btnAtivo.classList.add('ativo');
+  window.scrollTo(0,0);
+}
+
+// ---------- Armazenamento ----------
+async function carregarUsuarios(){
+  try{
+    const r = await window.storage.get('usuarios_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarUsuarios(lista){
+  await window.storage.set('usuarios_loterica', JSON.stringify(lista), true);
+}
+async function carregarRegistros(){
+  try{
+    const r = await window.storage.get('registros_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarRegistros(lista){
+  await window.storage.set('registros_loterica', JSON.stringify(lista), true);
+}
+async function carregarFechamentos(){
+  try{
+    const r = await window.storage.get('fechamentos_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarFechamentos(lista){
+  await window.storage.set('fechamentos_loterica', JSON.stringify(lista), true);
+}
+async function carregarClientes(){
+  try{
+    const r = await window.storage.get('clientes_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarClientes(lista){
+  await window.storage.set('clientes_loterica', JSON.stringify(lista), true);
+}
+async function carregarPagamentosFiado(){
+  try{
+    const r = await window.storage.get('pagamentos_fiado_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarPagamentosFiado(lista){
+  await window.storage.set('pagamentos_fiado_loterica', JSON.stringify(lista), true);
+}
+
+// ---------- Seed inicial ----------
+async function garantirSeed(){
+  const usuarios = await carregarUsuarios();
+  if(usuarios.length === 0){
+    const padrao = [
+      {usuario:'admin', senha:'admin123', nome:'Administrador(a)', admin:true, pergunta:'Nome da sua mãe', resposta:'admin'}
+    ];
+    await salvarUsuarios(padrao);
+    return padrao;
+  }
+  return usuarios;
+}
+
+// ---------- Login / Cadastro / Recuperação ----------
+async function popularSelectUsuarios(){
+  TODOS_USUARIOS = await garantirSeed();
+  const opcoes = '<option value="">Selecione...</option>' +
+    TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
+  document.getElementById('sel-usuario').innerHTML = opcoes;
+  document.getElementById('rec-usuario').innerHTML = opcoes;
+}
+
+function mostrarCadastro(){
+  document.getElementById('form-entrar').classList.add('oculto');
+  document.getElementById('form-recuperar').classList.add('oculto');
+  document.getElementById('form-cadastro').classList.remove('oculto');
+  document.getElementById('login-erro').classList.add('oculto');
+}
+function mostrarLogin(){
+  document.getElementById('form-cadastro').classList.add('oculto');
+  document.getElementById('form-recuperar').classList.add('oculto');
+  document.getElementById('form-entrar').classList.remove('oculto');
+  document.getElementById('login-erro').classList.add('oculto');
+}
+function mostrarRecuperacao(){
+  document.getElementById('form-entrar').classList.add('oculto');
+  document.getElementById('form-cadastro').classList.add('oculto');
+  document.getElementById('form-recuperar').classList.remove('oculto');
+  document.getElementById('login-erro').classList.add('oculto');
+  document.getElementById('rec-conteudo').innerHTML = '';
+  document.getElementById('rec-usuario').value = '';
+}
+
+async function selecionarUsuarioRecuperacao(){
+  const usuario = document.getElementById('rec-usuario').value;
+  const cont = document.getElementById('rec-conteudo');
+  if(!usuario){ cont.innerHTML = ''; return; }
+  const usuarios = await carregarUsuarios();
+  const achado = usuarios.find(u => u.usuario === usuario);
+  if(!achado || !achado.pergunta || !achado.resposta){
+    cont.innerHTML = '<div class="msg-info">Este usuário não possui recuperação de senha configurada. Peça para um administrador redefinir sua senha na aba Admin.</div>';
+    return;
+  }
+  cont.innerHTML = `
+    <div class="campo">
+      <label>${escaparHtml(achado.pergunta)}</label>
+      <input type="text" id="rec-resposta" placeholder="Digite sua resposta">
+    </div>
+    <div class="campo">
+      <label>Nova senha</label>
+      <input type="password" id="rec-nova-senha" placeholder="Nova senha">
+    </div>
+    <div class="campo">
+      <label>Confirmar nova senha</label>
+      <input type="password" id="rec-confirmar-senha" placeholder="Repita a nova senha">
+    </div>
+    <button class="btn-primario" onclick="redefinirSenhaRecuperacao()">Redefinir senha</button>
+    <div id="rec-msg"></div>
+  `;
+}
+
+async function redefinirSenhaRecuperacao(){
+  const usuario = document.getElementById('rec-usuario').value;
+  const resposta = document.getElementById('rec-resposta').value.trim().toLowerCase();
+  const novaSenha = document.getElementById('rec-nova-senha').value;
+  const confirmar = document.getElementById('rec-confirmar-senha').value;
+  const msg = document.getElementById('rec-msg');
+
+  const usuarios = await carregarUsuarios();
+  const idx = usuarios.findIndex(u => u.usuario === usuario);
+  if(idx < 0){ msg.innerHTML = '<div class="msg-erro">Usuário não encontrado.</div>'; return; }
+
+  const respostaCorreta = (usuarios[idx].resposta || '').trim().toLowerCase();
+  if(resposta === '' || resposta !== respostaCorreta){
+    msg.innerHTML = '<div class="msg-erro">Resposta de segurança incorreta.</div>';
+    return;
+  }
+  if(!novaSenha || novaSenha !== confirmar){
+    msg.innerHTML = '<div class="msg-erro">As senhas não coincidem.</div>';
+    return;
+  }
+  usuarios[idx].senha = novaSenha;
+  await salvarUsuarios(usuarios);
+  msg.innerHTML = '<div class="msg-ok">Senha redefinida com sucesso! Você já pode entrar.</div>';
+  setTimeout(()=>{ mostrarLogin(); }, 1500);
+}
+
+async function cadastrarUsuario(){
+  const nome = document.getElementById('cad-nome').value.trim();
+  const usuario = document.getElementById('cad-usuario').value.trim().toLowerCase();
+  const senha = document.getElementById('cad-senha').value;
+  const pergunta = document.getElementById('cad-pergunta').value;
+  const resposta = document.getElementById('cad-resposta').value.trim();
+  const admin = document.getElementById('cad-admin').checked;
+  const erro = document.getElementById('login-erro');
+  erro.className = 'msg-erro';
+
+  if(!nome || !usuario || !senha || !resposta){
+    erro.textContent = 'Preencha todos os campos, incluindo a resposta de segurança.';
+    erro.classList.remove('oculto');
+    return;
+  }
+  const usuarios = await carregarUsuarios();
+  if(usuarios.find(u => u.usuario === usuario)){
+    erro.textContent = 'Este nome de usuário já existe.';
+    erro.classList.remove('oculto');
+    return;
+  }
+  usuarios.push({usuario, senha, nome, admin, pergunta, resposta});
+  await salvarUsuarios(usuarios);
+  erro.classList.add('oculto');
+  document.getElementById('cad-nome').value='';
+  document.getElementById('cad-usuario').value='';
+  document.getElementById('cad-senha').value='';
+  document.getElementById('cad-resposta').value='';
+  document.getElementById('cad-admin').checked=false;
+  await popularSelectUsuarios();
+  mostrarLogin();
+  const ok = document.getElementById('login-erro');
+  ok.className='msg-ok';
+  ok.textContent='Cadastro realizado! Você já pode entrar.';
+  ok.classList.remove('oculto');
+}
+
+async function fazerLogin(){
+  const usuario = document.getElementById('sel-usuario').value;
+  const senha = document.getElementById('inp-senha').value;
+  const erro = document.getElementById('login-erro');
+  erro.className='msg-erro';
+
+  if(!usuario){
+    erro.textContent = 'Selecione seu nome.';
+    erro.classList.remove('oculto');
+    return;
+  }
+  const usuarios = await carregarUsuarios();
+  const achado = usuarios.find(u => u.usuario === usuario && u.senha === senha);
+  if(!achado){
+    erro.textContent = 'Senha incorreta.';
+    erro.classList.remove('oculto');
+    return;
+  }
+  USUARIO_LOGADO = achado;
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('tela-app').classList.remove('oculto');
+  document.getElementById('nome-usuario-topo').textContent = achado.nome;
+  document.getElementById('data-hoje-topo').textContent = formatarDataExtenso();
+  trocarAba('lancamentos');
+  selecionarTipo('Saida');
+  montarComposicaoLista();
+  await carregarFechamentoExistente();
+  await carregarConfigIntegracao();
+  await popularSelectClientes();
+  await atualizarTudo();
+
+  const souAdmin = achado.admin === true || achado.usuario === 'admin';
+  EH_ADMIN = souAdmin;
+  if(souAdmin){
+    document.getElementById('nav-admin').classList.remove('oculto');
+    document.getElementById('nav-gestaofiado').classList.remove('oculto');
+    const hoje = hojeISO();
+    document.getElementById('admin-data-inicio').value = hoje;
+    document.getElementById('admin-data-fim').value = hoje;
+    document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
+      TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
+    await consultarPainelAdmin();
+  }else{
+    document.getElementById('nav-admin').classList.add('oculto');
+    document.getElementById('nav-gestaofiado').classList.add('oculto');
+  }
+
+  INTERVALO_SYNC = setInterval(atualizarTudo, 5000);
+}
+
+function sair(){
+  USUARIO_LOGADO = null;
+  EH_ADMIN = false;
+  if(INTERVALO_SYNC) clearInterval(INTERVALO_SYNC);
+  document.getElementById('tela-app').classList.add('oculto');
+  document.getElementById('tela-login').classList.remove('oculto');
+  document.getElementById('nav-admin').classList.add('oculto');
+  document.getElementById('nav-gestaofiado').classList.add('oculto');
+  document.getElementById('inp-senha').value='';
+  document.getElementById('sel-usuario').value='';
+  mostrarLogin();
+}
+
+// ---------- Lançamentos ----------
+function selecionarTipo(tipo){
+  TIPO_SELECIONADO = tipo;
+  document.getElementById('btn-tipo-saida').classList.remove('ativo-saida');
+  document.getElementById('btn-tipo-troco').classList.remove('ativo-troco');
+  const campoAtividade = document.getElementById('campo-atividade');
+  if(tipo==='Saida'){
+    document.getElementById('btn-tipo-saida').classList.add('ativo-saida');
+    campoAtividade.classList.remove('oculto');
+  }
+  if(tipo==='Troco'){
+    document.getElementById('btn-tipo-troco').classList.add('ativo-troco');
+    campoAtividade.classList.add('oculto');
+  }
+  atualizarCampoClienteFiado();
+}
+
+async function registrarLancamento(){
+  const caixa = document.getElementById('inp-caixa').value;
+  const valor = parseFloat(document.getElementById('inp-valor').value);
+  const obs = document.getElementById('inp-obs').value.trim();
+  const atividade = TIPO_SELECIONADO === 'Saida' ? document.getElementById('sel-atividade').value : '';
+  const msg = document.getElementById('registro-msg');
+
+  if(!caixa || isNaN(valor) || valor <= 0){
+    msg.innerHTML = '<div class="msg-erro">Informe o terminal e um valor válido.</div>';
+    return;
+  }
+
+  let clienteId = '', clienteNome = '';
+  if(atividade === 'Fiado'){
+    clienteId = document.getElementById('sel-cliente-fiado').value;
+    if(!clienteId){
+      msg.innerHTML = '<div class="msg-erro">Selecione o cliente para o lançamento de Fiado. Cadastre o cliente na aba Clientes se ainda não existir.</div>';
+      return;
+    }
+    const clientes = await carregarClientes();
+    const c = clientes.find(x => x.id === clienteId);
+    clienteNome = c ? c.nome : '';
+  }
+
+  const registros = await carregarRegistros();
+  const novoRegistro = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    data: hojeISO(),
+    hora: horaAgora(),
+    caixa: caixa,
+    tipo: TIPO_SELECIONADO,
+    atividade: atividade,
+    clienteId: clienteId,
+    clienteNome: clienteNome,
+    valor: valor,
+    obs: obs,
+    excluido: false,
+    timestamp: Date.now()
+  };
+  registros.push(novoRegistro);
+  await salvarRegistros(registros);
+  enviarParaWebhook({
+    origem: 'lancamento',
+    idTransacao: novoRegistro.id,
+    idFuncionaria: novoRegistro.usuario,
+    funcionaria: novoRegistro.nome,
+    idTerminal: novoRegistro.caixa,
+    data: novoRegistro.data,
+    hora: novoRegistro.hora,
+    tipo: novoRegistro.tipo === 'Saida' ? 'Saída' : 'Troca entre caixas',
+    atividade: novoRegistro.atividade,
+    idCliente: novoRegistro.clienteId,
+    cliente: novoRegistro.clienteNome,
+    valor: novoRegistro.valor,
+    observacao: novoRegistro.obs
+  });
+
+  if(clienteId){
+    document.getElementById('sel-cliente-fiado').value = '';
+  }
+  document.getElementById('inp-valor').value='';
+  document.getElementById('inp-obs').value='';
+  msg.innerHTML = '<div class="msg-ok">Lançamento registrado com sucesso.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+
+  await atualizarTudo();
+}
+
+async function excluirLancamento(id){
+  let registros = await carregarRegistros();
+  const item = registros.find(r => r.id === id);
+  if(!item) return;
+  item.excluido = !item.excluido;
+  await salvarRegistros(registros);
+  await atualizarTudo();
+}
+
+// ---------- Ficha de Clientes (Fiado) ----------
+let CONFIRMAR_DUPLICADO_CLIENTE = false;
+
+function resetarAvisoDuplicado(){
+  CONFIRMAR_DUPLICADO_CLIENTE = false;
+  document.getElementById('cliente-cad-aviso').innerHTML = '';
+  document.getElementById('btn-salvar-cliente').textContent = 'Cadastrar Cliente';
+}
+
+function mostrarClienteAba(qual){
+  document.getElementById('cliente-cadastrar-form').classList.toggle('oculto', qual!=='cadastrar');
+  document.getElementById('cliente-consultar-form').classList.toggle('oculto', qual!=='consultar');
+  document.getElementById('btn-cliente-cadastrar').classList.toggle('ativo-saida', qual==='cadastrar');
+  document.getElementById('btn-cliente-consultar').classList.toggle('ativo-saida', qual==='consultar');
+}
+
+async function popularSelectClientes(){
+  const clientes = await carregarClientes();
+  const opcoes = '<option value="">Selecione...</option>' +
+    clientes.map(c => `<option value="${c.id}">${escaparHtml(c.nome)} (${c.id})</option>`).join('');
+  ['sel-cliente-fiado','sel-cliente-pagamento','sel-cliente-consulta'].forEach(elId => {
+    const el = document.getElementById(elId);
+    if(el){
+      const valorAtual = el.value;
+      el.innerHTML = opcoes;
+      if(valorAtual) el.value = valorAtual;
+    }
+  });
+}
+
+function atualizarCampoClienteFiado(){
+  const campo = document.getElementById('campo-cliente-fiado');
+  const atividade = document.getElementById('sel-atividade').value;
+  if(TIPO_SELECIONADO === 'Saida' && atividade === 'Fiado'){
+    campo.classList.remove('oculto');
+  }else{
+    campo.classList.add('oculto');
+  }
+}
+
+async function cadastrarCliente(){
+  const nome = document.getElementById('cli-nome').value.trim();
+  const celular = document.getElementById('cli-celular').value.trim();
+  const obs = document.getElementById('cli-obs').value.trim();
+  const aviso = document.getElementById('cliente-cad-aviso');
+  const msg = document.getElementById('cliente-cad-msg');
+
+  if(!nome){
+    msg.innerHTML = '<div class="msg-erro">Informe o nome do cliente.</div>';
+    return;
+  }
+
+  const clientes = await carregarClientes();
+  const duplicado = clientes.find(c => c.nome.trim().toLowerCase() === nome.toLowerCase());
+
+  if(duplicado && !CONFIRMAR_DUPLICADO_CLIENTE){
+    aviso.innerHTML = `<div class="msg-erro">Já existe um cliente cadastrado com este nome (ID ${escaparHtml(duplicado.id)}). Confira se não é o mesmo cliente antes de continuar.</div>`;
+    document.getElementById('btn-salvar-cliente').textContent = 'Cadastrar mesmo assim (novo cliente)';
+    CONFIRMAR_DUPLICADO_CLIENTE = true;
+    return;
+  }
+
+  msg.innerHTML = '';
+  const novoId = 'CLI-' + String(clientes.length+1).padStart(4,'0');
+  const novoCliente = {
+    id: novoId,
+    nome: nome,
+    celular: celular,
+    obs: obs,
+    cadastradoPor: USUARIO_LOGADO.usuario,
+    cadastradoNome: USUARIO_LOGADO.nome,
+    cadastradoData: hojeISO(),
+    cadastradoHora: horaAgora(),
+    historicoEdicoes: []
+  };
+  clientes.push(novoCliente);
+  await salvarClientes(clientes);
+
+  document.getElementById('cli-nome').value='';
+  document.getElementById('cli-celular').value='';
+  document.getElementById('cli-obs').value='';
+  aviso.innerHTML='';
+  document.getElementById('btn-salvar-cliente').textContent = 'Cadastrar Cliente';
+  CONFIRMAR_DUPLICADO_CLIENTE = false;
+  msg.innerHTML = `<div class="msg-ok">Cliente cadastrado com sucesso! ID: ${novoId}</div>`;
+  setTimeout(()=>{msg.innerHTML='';}, 3500);
+
+  await popularSelectClientes();
+}
+
+async function consultarFichaCliente(){
+  const id = document.getElementById('sel-cliente-consulta').value;
+  const cont = document.getElementById('ficha-cliente-conteudo');
+  if(!id){
+    cont.innerHTML = '<div class="vazio">Selecione um cliente para ver a ficha.</div>';
+    return;
+  }
+  const clientes = await carregarClientes();
+  const cliente = clientes.find(c => c.id === id);
+  if(!cliente){
+    cont.innerHTML = '<div class="vazio">Cliente não encontrado.</div>';
+    return;
+  }
+
+  const registros = await carregarRegistros();
+  const fiados = registros.filter(r => r.clienteId===id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido);
+  const totalFiado = fiados.reduce((s,r)=>s+r.valor,0);
+
+  const pagamentos = await carregarPagamentosFiado();
+  const pagsCliente = pagamentos.filter(p => p.clienteId === id);
+  const totalPago = pagsCliente.reduce((s,p)=>s+p.valor,0);
+
+  const saldo = totalFiado - totalPago;
+
+  const historico = [
+    ...fiados.map(r => ({tipo:'Fiado', valor:r.valor, data:r.data, hora:r.hora, usuario:r.nome, obs:r.obs, timestamp:r.timestamp})),
+    ...pagsCliente.map(p => ({tipo:'Pagamento', valor:p.valor, data:p.data, hora:p.hora, usuario:p.nome, obs:p.obs, timestamp:p.timestamp}))
+  ].sort((a,b) => b.timestamp - a.timestamp);
+
+  const edicoesHtml = (cliente.historicoEdicoes && cliente.historicoEdicoes.length > 0)
+    ? cliente.historicoEdicoes.map(e => `Editado por ${escaparHtml(e.nome)} em ${e.data.split('-').reverse().join('/')} às ${e.hora}`).join('<br>')
+    : '';
+
+  cont.innerHTML = `
+    <div class="bloco-letra">
+      <div class="titulo-bloco">Dados do cliente</div>
+      <p style="font-size:13.5px;margin-bottom:4px;"><strong>${escaparHtml(cliente.nome)}</strong> · ID ${escaparHtml(cliente.id)}</p>
+      <p style="font-size:12px;color:var(--texto-claro);">Celular: ${escaparHtml(cliente.celular || '—')}</p>
+      <p style="font-size:12px;color:var(--texto-claro);">Observação: ${escaparHtml(cliente.obs || '—')}</p>
+      <p style="font-size:11px;color:var(--texto-claro);margin-top:6px;">Cadastrado por ${escaparHtml(cliente.cadastradoNome)} em ${cliente.cadastradoData.split('-').reverse().join('/')} às ${cliente.cadastradoHora}</p>
+      ${edicoesHtml ? `<p style="font-size:11px;color:var(--texto-claro);margin-top:4px;">${edicoesHtml}</p>` : ''}
+      <button class="btn-secundario" style="margin-top:10px;" onclick="mostrarEdicaoCliente('${cliente.id}')">Editar cliente</button>
+    </div>
+
+    <div id="cliente-edicao-area"></div>
+
+    <div class="subtotal-wrap" style="margin-bottom:14px;">
+      <div class="subtotal-card estorno"><div class="rotulo">Total Fiado</div><div class="valor">${formatarMoeda(totalFiado)}</div></div>
+      <div class="subtotal-card venda"><div class="rotulo">Total Pago</div><div class="valor">${formatarMoeda(totalPago)}</div></div>
+      <div class="subtotal-card saldo"><div class="rotulo">Saldo devedor</div><div class="valor">${formatarMoeda(saldo)}</div></div>
+    </div>
+
+    <h4 style="margin-bottom:8px;">Histórico de transações</h4>
+    ${historico.length===0 ? '<div class="vazio">Nenhuma transação registrada para este cliente.</div>' : `
+    <div class="tabela-historico-dias"><table>
+      <thead><tr><th>Data</th><th>Hora</th><th>Tipo</th><th>Valor</th><th>Usuário</th><th>Obs.</th></tr></thead>
+      <tbody>
+        ${historico.map(h => `<tr>
+          <td>${h.data.split('-').reverse().join('/')}</td>
+          <td>${h.hora}</td>
+          <td>${h.tipo}</td>
+          <td style="font-weight:700;color:${h.tipo==='Fiado' ? 'var(--vermelho-estorno)' : 'var(--verde-venda)'};">${formatarMoeda(h.valor)}</td>
+          <td>${escaparHtml(h.usuario)}</td>
+          <td>${escaparHtml(h.obs || '—')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`}
+  `;
+}
+
+function mostrarEdicaoCliente(id){
+  const area = document.getElementById('cliente-edicao-area');
+  carregarClientes().then(clientes => {
+    const cliente = clientes.find(c => c.id === id);
+    if(!cliente) return;
+    area.innerHTML = `
+      <div class="bloco-letra">
+        <div class="titulo-bloco">Editar cliente</div>
+        <div class="campo">
+          <label>Nome do Cliente *</label>
+          <input type="text" id="edit-cli-nome" value="${escaparHtml(cliente.nome)}">
+        </div>
+        <div class="campo">
+          <label>Celular</label>
+          <input type="text" id="edit-cli-celular" value="${escaparHtml(cliente.celular||'')}">
+        </div>
+        <div class="campo">
+          <label>Observação</label>
+          <input type="text" id="edit-cli-obs" value="${escaparHtml(cliente.obs||'')}">
+        </div>
+        <button class="btn-primario" onclick="salvarEdicaoCliente('${id}')">Salvar alterações</button>
+        <button class="btn-secundario" onclick="document.getElementById('cliente-edicao-area').innerHTML=''">Cancelar</button>
+      </div>`;
+  });
+}
+
+async function salvarEdicaoCliente(id){
+  const nome = document.getElementById('edit-cli-nome').value.trim();
+  const celular = document.getElementById('edit-cli-celular').value.trim();
+  const obs = document.getElementById('edit-cli-obs').value.trim();
+  if(!nome){ alert('O nome do cliente é obrigatório.'); return; }
+
+  const clientes = await carregarClientes();
+  const idx = clientes.findIndex(c => c.id === id);
+  if(idx < 0) return;
+
+  clientes[idx].nome = nome;
+  clientes[idx].celular = celular;
+  clientes[idx].obs = obs;
+  clientes[idx].historicoEdicoes = clientes[idx].historicoEdicoes || [];
+  clientes[idx].historicoEdicoes.push({
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    data: hojeISO(),
+    hora: horaAgora()
+  });
+  await salvarClientes(clientes);
+  document.getElementById('cliente-edicao-area').innerHTML = '';
+  await popularSelectClientes();
+  await consultarFichaCliente();
+}
+
+async function registrarPagamentoFiado(){
+  const clienteId = document.getElementById('sel-cliente-pagamento').value;
+  const valor = parseFloat(document.getElementById('inp-valor-pagamento-fiado').value);
+  const obs = document.getElementById('inp-obs-pagamento-fiado').value.trim();
+  const msg = document.getElementById('pagamento-fiado-msg');
+
+  if(!clienteId || isNaN(valor) || valor <= 0){
+    msg.innerHTML = '<div class="msg-erro">Selecione o cliente e informe um valor válido.</div>';
+    return;
+  }
+
+  const clientes = await carregarClientes();
+  const cliente = clientes.find(c => c.id === clienteId);
+
+  const pagamentos = await carregarPagamentosFiado();
+  const novoPagamento = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    clienteId: clienteId,
+    clienteNome: cliente ? cliente.nome : '',
+    valor: valor,
+    obs: obs,
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    data: hojeISO(),
+    hora: horaAgora(),
+    timestamp: Date.now()
+  };
+  pagamentos.push(novoPagamento);
+  await salvarPagamentosFiado(pagamentos);
+  enviarParaWebhook({
+    origem: 'pagamento_fiado',
+    idTransacao: novoPagamento.id,
+    idCliente: novoPagamento.clienteId,
+    cliente: novoPagamento.clienteNome,
+    idFuncionaria: novoPagamento.usuario,
+    funcionaria: novoPagamento.nome,
+    data: novoPagamento.data,
+    hora: novoPagamento.hora,
+    valor: novoPagamento.valor,
+    observacao: novoPagamento.obs
+  });
+
+  document.getElementById('inp-valor-pagamento-fiado').value='';
+  document.getElementById('inp-obs-pagamento-fiado').value='';
+  document.getElementById('sel-cliente-pagamento').value='';
+  msg.innerHTML = '<div class="msg-ok">Pagamento de fiado registrado com sucesso.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+}
+
+// ---------- Gestão de Fiado ----------
+async function abrirGestaoFiado(){
+  if(!EH_ADMIN) return;
+  trocarAba('gestaofiado');
+  await renderizarSaldosClientes();
+
+  const hoje = hojeISO();
+  const inicioEl = document.getElementById('fiado-grafico-inicio');
+  const fimEl = document.getElementById('fiado-grafico-fim');
+  if(!fimEl.value) fimEl.value = hoje;
+  if(!inicioEl.value){
+    const d = new Date(hoje+'T00:00:00');
+    d.setDate(d.getDate()-13);
+    inicioEl.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  await renderizarGraficoFiado();
+}
+
+async function irParaClienteConsulta(id){
+  trocarAba('clientes');
+  mostrarClienteAba('consultar');
+  await popularSelectClientes();
+  const sel = document.getElementById('sel-cliente-consulta');
+  if(sel){
+    sel.value = id;
+    await consultarFichaCliente();
+  }
+}
+
+async function renderizarSaldosClientes(){
+  const cont = document.getElementById('lista-saldos-clientes');
+  if(!cont) return;
+
+  const clientes = await carregarClientes();
+  const registros = await carregarRegistros();
+  const pagamentos = await carregarPagamentosFiado();
+
+  const todasLinhas = clientes.map(c => {
+    const totalFiado = registros.filter(r => r.clienteId===c.id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido).reduce((s,r)=>s+r.valor,0);
+    const totalPago = pagamentos.filter(p => p.clienteId===c.id).reduce((s,p)=>s+p.valor,0);
+    return {id:c.id, nome:c.nome, saldo: totalFiado - totalPago, totalFiado, totalPago};
+  }).filter(c => c.totalFiado > 0 || c.totalPago > 0);
+
+  const totalGeral = todasLinhas.reduce((s,c) => s + c.saldo, 0);
+  const elTotalGeral = document.getElementById('total-geral-saldo-devedor');
+  if(elTotalGeral) elTotalGeral.textContent = formatarMoeda(totalGeral);
+
+  const termoBusca = (document.getElementById('busca-cliente-fiado')?.value || '').trim().toLowerCase();
+  const linhas = todasLinhas
+    .filter(c => !termoBusca || c.nome.toLowerCase().includes(termoBusca))
+    .sort((a,b) => b.saldo - a.saldo);
+
+  if(linhas.length === 0){
+    cont.innerHTML = termoBusca
+      ? '<div class="vazio">Nenhum cliente encontrado para esta busca.</div>'
+      : '<div class="vazio">Nenhum cliente com movimentação de fiado ainda.</div>';
+    return;
+  }
+
+  cont.innerHTML = linhas.map(c => {
+    const cor = c.saldo > 0.005 ? 'var(--vermelho-estorno)' : (c.saldo < -0.005 ? 'var(--verde-venda)' : 'var(--texto-claro)');
+    return `<div class="historico-item">
+      <div class="hist-esq">
+        <div class="hist-info">
+          <div class="caixa"><button class="link-cliente" onclick="irParaClienteConsulta('${c.id}')">${escaparHtml(c.nome)}</button></div>
+          <div class="hora">ID ${escaparHtml(c.id)}</div>
+        </div>
+      </div>
+      <span class="hist-valor" style="color:${cor};">${formatarMoeda(c.saldo)}</span>
+    </div>`;
+  }).join('');
+}
+
+function formatarMoedaCompacta(v){
+  if(v >= 1000) return 'R$'+(v/1000).toFixed(1).replace('.',',')+'k';
+  return 'R$'+Math.round(v);
+}
+
+async function renderizarGraficoFiado(){
+  const dataIni = document.getElementById('fiado-grafico-inicio').value;
+  const dataFim = document.getElementById('fiado-grafico-fim').value;
+  const cont = document.getElementById('grafico-fiado-container');
+  if(!dataIni || !dataFim){
+    cont.innerHTML = '<div class="vazio">Selecione o período e clique em Consultar.</div>';
+    return;
+  }
+
+  const registros = (await carregarRegistros()).filter(r => r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && r.data >= dataIni && r.data <= dataFim);
+  const pagamentos = (await carregarPagamentosFiado()).filter(p => p.data >= dataIni && p.data <= dataFim);
+
+  const dias = [];
+  let cursor = new Date(dataIni+'T00:00:00');
+  const fim = new Date(dataFim+'T00:00:00');
+  while(cursor <= fim && dias.length < 62){
+    const iso = cursor.getFullYear()+'-'+String(cursor.getMonth()+1).padStart(2,'0')+'-'+String(cursor.getDate()).padStart(2,'0');
+    dias.push(iso);
+    cursor.setDate(cursor.getDate()+1);
+  }
+
+  const porDia = dias.map(d => {
+    const fiado = registros.filter(r => r.data===d).reduce((s,r)=>s+r.valor,0);
+    const pago = pagamentos.filter(p => p.data===d).reduce((s,p)=>s+p.valor,0);
+    return {data:d, fiado, pago};
+  });
+
+  if(porDia.every(d => d.fiado===0 && d.pago===0)){
+    cont.innerHTML = '<div class="vazio">Nenhum fiado ou pagamento registrado neste período.</div>';
+    return;
+  }
+
+  const maxValor = Math.max(1, ...porDia.map(d => Math.max(d.fiado, d.pago)));
+
+  cont.innerHTML = porDia.map(d => {
+    const alturaFiado = d.fiado > 0 ? Math.max(3, Math.round((d.fiado/maxValor)*160)) : 0;
+    const alturaPago = d.pago > 0 ? Math.max(3, Math.round((d.pago/maxValor)*160)) : 0;
+    const labelData = d.data.split('-').slice(1).reverse().join('/');
+    return `<div class="grafico-dia">
+      <div class="grafico-barras">
+        <div class="grafico-barra fiado" style="height:${alturaFiado}px;">${d.fiado>0?`<span class="grafico-valor">${formatarMoedaCompacta(d.fiado)}</span>`:''}</div>
+        <div class="grafico-barra pagamento" style="height:${alturaPago}px;">${d.pago>0?`<span class="grafico-valor">${formatarMoedaCompacta(d.pago)}</span>`:''}</div>
+      </div>
+      <div class="grafico-data-label">${labelData}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---------- Fechamento de caixa / Composição final ----------
+const PRODUTOS_FECHAMENTO = [
+  {id:'telesena', nome:'Telesena', valor:15.00},
+  {id:'bilhete', nome:'Bilhete especial', valor:10.00},
+  {id:'raspadinha250', nome:'Raspadinha 2,50', valor:2.50},
+  {id:'raspadinha500', nome:'Raspadinha 5,00', valor:5.00},
+  {id:'raspadinha1000', nome:'Raspadinha 10,00', valor:10.00},
+  {id:'raspadinha2000', nome:'Raspadinha 20,00', valor:20.00}
+];
+
+function montarComposicaoLista(){
+  const cont = document.getElementById('composicao-lista');
+  cont.innerHTML = PRODUTOS_FECHAMENTO.map(p => `
+    <div class="composicao-linha">
+      <span class="composicao-nome">${p.nome}</span>
+      <input type="number" min="0" step="1" class="composicao-qtd" id="qtd-${p.id}" value="0" oninput="onComposicaoInput()">
+      <span class="composicao-subtotal" id="subtotal-${p.id}">R$ 0,00</span>
+    </div>`).join('');
+}
+
+function calcularComposicao(){
+  let total = 0;
+  PRODUTOS_FECHAMENTO.forEach(p => {
+    const qtdEl = document.getElementById('qtd-'+p.id);
+    const qtd = parseFloat(qtdEl.value) || 0;
+    const subtotal = qtd * p.valor;
+    document.getElementById('subtotal-'+p.id).textContent = formatarMoeda(subtotal);
+    total += subtotal;
+  });
+  document.getElementById('fechamento-total').textContent = formatarMoeda(total);
+  return total;
+}
+
+function onComposicaoInput(){
+  calcularComposicao();
+  atualizarTotaisFechamento();
+}
+
+async function carregarFechamentoExistente(){
+  if(!USUARIO_LOGADO) return;
+  const terminal = document.getElementById('fechamento-terminal').value;
+  const fechamentos = await carregarFechamentos();
+  const hoje = hojeISO();
+  const existente = fechamentos.find(f => f.data===hoje && f.usuario===USUARIO_LOGADO.usuario && f.terminal===terminal);
+  const status = document.getElementById('fechamento-status');
+  const btn = document.getElementById('btn-registrar-fechamento');
+
+  if(existente){
+    PRODUTOS_FECHAMENTO.forEach(p => {
+      const item = existente.produtos.find(x => x.id===p.id);
+      document.getElementById('qtd-'+p.id).value = item ? item.qtd : 0;
+    });
+    document.getElementById('inp-fechamento-c').value = existente.c || 0;
+    document.getElementById('inp-fechamento-e').value = existente.e || 0;
+    document.getElementById('inp-fechamento-f').value = existente.f || 0;
+    calcularComposicao();
+    status.innerHTML = `<div class="msg-ok">Fechamento já registrado hoje às ${existente.hora} para o terminal ${terminal}. Registrar novamente atualiza os valores.</div>`;
+    btn.textContent = 'Atualizar Fechamento Caixa';
+  }else{
+    PRODUTOS_FECHAMENTO.forEach(p => { document.getElementById('qtd-'+p.id).value = 0; });
+    document.getElementById('inp-fechamento-c').value = 0;
+    document.getElementById('inp-fechamento-e').value = 0;
+    document.getElementById('inp-fechamento-f').value = 0;
+    calcularComposicao();
+    status.innerHTML = '';
+    btn.textContent = 'Registrar Fechamento Caixa';
+  }
+  await atualizarTotaisFechamento();
+}
+
+async function atualizarTotaisFechamento(){
+  if(!document.getElementById('fechamento-terminal')) return;
+  const terminal = document.getElementById('fechamento-terminal').value;
+  const hoje = hojeISO();
+  const ontem = diaAnteriorISO(hoje);
+
+  const registros = await carregarRegistros();
+  const doTerminalHoje = registros.filter(r => r.caixa===terminal && r.data===hoje && !r.excluido);
+  const a = doTerminalHoje.filter(r=>r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
+  const b = doTerminalHoje.filter(r=>r.tipo==='Troco').reduce((s,r)=>s+r.valor,0);
+
+  const fechamentos = await carregarFechamentos();
+  const doTerminalOntem = fechamentos.filter(f => f.terminal===terminal && f.data===ontem);
+  const total1 = doTerminalOntem.reduce((s,f)=> s + (f.c||0) + (f.d!=null ? f.d : (f.total||0)) + (f.e||0), 0);
+
+  const d = calcularComposicao();
+  const c = parseFloat(document.getElementById('inp-fechamento-c').value) || 0;
+  const e = parseFloat(document.getElementById('inp-fechamento-e').value) || 0;
+  const f = parseFloat(document.getElementById('inp-fechamento-f').value) || 0;
+
+  const total2 = (a-b) + c + d + e;
+  const total3 = (total2 - total1) - f;
+
+  document.getElementById('resumo-a').textContent = formatarMoeda(a);
+  document.getElementById('resumo-b').textContent = formatarMoeda(b);
+  document.getElementById('resumo-ab').textContent = formatarMoeda(a-b);
+  document.getElementById('total1-valor').textContent = formatarMoeda(total1);
+  document.getElementById('total2-valor').textContent = formatarMoeda(total2);
+  document.getElementById('total3-valor').textContent = formatarMoeda(total3);
+
+  const cardTotal3 = document.getElementById('total3-card');
+  cardTotal3.classList.remove('positivo','negativo');
+  if(total3 < -0.005) cardTotal3.classList.add('negativo');
+  else if(total3 > 0.005) cardTotal3.classList.add('positivo');
+}
+
+async function registrarFechamento(){
+  const terminal = document.getElementById('fechamento-terminal').value;
+  const produtos = PRODUTOS_FECHAMENTO.map(p => {
+    const qtd = parseFloat(document.getElementById('qtd-'+p.id).value) || 0;
+    return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:qtd, subtotal: qtd*p.valor};
+  });
+  const d = produtos.reduce((s,p) => s+p.subtotal, 0);
+  const c = parseFloat(document.getElementById('inp-fechamento-c').value) || 0;
+  const e = parseFloat(document.getElementById('inp-fechamento-e').value) || 0;
+  const f = parseFloat(document.getElementById('inp-fechamento-f').value) || 0;
+
+  const fechamentos = await carregarFechamentos();
+  const hoje = hojeISO();
+  const idx = fechamentos.findIndex(f2 => f2.data===hoje && f2.usuario===USUARIO_LOGADO.usuario && f2.terminal===terminal);
+
+  const registro = {
+    id: idx>=0 ? fechamentos[idx].id : (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    data: hoje,
+    terminal: terminal,
+    hora: horaAgora(),
+    produtos: produtos,
+    d: d,
+    c: c,
+    e: e,
+    f: f,
+    total: d,
+    timestamp: Date.now()
+  };
+  if(idx>=0) fechamentos[idx] = registro; else fechamentos.push(registro);
+  await salvarFechamentos(fechamentos);
+  enviarParaWebhook({
+    origem: 'fechamento_caixa',
+    idFechamento: registro.id,
+    idFuncionaria: registro.usuario,
+    funcionaria: registro.nome,
+    idTerminal: registro.terminal,
+    data: registro.data,
+    hora: registro.hora,
+    c_trocoTerminal: registro.c,
+    d_composicaoProdutos: registro.d,
+    e_bolao: registro.e,
+    f_valorRelatorioTerminal: registro.f,
+    produtos: registro.produtos
+  });
+
+  const msg = document.getElementById('fechamento-msg');
+  msg.innerHTML = '<div class="msg-ok">Fechamento de caixa registrado com sucesso.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+
+  await carregarFechamentoExistente();
+}
+
+// ---------- Atualização de telas ----------
+async function atualizarTudo(){
+  if(!USUARIO_LOGADO) return;
+  const registros = await carregarRegistros();
+  const hoje = hojeISO();
+  const meus = registros.filter(r => r.data === hoje && r.usuario === USUARIO_LOGADO.usuario)
+                         .sort((a,b) => b.timestamp - a.timestamp);
+
+  const totalVendas = meus.filter(r=>r.tipo==='Saida' && !r.excluido).reduce((s,r)=>s+r.valor,0);
+  const totalEstornos = meus.filter(r=>r.tipo==='Troco' && !r.excluido).reduce((s,r)=>s+r.valor,0);
+  const qtdVendas = meus.filter(r=>r.tipo==='Saida' && !r.excluido).length;
+  const qtdEstornos = meus.filter(r=>r.tipo==='Troco' && !r.excluido).length;
+
+  document.getElementById('sub-vendas').textContent = formatarMoeda(totalVendas);
+  document.getElementById('sub-vendas-qtd').textContent = qtdVendas + (qtdVendas===1?' lançamento':' lançamentos');
+  document.getElementById('sub-estornos').textContent = formatarMoeda(totalEstornos);
+  document.getElementById('sub-estornos-qtd').textContent = qtdEstornos + (qtdEstornos===1?' lançamento':' lançamentos');
+  document.getElementById('sub-saldo').textContent = formatarMoeda(totalVendas - totalEstornos);
+  document.getElementById('sub-total-qtd').textContent = meus.filter(r=>!r.excluido).length + ' no total';
+
+  const inpInicio = document.getElementById('filtro-hist-inicio');
+  const inpFim = document.getElementById('filtro-hist-fim');
+  if(inpInicio && !inpInicio.value) inpInicio.value = hoje;
+  if(inpFim && !inpFim.value) inpFim.value = hoje;
+  const periodoInicio = inpInicio && inpInicio.value ? inpInicio.value : hoje;
+  const periodoFim = inpFim && inpFim.value ? inpFim.value : hoje;
+
+  const meusPeriodo = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.data >= periodoInicio && r.data <= periodoFim)
+                                .sort((a,b) => b.timestamp - a.timestamp);
+
+  const lista = document.getElementById('lista-historico');
+  if(meusPeriodo.length === 0){
+    lista.innerHTML = '<div class="vazio">Nenhum lançamento registrado neste período.</div>';
+  }else{
+    lista.innerHTML = meusPeriodo.map(r => {
+      const badgeClasse = r.tipo==='Saida' ? 'badge-saida' : 'badge-troco';
+      const valorClasse = r.tipo==='Saida' ? 'saida' : 'troco';
+      const rotuloTipo = r.tipo==='Saida' ? 'Saída' : 'Troca';
+      const sinal = r.tipo==='Troco' ? '- ' : '';
+      const detalheAtividade = r.tipo==='Saida' && r.atividade ? r.atividade : '';
+      const detalheCliente = r.clienteNome ? ('Cliente: '+r.clienteNome) : '';
+      const detalheData = r.data.split('-').reverse().join('/');
+      const detalhe = [detalheAtividade, detalheCliente, r.obs].filter(Boolean).map(escaparHtml).join(' · ');
+      const classeItem = r.excluido ? 'historico-item excluido' : 'historico-item';
+      const botaoLabel = r.excluido ? '↺' : '✕';
+      const botaoClasse = r.excluido ? 'btn-excluir restaurar' : 'btn-excluir';
+      const botaoTitulo = r.excluido ? 'Restaurar' : 'Excluir';
+      return `<div class="${classeItem}">
+        <div class="hist-esq">
+          <span class="badge ${badgeClasse}">${rotuloTipo}</span>
+          <div class="hist-info">
+            <div class="caixa">${detalhe || '&nbsp;'}</div>
+            <div class="hora">${detalheData} · ${r.hora}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;">
+          <span class="hist-valor ${valorClasse}">${sinal}${formatarMoeda(r.valor)}</span>
+          <button class="${botaoClasse}" onclick="excluirLancamento('${r.id}')" title="${botaoTitulo}">${botaoLabel}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  await atualizarPainelGeral();
+  await atualizarTotaisFechamento();
+  if(EH_ADMIN) await renderizarSaldosClientes();
+}
+
+async function abrirAbaGeral(){
+  trocarAba('geral');
+  const inp = document.getElementById('filtro-data-geral');
+  if(!inp.value) inp.value = hojeISO();
+  await atualizarPainelGeral();
+}
+
+async function atualizarPainelGeral(){
+  const cont = document.getElementById('tabela-geral-conteudo');
+  if(!cont || !USUARIO_LOGADO) return;
+
+  const inp = document.getElementById('filtro-data-geral');
+  const dataSelecionada = inp && inp.value ? inp.value : hojeISO();
+  if(inp && !inp.value) inp.value = dataSelecionada;
+
+  const todosRegistros = await carregarRegistros();
+  const todosFechamentos = await carregarFechamentos();
+  const ontem = diaAnteriorISO(dataSelecionada);
+
+  let doDia = todosRegistros.filter(r => r.data === dataSelecionada && !r.excluido);
+  let fechamentosDoDia = todosFechamentos.filter(f => f.data === dataSelecionada);
+
+  if(!EH_ADMIN){
+    doDia = doDia.filter(r => r.usuario === USUARIO_LOGADO.usuario);
+    fechamentosDoDia = fechamentosDoDia.filter(f => f.usuario === USUARIO_LOGADO.usuario);
+  }
+
+  const porFuncionario = {};
+  function pegarFunc(nome){
+    if(!porFuncionario[nome]) porFuncionario[nome] = {nome, saidas:0, troco:0, c:0, d:0, e:0, f:0, terminais:new Set()};
+    return porFuncionario[nome];
+  }
+  doDia.forEach(r => {
+    const g = pegarFunc(r.nome);
+    g.terminais.add(r.caixa);
+    if(r.tipo==='Saida') g.saidas += r.valor;
+    else g.troco += r.valor;
+  });
+  fechamentosDoDia.forEach(f => {
+    const g = pegarFunc(f.nome);
+    g.terminais.add(f.terminal);
+    g.c += f.c || 0;
+    g.d += (f.d != null ? f.d : (f.total || 0));
+    g.e += f.e || 0;
+    g.f += f.f || 0;
+  });
+
+  const linhas = Object.values(porFuncionario).map(g => {
+    g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e;
+    g.total1 = 0;
+    g.terminais.forEach(term => {
+      g.total1 += todosFechamentos.filter(f => f.terminal===term && f.data===ontem)
+        .reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
+    });
+    g.total3 = (g.total2 - g.total1) - g.f;
+    return g;
+  }).sort((a,b) => a.nome.localeCompare(b.nome));
+
+  if(linhas.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum lançamento nesta data.</div>';
+    return;
+  }
+  cont.innerHTML = `<div class="tabela-historico-dias"><table>
+    <thead><tr>
+      <th>Funcionário(a)</th>
+      <th>a) Saídas</th><th>b) Troca</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+      <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
+    </tr></thead>
+    <tbody>
+      ${linhas.map(g => `<tr>
+        <td>${escaparHtml(g.nome)}</td>
+        <td style="color:var(--verde-venda);font-weight:700;">${formatarMoeda(g.saidas)}</td>
+        <td style="color:var(--vermelho-estorno);font-weight:700;">${formatarMoeda(g.troco)}</td>
+        <td>${formatarMoeda(g.c)}</td>
+        <td>${formatarMoeda(g.d)}</td>
+        <td>${formatarMoeda(g.e)}</td>
+        <td>${formatarMoeda(g.f)}</td>
+        <td style="font-weight:700;">${formatarMoeda(g.total2)}</td>
+        <td style="font-weight:700;">${formatarMoeda(g.total1)}</td>
+        <td style="font-weight:800;color:${g.total3<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${formatarMoeda(g.total3)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+// ---------- Histórico de dias anteriores ----------
+async function consultarHistoricoDias(){
+  const data = document.getElementById('filtro-data-historico').value;
+  const cont = document.getElementById('resultado-historico-dias');
+  if(!data){
+    cont.innerHTML = '<div class="vazio">Escolha uma data para consultar os lançamentos.</div>';
+    return;
+  }
+  let registros = (await carregarRegistros()).filter(r => r.data === data).sort((a,b)=>a.timestamp-b.timestamp);
+  let fechamentos = (await carregarFechamentos()).filter(f => f.data === data);
+
+  if(!EH_ADMIN){
+    registros = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario);
+    fechamentos = fechamentos.filter(f => f.usuario === USUARIO_LOGADO.usuario);
+  }
+
+  if(registros.length === 0 && fechamentos.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum registro encontrado para esta data.</div>';
+    return;
+  }
+
+  let html = '';
+
+  if(registros.length > 0){
+    html += `<h4 style="font-size:13px;color:var(--azul-escuro);margin-bottom:8px;">Lançamentos</h4>
+    <div class="tabela-historico-dias" style="margin-bottom:20px;"><table>
+      <thead><tr>
+        <th>ID Transação</th><th>Funcionária</th><th>Terminal</th><th>Hora</th>
+        <th>Tipo</th><th>Atividade</th><th>Cliente (Fiado)</th><th>Valor</th><th>Status</th>
+      </tr></thead>
+      <tbody>
+        ${registros.map(r => `<tr class="${r.excluido ? 'linha-excluida' : ''}">
+          <td class="id-transacao">${escaparHtml(r.id)}</td>
+          <td>${escaparHtml(r.nome)}</td>
+          <td>${escaparHtml(r.caixa)}</td>
+          <td>${r.hora}</td>
+          <td>${r.tipo==='Saida' ? 'Saída' : 'Troca'}</td>
+          <td>${escaparHtml(r.atividade || '—')}</td>
+          <td>${escaparHtml(r.clienteNome || '—')}</td>
+          <td style="font-weight:700;">${formatarMoeda(r.valor)}</td>
+          <td>${r.excluido ? 'Excluído' : 'Ativo'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  }
+
+  if(fechamentos.length > 0){
+    html += `<h4 style="font-size:13px;color:var(--azul-escuro);margin-bottom:8px;">Fechamentos de caixa</h4>
+    <div class="tabela-historico-dias" style="margin-bottom:20px;"><table>
+      <thead><tr>
+        <th>ID Fechamento</th><th>Funcionária</th><th>Terminal</th><th>Hora</th>
+        <th>c) Troco</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+      </tr></thead>
+      <tbody>
+        ${fechamentos.map(f => `<tr>
+          <td class="id-transacao">${escaparHtml(f.id)}</td>
+          <td>${escaparHtml(f.nome)}</td>
+          <td>${escaparHtml(f.terminal)}</td>
+          <td>${f.hora}</td>
+          <td>${formatarMoeda(f.c||0)}</td>
+          <td>${formatarMoeda(f.d!=null?f.d:(f.total||0))}</td>
+          <td>${formatarMoeda(f.e||0)}</td>
+          <td>${formatarMoeda(f.f||0)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  }
+
+  let pagamentosFiado = (await carregarPagamentosFiado()).filter(p => p.data === data).sort((a,b)=>a.timestamp-b.timestamp);
+  if(!EH_ADMIN){
+    pagamentosFiado = pagamentosFiado.filter(p => p.usuario === USUARIO_LOGADO.usuario);
+  }
+  if(pagamentosFiado.length > 0){
+    html += `<h4 style="font-size:13px;color:var(--azul-escuro);margin-bottom:8px;">Pagamentos de Fiado</h4>
+    <div class="tabela-historico-dias"><table>
+      <thead><tr>
+        <th>ID Pagamento</th><th>Cliente</th><th>Funcionária</th><th>Hora</th><th>Valor</th><th>Obs.</th>
+      </tr></thead>
+      <tbody>
+        ${pagamentosFiado.map(p => `<tr>
+          <td class="id-transacao">${escaparHtml(p.id)}</td>
+          <td>${escaparHtml(p.clienteNome)}</td>
+          <td>${escaparHtml(p.nome)}</td>
+          <td>${p.hora}</td>
+          <td style="font-weight:700;color:var(--verde-venda);">${formatarMoeda(p.valor)}</td>
+          <td>${escaparHtml(p.obs || '—')}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  }
+
+  cont.innerHTML = html;
+}
+
+// ---------- Painel Administrador ----------
+async function consultarPainelAdmin(){
+  const dataIni = document.getElementById('admin-data-inicio').value;
+  const dataFim = document.getElementById('admin-data-fim').value;
+  const cont = document.getElementById('admin-tabela-detalhe');
+
+  if(!dataIni || !dataFim){
+    cont.innerHTML = '<div class="vazio">Escolha o período e clique em Consultar.</div>';
+    return;
+  }
+
+  const todosRegistros = await carregarRegistros();
+  const todosFechamentos = await carregarFechamentos();
+  const registros = todosRegistros.filter(r => r.data >= dataIni && r.data <= dataFim);
+  const fechamentos = todosFechamentos.filter(f => f.data >= dataIni && f.data <= dataFim);
+
+  const grupos = {};
+  function pegarGrupo(nome, terminal, data){
+    const chave = data+'|'+nome+'|'+terminal;
+    if(!grupos[chave]) grupos[chave] = {nome, terminal, data, saidas:0, troco:0, c:0, d:0, e:0, f:0};
+    return grupos[chave];
+  }
+
+  registros.filter(r => !r.excluido).forEach(r => {
+    const g = pegarGrupo(r.nome, r.caixa, r.data);
+    if(r.tipo === 'Saida') g.saidas += r.valor;
+    else g.troco += r.valor;
+  });
+  fechamentos.forEach(f => {
+    const g = pegarGrupo(f.nome, f.terminal, f.data);
+    g.c += f.c || 0;
+    g.d += (f.d != null ? f.d : (f.total || 0));
+    g.e += f.e || 0;
+    g.f += f.f || 0;
+  });
+
+  const linhas = Object.values(grupos).map(g => {
+    g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e;
+    const ontemG = diaAnteriorISO(g.data);
+    g.total1 = todosFechamentos.filter(f => f.terminal===g.terminal && f.data===ontemG)
+                 .reduce((s,f)=> s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
+    g.total3 = (g.total2 - g.total1) - g.f;
+    return g;
+  }).sort((a,b) => (a.data+a.nome+a.terminal).localeCompare(b.data+b.nome+b.terminal)).reverse();
+
+  const somaTotal2 = linhas.reduce((s,g)=>s+g.total2,0);
+  const somaTotal1 = linhas.reduce((s,g)=>s+g.total1,0);
+  const somaTotal3 = linhas.reduce((s,g)=>s+g.total3,0);
+
+  document.getElementById('admin-total-total2').textContent = formatarMoeda(somaTotal2);
+  document.getElementById('admin-total-total1').textContent = formatarMoeda(somaTotal1);
+  document.getElementById('admin-total-total3').textContent = formatarMoeda(somaTotal3);
+
+  if(linhas.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum registro encontrado neste período.</div>';
+    return;
+  }
+
+  const porData = {};
+  linhas.forEach(g => {
+    if(!porData[g.data]) porData[g.data] = [];
+    porData[g.data].push(g);
+  });
+  const datasOrdenadas = Object.keys(porData).sort().reverse();
+
+  cont.innerHTML = datasOrdenadas.map(data => {
+    const linhasDoDia = porData[data].sort((a,b) => (a.nome+a.terminal).localeCompare(b.nome+b.terminal));
+    return `
+      <h4 style="margin:18px 0 8px;color:var(--azul-escuro);font-size:13px;">${data.split('-').reverse().join('/')}</h4>
+      <div class="tabela-historico-dias" style="margin-bottom:6px;"><table>
+        <thead><tr>
+          <th>Funcionária</th><th>Terminal</th>
+          <th>a) Saídas</th><th>b) Troca</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+          <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
+        </tr></thead>
+        <tbody>
+          ${linhasDoDia.map(g => `<tr>
+            <td>${escaparHtml(g.nome)}</td>
+            <td>${escaparHtml(g.terminal)}</td>
+            <td style="color:var(--verde-venda);">${formatarMoeda(g.saidas)}</td>
+            <td style="color:var(--vermelho-estorno);">${formatarMoeda(g.troco)}</td>
+            <td>${formatarMoeda(g.c)}</td>
+            <td>${formatarMoeda(g.d)}</td>
+            <td>${formatarMoeda(g.e)}</td>
+            <td>${formatarMoeda(g.f)}</td>
+            <td style="font-weight:700;">${formatarMoeda(g.total2)}</td>
+            <td style="font-weight:700;">${formatarMoeda(g.total1)}</td>
+            <td style="font-weight:800;color:${g.total3<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${formatarMoeda(g.total3)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+  }).join('');
+}
+
+async function adminRedefinirSenha(){
+  const usuario = document.getElementById('admin-reset-usuario').value;
+  const novaSenha = document.getElementById('admin-reset-senha').value;
+  const msg = document.getElementById('admin-reset-msg');
+  if(!usuario || !novaSenha){
+    msg.innerHTML = '<div class="msg-erro">Selecione o funcionário e informe a nova senha.</div>';
+    return;
+  }
+  const usuarios = await carregarUsuarios();
+  const idx = usuarios.findIndex(u => u.usuario === usuario);
+  if(idx < 0){ msg.innerHTML = '<div class="msg-erro">Usuário não encontrado.</div>'; return; }
+  usuarios[idx].senha = novaSenha;
+  await salvarUsuarios(usuarios);
+  document.getElementById('admin-reset-senha').value = '';
+  msg.innerHTML = '<div class="msg-ok">Senha redefinida com sucesso.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+}
+
+// ---------- Integração com Excel / Office 365 ----------
+let CONFIG_INTEGRACAO = {webhookUrl:'', ativo:false};
+
+async function carregarConfigIntegracao(){
+  try{
+    const r = await window.storage.get('config_integracao_loterica', true);
+    CONFIG_INTEGRACAO = r ? JSON.parse(r.value) : {webhookUrl:'', ativo:false};
+  }catch(e){
+    CONFIG_INTEGRACAO = {webhookUrl:'', ativo:false};
+  }
+  document.getElementById('inp-webhook-url').value = CONFIG_INTEGRACAO.webhookUrl || '';
+  document.getElementById('chk-webhook-ativo').checked = !!CONFIG_INTEGRACAO.ativo;
+  atualizarPillIntegracao();
+}
+
+function atualizarPillIntegracao(){
+  const pill = document.getElementById('pill-integracao');
+  if(CONFIG_INTEGRACAO.ativo && CONFIG_INTEGRACAO.webhookUrl){
+    pill.className = 'status-pill ativo';
+    pill.innerHTML = '<span class="ponto"></span> Envio automático ativo';
+  }else{
+    pill.className = 'status-pill inativo';
+    pill.innerHTML = '<span class="ponto"></span> Envio automático desativado';
+  }
+}
+
+async function salvarConfigIntegracao(){
+  const url = document.getElementById('inp-webhook-url').value.trim();
+  const ativo = document.getElementById('chk-webhook-ativo').checked;
+  CONFIG_INTEGRACAO = {webhookUrl:url, ativo:ativo};
+  await window.storage.set('config_integracao_loterica', JSON.stringify(CONFIG_INTEGRACAO), true);
+  atualizarPillIntegracao();
+  const msg = document.getElementById('integracao-msg');
+  msg.innerHTML = '<div class="msg-ok">Configuração salva.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+}
+
+async function enviarParaWebhook(payload){
+  if(!CONFIG_INTEGRACAO.ativo || !CONFIG_INTEGRACAO.webhookUrl) return;
+  try{
+    await fetch(CONFIG_INTEGRACAO.webhookUrl, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  }catch(e){
+    console.warn('Não foi possível enviar para o Office 365 automaticamente:', e);
+  }
+}
+
+function aplicarFormatoMoedaColunas(ws, colunasMoeda){
+  if(!ws['!ref']) return;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const linhaCabecalho = range.s.r;
+  const colunasAlvo = [];
+  for(let c = range.s.c; c <= range.e.c; c++){
+    const celulaCabecalho = ws[XLSX.utils.encode_cell({r:linhaCabecalho, c:c})];
+    if(celulaCabecalho && colunasMoeda.includes(celulaCabecalho.v)){
+      colunasAlvo.push(c);
+    }
+  }
+  for(let r = linhaCabecalho+1; r <= range.e.r; r++){
+    colunasAlvo.forEach(c => {
+      const cel = ws[XLSX.utils.encode_cell({r,c})];
+      if(cel && typeof cel.v === 'number'){
+        cel.z = '0.00';
+      }
+    });
+  }
+}
+
+async function exportarExcel(){
+  if(typeof XLSX === 'undefined'){
+    alert('A biblioteca de exportação ainda está carregando, tente novamente em instantes.');
+    return;
+  }
+  const registros = await carregarRegistros();
+  const fechamentos = await carregarFechamentos();
+  const clientes = await carregarClientes();
+  const pagamentosFiado = await carregarPagamentosFiado();
+
+  const linhasLancamentos = registros.map(r => ({
+    'ID Transação': r.id,
+    'ID Funcionária': r.usuario,
+    'Funcionária': r.nome,
+    'ID Terminal': r.caixa,
+    'Data': r.data,
+    'Hora': r.hora,
+    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Troca entre caixas',
+    'Atividade': r.atividade || '',
+    'ID Cliente (Fiado)': r.clienteId || '',
+    'Cliente (Fiado)': r.clienteNome || '',
+    'Valor': r.valor,
+    'Observação': r.obs || '',
+    'Status': r.excluido ? 'Excluído' : 'Ativo'
+  }));
+
+  const linhasFechamentos = [];
+  fechamentos.forEach(f => {
+    f.produtos.forEach(p => {
+      linhasFechamentos.push({
+        'ID Fechamento': f.id,
+        'ID Funcionária': f.usuario,
+        'Funcionária': f.nome,
+        'ID Terminal': f.terminal,
+        'Data': f.data,
+        'Hora': f.hora,
+        'c) Troco terminal': f.c || 0,
+        'Produto (d)': p.nome,
+        'Quantidade': p.qtd,
+        'Valor unitário': p.valorUnit,
+        'Subtotal produto': p.subtotal,
+        'd) Total composição': f.d != null ? f.d : (f.total || 0),
+        'e) Bolão fechamento': f.e || 0,
+        'f) Relatório terminal': f.f || 0
+      });
+    });
+  });
+
+  const linhasClientes = clientes.map(c => ({
+    'ID Cliente': c.id,
+    'Nome': c.nome,
+    'Celular': c.celular || '',
+    'Observação': c.obs || '',
+    'Cadastrado por': c.cadastradoNome,
+    'Data cadastro': c.cadastradoData,
+    'Hora cadastro': c.cadastradoHora,
+    'Última edição': (c.historicoEdicoes && c.historicoEdicoes.length>0) ? `${c.historicoEdicoes[c.historicoEdicoes.length-1].nome} em ${c.historicoEdicoes[c.historicoEdicoes.length-1].data} ${c.historicoEdicoes[c.historicoEdicoes.length-1].hora}` : ''
+  }));
+
+  const linhasPagamentosFiado = pagamentosFiado.map(p => ({
+    'ID Pagamento': p.id,
+    'ID Cliente': p.clienteId,
+    'Cliente': p.clienteNome,
+    'ID Funcionária': p.usuario,
+    'Funcionária': p.nome,
+    'Data': p.data,
+    'Hora': p.hora,
+    'Valor pago': p.valor,
+    'Observação': p.obs || ''
+  }));
+
+  const wsLancamentos = XLSX.utils.json_to_sheet(linhasLancamentos);
+  aplicarFormatoMoedaColunas(wsLancamentos, ['Valor']);
+  const wsFechamentos = XLSX.utils.json_to_sheet(linhasFechamentos);
+  aplicarFormatoMoedaColunas(wsFechamentos, ['c) Troco terminal','Valor unitário','Subtotal produto','d) Total composição','e) Bolão fechamento','f) Relatório terminal']);
+  const wsClientes = XLSX.utils.json_to_sheet(linhasClientes);
+  const wsPagamentosFiado = XLSX.utils.json_to_sheet(linhasPagamentosFiado);
+  aplicarFormatoMoedaColunas(wsPagamentosFiado, ['Valor pago']);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsLancamentos, 'Lançamentos');
+  XLSX.utils.book_append_sheet(wb, wsFechamentos, 'Fechamentos');
+  XLSX.utils.book_append_sheet(wb, wsClientes, 'Clientes');
+  XLSX.utils.book_append_sheet(wb, wsPagamentosFiado, 'Pagamentos Fiado');
+  XLSX.writeFile(wb, 'composicao_caixa_carneiro_ganhador_'+hojeISO()+'.xlsx');
+}
+
+async function exportarExcelPeriodoAdmin(){
+  if(typeof XLSX === 'undefined'){
+    alert('A biblioteca de exportação ainda está carregando, tente novamente em instantes.');
+    return;
+  }
+  const dataIni = document.getElementById('admin-data-inicio').value;
+  const dataFim = document.getElementById('admin-data-fim').value;
+  if(!dataIni || !dataFim){
+    alert('Escolha o período (De / Até) antes de exportar.');
+    return;
+  }
+
+  const registros = (await carregarRegistros()).filter(r => r.data >= dataIni && r.data <= dataFim);
+  const fechamentos = (await carregarFechamentos()).filter(f => f.data >= dataIni && f.data <= dataFim);
+  const pagamentosFiado = (await carregarPagamentosFiado()).filter(p => p.data >= dataIni && p.data <= dataFim);
+
+  const linhasLancamentos = registros.map(r => ({
+    'ID Transação': r.id,
+    'ID Funcionária': r.usuario,
+    'Funcionária': r.nome,
+    'ID Terminal': r.caixa,
+    'Data': r.data,
+    'Hora': r.hora,
+    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Troca entre caixas',
+    'Atividade': r.atividade || '',
+    'ID Cliente (Fiado)': r.clienteId || '',
+    'Cliente (Fiado)': r.clienteNome || '',
+    'Valor': r.valor,
+    'Observação': r.obs || '',
+    'Status': r.excluido ? 'Excluído' : 'Ativo'
+  }));
+
+  const linhasFechamentos = [];
+  fechamentos.forEach(f => {
+    f.produtos.forEach(p => {
+      linhasFechamentos.push({
+        'ID Fechamento': f.id,
+        'ID Funcionária': f.usuario,
+        'Funcionária': f.nome,
+        'ID Terminal': f.terminal,
+        'Data': f.data,
+        'Hora': f.hora,
+        'c) Troco terminal': f.c || 0,
+        'Produto (d)': p.nome,
+        'Quantidade': p.qtd,
+        'Valor unitário': p.valorUnit,
+        'Subtotal produto': p.subtotal,
+        'd) Total composição': f.d != null ? f.d : (f.total || 0),
+        'e) Bolão fechamento': f.e || 0,
+        'f) Relatório terminal': f.f || 0
+      });
+    });
+  });
+
+  const linhasPagamentosFiado = pagamentosFiado.map(p => ({
+    'ID Pagamento': p.id,
+    'ID Cliente': p.clienteId,
+    'Cliente': p.clienteNome,
+    'ID Funcionária': p.usuario,
+    'Funcionária': p.nome,
+    'Data': p.data,
+    'Hora': p.hora,
+    'Valor pago': p.valor,
+    'Observação': p.obs || ''
+  }));
+
+  const wsLancamentos = XLSX.utils.json_to_sheet(linhasLancamentos);
+  aplicarFormatoMoedaColunas(wsLancamentos, ['Valor']);
+  const wsFechamentos = XLSX.utils.json_to_sheet(linhasFechamentos);
+  aplicarFormatoMoedaColunas(wsFechamentos, ['c) Troco terminal','Valor unitário','Subtotal produto','d) Total composição','e) Bolão fechamento','f) Relatório terminal']);
+  const wsPagamentosFiado = XLSX.utils.json_to_sheet(linhasPagamentosFiado);
+  aplicarFormatoMoedaColunas(wsPagamentosFiado, ['Valor pago']);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsLancamentos, 'Lançamentos');
+  XLSX.utils.book_append_sheet(wb, wsFechamentos, 'Fechamentos');
+  XLSX.utils.book_append_sheet(wb, wsPagamentosFiado, 'Pagamentos Fiado');
+  XLSX.writeFile(wb, 'relatorio_admin_'+dataIni+'_a_'+dataFim+'.xlsx');
+}
+
+// ---------- Início ----------
+popularSelectUsuarios();
+</script>
+</body>
+</html>
