@@ -277,6 +277,11 @@
   .status-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;margin-bottom:12px;}
   .status-pill.ativo{background:#EAF7ED;color:var(--verde-venda);}
   .status-pill.inativo{background:var(--cinza-fundo);color:var(--texto-claro);}
+  .terminal-fixo{
+    padding:12px 14px;border-radius:9px;background:var(--cinza-fundo);
+    border:1.5px solid var(--cinza-borda);font-size:14.5px;font-weight:700;
+    color:var(--azul-escuro);
+  }
   .status-pill .ponto{width:6px;height:6px;border-radius:50%;background:currentColor;}
   .btn-exportar{
     width:100%;padding:12px;background:#fff;color:var(--azul-caixa);border:1.5px solid var(--azul-caixa);
@@ -497,35 +502,17 @@
         </div>
         <div class="campo" id="campo-terminal-normal">
           <label>Terminal</label>
-          <select id="inp-caixa">
+          <div class="terminal-fixo" id="exibicao-terminal-lancamento">—</div>
+        </div>
+        <div class="campo oculto" id="campo-troca-terminais">
+          <label>Terminal para</label>
+          <select id="sel-terminal-para">
             <option value="9943">9943</option>
             <option value="9944">9944</option>
             <option value="9945">9945</option>
             <option value="0000">0000 - Gerente</option>
             <option value="0001">0001 - Bilhetes</option>
           </select>
-        </div>
-        <div class="linha-form oculto" id="campo-troca-terminais">
-          <div class="campo" style="margin-bottom:0;">
-            <label>Terminal de</label>
-            <select id="sel-terminal-de">
-              <option value="9943">9943</option>
-              <option value="9944">9944</option>
-              <option value="9945">9945</option>
-              <option value="0000">0000 - Gerente</option>
-              <option value="0001">0001 - Bilhetes</option>
-            </select>
-          </div>
-          <div class="campo" style="margin-bottom:0;">
-            <label>Terminal para</label>
-            <select id="sel-terminal-para">
-              <option value="9943">9943</option>
-              <option value="9944">9944</option>
-              <option value="9945">9945</option>
-              <option value="0000">0000 - Gerente</option>
-              <option value="0001">0001 - Bilhetes</option>
-            </select>
-          </div>
         </div>
         <div class="campo">
           <label>Valor (R$)</label>
@@ -577,13 +564,7 @@
         <p class="aviso-fechamento">Deve ser registrado uma vez por dia, por funcionário(a) e por terminal. Os valores usados no cálculo são somados por terminal.</p>
         <div class="campo">
           <label>Terminal</label>
-          <select id="fechamento-terminal" onchange="carregarFechamentoExistente()">
-            <option value="9943">9943</option>
-            <option value="9944">9944</option>
-            <option value="9945">9945</option>
-            <option value="0000">0000 - Gerente</option>
-            <option value="0001">0001 - Bilhetes</option>
-          </select>
+          <div class="terminal-fixo" id="exibicao-terminal-fechamento">—</div>
         </div>
         <div id="fechamento-status"></div>
 
@@ -1219,12 +1200,8 @@ async function entrarNoApp(achado){
   trocarAba('lancamentos');
   selecionarTipo('Saida');
   montarComposicaoLista();
-  if(document.getElementById('inp-caixa').querySelector('option[value="'+TERMINAL_DO_DIA+'"]')){
-    document.getElementById('inp-caixa').value = TERMINAL_DO_DIA;
-  }
-  if(document.getElementById('fechamento-terminal').querySelector('option[value="'+TERMINAL_DO_DIA+'"]')){
-    document.getElementById('fechamento-terminal').value = TERMINAL_DO_DIA;
-  }
+  document.getElementById('exibicao-terminal-lancamento').textContent = TERMINAL_DO_DIA;
+  document.getElementById('exibicao-terminal-fechamento').textContent = TERMINAL_DO_DIA;
   await carregarFechamentoExistente();
   await carregarConfigIntegracao();
   await popularSelectClientes();
@@ -1315,26 +1292,21 @@ async function registrarLancamento(){
 
   // ---- Débitos > Troca de caixa: gera 2 lançamentos (débito na origem, crédito no destino) ----
   if(TIPO_SELECIONADO === 'Troco' && atividadeDebito === 'Troca de caixa'){
-    const terminalDe = document.getElementById('sel-terminal-de').value;
+    const terminalDe = TERMINAL_DO_DIA;
     const terminalPara = document.getElementById('sel-terminal-para').value;
 
-    if(!terminalDe || !terminalPara){
-      msg.innerHTML = '<div class="msg-erro">Selecione o Terminal de e o Terminal para.</div>';
+    if(!terminalPara){
+      msg.innerHTML = '<div class="msg-erro">Selecione o Terminal para.</div>';
       return;
     }
     if(terminalDe === terminalPara){
-      msg.innerHTML = '<div class="msg-erro">O Terminal de e o Terminal para devem ser diferentes.</div>';
+      msg.innerHTML = '<div class="msg-erro">O Terminal para deve ser diferente do seu terminal do dia ('+terminalDe+').</div>';
       return;
     }
 
     const hoje = hojeISO();
-    const funcDe = await obterFuncionarioDoTerminal(terminalDe, hoje);
     const funcPara = await obterFuncionarioDoTerminal(terminalPara, hoje);
 
-    if(!funcDe){
-      msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalDe+' hoje. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
-      return;
-    }
     if(!funcPara){
       msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalPara+' hoje. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
       return;
@@ -1347,8 +1319,8 @@ async function registrarLancamento(){
 
     const registroDebito = {
       id: agora + '-' + Math.random().toString(36).slice(2,7),
-      usuario: funcDe.usuario,
-      nome: funcDe.nome,
+      usuario: USUARIO_LOGADO.usuario,
+      nome: USUARIO_LOGADO.nome,
       registradoPor: USUARIO_LOGADO.usuario,
       registradoPorNome: USUARIO_LOGADO.nome,
       data: hoje,
@@ -1424,9 +1396,9 @@ async function registrarLancamento(){
   }
 
   // ---- Fluxo normal: Saídas hoje ou Débitos (Produtos / Troco) ----
-  const caixa = document.getElementById('inp-caixa').value;
+  const caixa = TERMINAL_DO_DIA;
   if(!caixa){
-    msg.innerHTML = '<div class="msg-erro">Informe o terminal.</div>';
+    msg.innerHTML = '<div class="msg-erro">Terminal do dia não identificado. Saia e faça login novamente.</div>';
     return;
   }
 
@@ -1926,7 +1898,7 @@ function onComposicaoInput(){
 
 async function carregarFechamentoExistente(){
   if(!USUARIO_LOGADO) return;
-  const terminal = document.getElementById('fechamento-terminal').value;
+  const terminal = TERMINAL_DO_DIA;
   const fechamentos = await carregarFechamentos();
   const hoje = hojeISO();
   const existente = fechamentos.find(f => f.data===hoje && f.usuario===USUARIO_LOGADO.usuario && f.terminal===terminal);
@@ -1957,8 +1929,8 @@ async function carregarFechamentoExistente(){
 }
 
 async function atualizarTotaisFechamento(){
-  if(!document.getElementById('fechamento-terminal')) return;
-  const terminal = document.getElementById('fechamento-terminal').value;
+  if(!TERMINAL_DO_DIA) return;
+  const terminal = TERMINAL_DO_DIA;
   const hoje = hojeISO();
   const ontem = diaAnteriorISO(hoje);
 
@@ -1993,7 +1965,7 @@ async function atualizarTotaisFechamento(){
 }
 
 async function registrarFechamento(){
-  const terminal = document.getElementById('fechamento-terminal').value;
+  const terminal = TERMINAL_DO_DIA;
   const produtos = PRODUTOS_FECHAMENTO.map(p => {
     const qtd = parseFloat(document.getElementById('qtd-'+p.id).value) || 0;
     return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:qtd, subtotal: qtd*p.valor};
