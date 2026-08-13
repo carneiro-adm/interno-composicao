@@ -409,9 +409,11 @@
       <p id="terminal-dia-nome">—</p>
     </div>
     <p class="aviso-fechamento">Selecione o terminal que você vai operar hoje. Isso é necessário para identificar corretamente as trocas entre caixas.</p>
+    <div id="terminal-dia-erro" class="msg-erro oculto"></div>
     <div class="campo">
       <label>Terminal</label>
       <select id="sel-terminal-dia">
+        <option value="">Selecione...</option>
         <option value="9943">9943</option>
         <option value="9944">9944</option>
         <option value="9945">9945</option>
@@ -1145,23 +1147,31 @@ async function fazerLogin(){
     return;
   }
 
+  // Busca o último terminal usado por esse usuário (histórico), para pré-preencher.
+  // Se nunca escolheu nenhum terminal antes, o campo fica em branco.
   const atribuicoes = await carregarTerminalDia();
-  const hoje = hojeISO();
-  const jaTem = atribuicoes.find(a => a.usuario === achado.usuario && a.data === hoje);
+  const historicoUsuario = atribuicoes.filter(a => a.usuario === achado.usuario)
+                                       .sort((a,b) => b.timestamp - a.timestamp);
+  const ultimoTerminal = historicoUsuario.length > 0 ? historicoUsuario[0].terminal : '';
 
-  if(jaTem){
-    TERMINAL_DO_DIA = jaTem.terminal;
-    await entrarNoApp(achado);
-  }else{
-    USUARIO_PENDENTE_LOGIN = achado;
-    document.getElementById('tela-login').classList.add('oculto');
-    document.getElementById('tela-terminal-dia').classList.remove('oculto');
-    document.getElementById('terminal-dia-nome').textContent = achado.nome;
-  }
+  USUARIO_PENDENTE_LOGIN = achado;
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('tela-terminal-dia').classList.remove('oculto');
+  document.getElementById('terminal-dia-nome').textContent = achado.nome;
+  document.getElementById('terminal-dia-erro').classList.add('oculto');
+  document.getElementById('sel-terminal-dia').value = ultimoTerminal;
 }
 
 async function confirmarTerminalDia(){
   const terminal = document.getElementById('sel-terminal-dia').value;
+  const erroEl = document.getElementById('terminal-dia-erro');
+  if(!terminal){
+    erroEl.textContent = 'Selecione um terminal para continuar.';
+    erroEl.classList.remove('oculto');
+    return;
+  }
+  erroEl.classList.add('oculto');
+
   const atribuicoes = await carregarTerminalDia();
   const hoje = hojeISO();
   const idxExistente = atribuicoes.findIndex(a => a.usuario === USUARIO_PENDENTE_LOGIN.usuario && a.data === hoje);
@@ -1183,8 +1193,9 @@ async function confirmarTerminalDia(){
 
 async function trocarTerminalDia(){
   if(!USUARIO_LOGADO) return;
-  document.getElementById('sel-terminal-dia').value = TERMINAL_DO_DIA || '9943';
+  document.getElementById('sel-terminal-dia').value = TERMINAL_DO_DIA || '';
   document.getElementById('terminal-dia-nome').textContent = USUARIO_LOGADO.nome;
+  document.getElementById('terminal-dia-erro').classList.add('oculto');
   USUARIO_PENDENTE_LOGIN = USUARIO_LOGADO;
   document.getElementById('tela-app').classList.add('oculto');
   document.getElementById('tela-terminal-dia').classList.remove('oculto');
