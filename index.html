@@ -375,6 +375,10 @@
         <input type="checkbox" id="cad-admin">
         <label for="cad-admin">Cadastrar como Administrador(a)</label>
       </div>
+      <div class="checkbox-linha">
+        <input type="checkbox" id="cad-gerencia">
+        <label for="cad-gerencia">Cadastrar como Gerência (acesso de administrador + produtos de gerência)</label>
+      </div>
       <button class="btn-primario" onclick="cadastrarUsuario()">Cadastrar</button>
       <button class="btn-secundario" onclick="mostrarLogin()">Voltar ao login</button>
     </div>
@@ -416,7 +420,7 @@
           <div class="qtd" id="sub-vendas-qtd">0 lançamentos</div>
         </div>
         <div class="subtotal-card estorno">
-          <div class="rotulo">Troca entre caixas (b)</div>
+          <div class="rotulo">Débitos (b)</div>
           <div class="valor" id="sub-estornos">R$ 0,00</div>
           <div class="qtd" id="sub-estornos-qtd">0 lançamentos</div>
         </div>
@@ -431,7 +435,7 @@
         <h3>Novo lançamento</h3>
         <div class="tipo-botoes">
           <button class="tipo-btn" id="btn-tipo-saida" onclick="selecionarTipo('Saida')">Saídas hoje<span class="sub">(a) saldo positivo</span></button>
-          <button class="tipo-btn" id="btn-tipo-troco" onclick="selecionarTipo('Troco')">Troca entre caixas<span class="sub">(b) saldo negativo</span></button>
+          <button class="tipo-btn" id="btn-tipo-troco" onclick="selecionarTipo('Troco')">Débitos<span class="sub">(b) saldo negativo</span></button>
         </div>
         <div class="campo" id="campo-atividade">
           <label>Tipo de atividade</label>
@@ -446,26 +450,60 @@
             <option value="Pix fora terminal">Pix fora terminal</option>
             <option value="Conta Loja">Conta Loja</option>
             <option value="Rede">Rede</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Depósito 003">Depósito 003</option>
+            <option value="Troca Telesena">Troca Telesena</option>
+            <option value="Raspadinha premiada">Raspadinha premiada</option>
             <option value="Outros">Outros</option>
+          </select>
+        </div>
+        <div class="campo oculto" id="campo-atividade-debito">
+          <label>Tipo de atividade</label>
+          <select id="sel-atividade-debito" onchange="atualizarCampoTrocaTerminal()">
+            <option value="Troca de caixa">Troca de caixa</option>
+            <option value="Produtos">Produtos</option>
+            <option value="Troco">Troco</option>
           </select>
         </div>
         <div class="campo oculto" id="campo-cliente-fiado">
           <label>Cliente (Fiado)</label>
           <select id="sel-cliente-fiado"><option value="">Selecione o cliente...</option></select>
         </div>
-        <div class="linha-form">
+        <div class="campo" id="campo-terminal-normal">
+          <label>Terminal</label>
+          <select id="inp-caixa">
+            <option value="9943">9943</option>
+            <option value="9944">9944</option>
+            <option value="9945">9945</option>
+            <option value="0000">0000 - Gerente</option>
+            <option value="0001">0001 - Bilhetes</option>
+          </select>
+        </div>
+        <div class="linha-form oculto" id="campo-troca-terminais">
           <div class="campo" style="margin-bottom:0;">
-            <label>Terminal</label>
-            <select id="inp-caixa">
+            <label>Terminal de</label>
+            <select id="sel-terminal-de">
               <option value="9943">9943</option>
               <option value="9944">9944</option>
               <option value="9945">9945</option>
+              <option value="0000">0000 - Gerente</option>
+              <option value="0001">0001 - Bilhetes</option>
             </select>
           </div>
           <div class="campo" style="margin-bottom:0;">
-            <label>Valor (R$)</label>
-            <input type="number" id="inp-valor" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
+            <label>Terminal para</label>
+            <select id="sel-terminal-para">
+              <option value="9943">9943</option>
+              <option value="9944">9944</option>
+              <option value="9945">9945</option>
+              <option value="0000">0000 - Gerente</option>
+              <option value="0001">0001 - Bilhetes</option>
+            </select>
           </div>
+        </div>
+        <div class="campo">
+          <label>Valor (R$)</label>
+          <input type="number" id="inp-valor" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
         </div>
         <div class="campo">
           <label>Observação</label>
@@ -517,6 +555,8 @@
             <option value="9943">9943</option>
             <option value="9944">9944</option>
             <option value="9945">9945</option>
+            <option value="0000">0000 - Gerente</option>
+            <option value="0001">0001 - Bilhetes</option>
           </select>
         </div>
         <div id="fechamento-status"></div>
@@ -549,7 +589,7 @@
           <div class="titulo-bloco"><span class="letra-label">a-b</span> Registro de lançamentos hoje</div>
           <div class="resumo-ab">
             <div class="resumo-ab-item"><div class="rotulo">Saídas (a)</div><div class="valor" id="resumo-a" style="color:var(--verde-venda);">R$ 0,00</div></div>
-            <div class="resumo-ab-item"><div class="rotulo">Troca (b)</div><div class="valor" id="resumo-b" style="color:var(--vermelho-estorno);">R$ 0,00</div></div>
+            <div class="resumo-ab-item"><div class="rotulo">Débitos (b)</div><div class="valor" id="resumo-b" style="color:var(--vermelho-estorno);">R$ 0,00</div></div>
             <div class="resumo-ab-item"><div class="rotulo">Saldo (a-b)</div><div class="valor" id="resumo-ab">R$ 0,00</div></div>
           </div>
         </div>
@@ -832,6 +872,7 @@ window.storage = {
 
 let USUARIO_LOGADO = null;
 let EH_ADMIN = false;
+let EH_GERENCIA = false;
 let TIPO_SELECIONADO = 'Saida';
 let TODOS_USUARIOS = [];
 let INTERVALO_SYNC = null;
@@ -1028,6 +1069,7 @@ async function cadastrarUsuario(){
   const pergunta = document.getElementById('cad-pergunta').value;
   const resposta = document.getElementById('cad-resposta').value.trim();
   const admin = document.getElementById('cad-admin').checked;
+  const gerencia = document.getElementById('cad-gerencia').checked;
   const erro = document.getElementById('login-erro');
   erro.className = 'msg-erro';
 
@@ -1042,7 +1084,7 @@ async function cadastrarUsuario(){
     erro.classList.remove('oculto');
     return;
   }
-  usuarios.push({usuario, senha, nome, admin, pergunta, resposta});
+  usuarios.push({usuario, senha, nome, admin, gerencia, pergunta, resposta});
   await salvarUsuarios(usuarios);
   erro.classList.add('oculto');
   document.getElementById('cad-nome').value='';
@@ -1050,6 +1092,7 @@ async function cadastrarUsuario(){
   document.getElementById('cad-senha').value='';
   document.getElementById('cad-resposta').value='';
   document.getElementById('cad-admin').checked=false;
+  document.getElementById('cad-gerencia').checked=false;
   await popularSelectUsuarios();
   mostrarLogin();
   const ok = document.getElementById('login-erro');
@@ -1089,8 +1132,9 @@ async function fazerLogin(){
   await popularSelectClientes();
   await atualizarTudo();
 
-  const souAdmin = achado.admin === true || achado.usuario === 'admin';
+  const souAdmin = achado.admin === true || achado.gerencia === true || achado.usuario === 'admin';
   EH_ADMIN = souAdmin;
+  EH_GERENCIA = achado.gerencia === true;
   if(souAdmin){
     document.getElementById('nav-admin').classList.remove('oculto');
     document.getElementById('nav-gestaofiado').classList.remove('oculto');
@@ -1111,6 +1155,7 @@ async function fazerLogin(){
 function sair(){
   USUARIO_LOGADO = null;
   EH_ADMIN = false;
+  EH_GERENCIA = false;
   if(INTERVALO_SYNC) clearInterval(INTERVALO_SYNC);
   document.getElementById('tela-app').classList.add('oculto');
   document.getElementById('tela-login').classList.remove('oculto');
@@ -1127,26 +1172,143 @@ function selecionarTipo(tipo){
   document.getElementById('btn-tipo-saida').classList.remove('ativo-saida');
   document.getElementById('btn-tipo-troco').classList.remove('ativo-troco');
   const campoAtividade = document.getElementById('campo-atividade');
+  const campoAtividadeDebito = document.getElementById('campo-atividade-debito');
   if(tipo==='Saida'){
     document.getElementById('btn-tipo-saida').classList.add('ativo-saida');
     campoAtividade.classList.remove('oculto');
+    campoAtividadeDebito.classList.add('oculto');
+    document.getElementById('campo-terminal-normal').classList.remove('oculto');
+    document.getElementById('campo-troca-terminais').classList.add('oculto');
   }
   if(tipo==='Troco'){
     document.getElementById('btn-tipo-troco').classList.add('ativo-troco');
     campoAtividade.classList.add('oculto');
+    campoAtividadeDebito.classList.remove('oculto');
+    atualizarCampoTrocaTerminal();
   }
   atualizarCampoClienteFiado();
 }
 
+function atualizarCampoTrocaTerminal(){
+  const atividadeDebito = document.getElementById('sel-atividade-debito').value;
+  const campoTerminalNormal = document.getElementById('campo-terminal-normal');
+  const campoTrocaTerminais = document.getElementById('campo-troca-terminais');
+  if(TIPO_SELECIONADO === 'Troco' && atividadeDebito === 'Troca de caixa'){
+    campoTerminalNormal.classList.add('oculto');
+    campoTrocaTerminais.classList.remove('oculto');
+  }else{
+    campoTerminalNormal.classList.remove('oculto');
+    campoTrocaTerminais.classList.add('oculto');
+  }
+}
+
 async function registrarLancamento(){
-  const caixa = document.getElementById('inp-caixa').value;
   const valor = parseFloat(document.getElementById('inp-valor').value);
   const obs = document.getElementById('inp-obs').value.trim();
   const atividade = TIPO_SELECIONADO === 'Saida' ? document.getElementById('sel-atividade').value : '';
+  const atividadeDebito = TIPO_SELECIONADO === 'Troco' ? document.getElementById('sel-atividade-debito').value : '';
   const msg = document.getElementById('registro-msg');
 
-  if(!caixa || isNaN(valor) || valor <= 0){
-    msg.innerHTML = '<div class="msg-erro">Informe o terminal e um valor válido.</div>';
+  if(isNaN(valor) || valor <= 0){
+    msg.innerHTML = '<div class="msg-erro">Informe um valor válido.</div>';
+    return;
+  }
+
+  // ---- Débitos > Troca de caixa: gera 2 lançamentos (débito na origem, crédito no destino) ----
+  if(TIPO_SELECIONADO === 'Troco' && atividadeDebito === 'Troca de caixa'){
+    const terminalDe = document.getElementById('sel-terminal-de').value;
+    const terminalPara = document.getElementById('sel-terminal-para').value;
+
+    if(!terminalDe || !terminalPara){
+      msg.innerHTML = '<div class="msg-erro">Selecione o Terminal de e o Terminal para.</div>';
+      return;
+    }
+    if(terminalDe === terminalPara){
+      msg.innerHTML = '<div class="msg-erro">O Terminal de e o Terminal para devem ser diferentes.</div>';
+      return;
+    }
+
+    const descricao = 'Troca entre caixas de ' + terminalDe + ' para ' + terminalPara;
+    const obsCompleta = obs ? (descricao + ' · ' + obs) : descricao;
+    const registros = await carregarRegistros();
+    const agora = Date.now();
+
+    const registroDebito = {
+      id: agora + '-' + Math.random().toString(36).slice(2,7),
+      usuario: USUARIO_LOGADO.usuario,
+      nome: USUARIO_LOGADO.nome,
+      data: hojeISO(),
+      hora: horaAgora(),
+      caixa: terminalDe,
+      tipo: 'Troco',
+      atividade: 'Troca de caixa',
+      clienteId: '',
+      clienteNome: '',
+      valor: valor,
+      obs: obsCompleta,
+      excluido: false,
+      timestamp: agora
+    };
+    const registroCredito = {
+      id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
+      usuario: USUARIO_LOGADO.usuario,
+      nome: USUARIO_LOGADO.nome,
+      data: hojeISO(),
+      hora: horaAgora(),
+      caixa: terminalPara,
+      tipo: 'Saida',
+      atividade: 'Troca de caixa',
+      clienteId: '',
+      clienteNome: '',
+      valor: valor,
+      obs: obsCompleta,
+      excluido: false,
+      timestamp: agora+1
+    };
+
+    registros.push(registroDebito, registroCredito);
+    await salvarRegistros(registros);
+    enviarParaWebhook({
+      origem: 'lancamento',
+      idTransacao: registroDebito.id,
+      idFuncionaria: registroDebito.usuario,
+      funcionaria: registroDebito.nome,
+      idTerminal: registroDebito.caixa,
+      idTerminalDestino: terminalPara,
+      data: registroDebito.data,
+      hora: registroDebito.hora,
+      tipo: 'Débito',
+      atividade: 'Troca de caixa',
+      valor: registroDebito.valor,
+      observacao: registroDebito.obs
+    });
+    enviarParaWebhook({
+      origem: 'lancamento',
+      idTransacao: registroCredito.id,
+      idFuncionaria: registroCredito.usuario,
+      funcionaria: registroCredito.nome,
+      idTerminal: registroCredito.caixa,
+      idTerminalOrigem: terminalDe,
+      data: registroCredito.data,
+      hora: registroCredito.hora,
+      tipo: 'Crédito (recebido em troca de caixa)',
+      atividade: 'Troca de caixa',
+      valor: registroCredito.valor,
+      observacao: registroCredito.obs
+    });
+
+    document.getElementById('inp-valor').value='';
+    document.getElementById('inp-obs').value='';
+    msg.innerHTML = '<div class="msg-ok">Troca entre caixas registrada com sucesso.</div>';
+    setTimeout(()=>{msg.innerHTML='';}, 2500);
+    await atualizarTudo();
+    return;
+  }
+
+  // ---- Fluxo normal: Saídas hoje ou Débitos (Produtos / Troco) ----
+  const caixa = document.getElementById('inp-caixa').value;
+  if(!caixa){
+    msg.innerHTML = '<div class="msg-erro">Informe o terminal.</div>';
     return;
   }
 
@@ -1162,6 +1324,8 @@ async function registrarLancamento(){
     clienteNome = c ? c.nome : '';
   }
 
+  const atividadeFinal = TIPO_SELECIONADO === 'Saida' ? atividade : atividadeDebito;
+
   const registros = await carregarRegistros();
   const novoRegistro = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
@@ -1171,7 +1335,7 @@ async function registrarLancamento(){
     hora: horaAgora(),
     caixa: caixa,
     tipo: TIPO_SELECIONADO,
-    atividade: atividade,
+    atividade: atividadeFinal,
     clienteId: clienteId,
     clienteNome: clienteNome,
     valor: valor,
@@ -1189,7 +1353,7 @@ async function registrarLancamento(){
     idTerminal: novoRegistro.caixa,
     data: novoRegistro.data,
     hora: novoRegistro.hora,
-    tipo: novoRegistro.tipo === 'Saida' ? 'Saída' : 'Troca entre caixas',
+    tipo: novoRegistro.tipo === 'Saida' ? 'Saída' : 'Débito',
     atividade: novoRegistro.atividade,
     idCliente: novoRegistro.clienteId,
     cliente: novoRegistro.clienteNome,
@@ -1801,9 +1965,9 @@ async function atualizarTudo(){
     lista.innerHTML = meusPeriodo.map(r => {
       const badgeClasse = r.tipo==='Saida' ? 'badge-saida' : 'badge-troco';
       const valorClasse = r.tipo==='Saida' ? 'saida' : 'troco';
-      const rotuloTipo = r.tipo==='Saida' ? 'Saída' : 'Troca';
+      const rotuloTipo = r.tipo==='Saida' ? 'Saída' : 'Débito';
       const sinal = r.tipo==='Troco' ? '- ' : '';
-      const detalheAtividade = r.tipo==='Saida' && r.atividade ? r.atividade : '';
+      const detalheAtividade = r.atividade ? r.atividade : '';
       const detalheCliente = r.clienteNome ? ('Cliente: '+r.clienteNome) : '';
       const detalheData = r.data.split('-').reverse().join('/');
       const detalhe = [detalheAtividade, detalheCliente, r.obs].filter(Boolean).map(escaparHtml).join(' · ');
@@ -1897,7 +2061,7 @@ async function atualizarPainelGeral(){
   cont.innerHTML = `<div class="tabela-historico-dias"><table>
     <thead><tr>
       <th>Funcionário(a)</th>
-      <th>a) Saídas</th><th>b) Troca</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+      <th>a) Saídas</th><th>b) Débitos</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
       <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
     </tr></thead>
     <tbody>
@@ -1953,7 +2117,7 @@ async function consultarHistoricoDias(){
           <td>${escaparHtml(r.nome)}</td>
           <td>${escaparHtml(r.caixa)}</td>
           <td>${r.hora}</td>
-          <td>${r.tipo==='Saida' ? 'Saída' : 'Troca'}</td>
+          <td>${r.tipo==='Saida' ? 'Saída' : 'Débito'}</td>
           <td>${escaparHtml(r.atividade || '—')}</td>
           <td>${escaparHtml(r.clienteNome || '—')}</td>
           <td style="font-weight:700;">${formatarMoeda(r.valor)}</td>
@@ -2083,7 +2247,7 @@ async function consultarPainelAdmin(){
       <div class="tabela-historico-dias" style="margin-bottom:6px;"><table>
         <thead><tr>
           <th>Funcionária</th><th>Terminal</th>
-          <th>a) Saídas</th><th>b) Troca</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+          <th>a) Saídas</th><th>b) Débitos</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
           <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
         </tr></thead>
         <tbody>
@@ -2211,7 +2375,7 @@ async function exportarExcel(){
     'ID Terminal': r.caixa,
     'Data': r.data,
     'Hora': r.hora,
-    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Troca entre caixas',
+    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Débito',
     'Atividade': r.atividade || '',
     'ID Cliente (Fiado)': r.clienteId || '',
     'Cliente (Fiado)': r.clienteNome || '',
@@ -2304,7 +2468,7 @@ async function exportarExcelPeriodoAdmin(){
     'ID Terminal': r.caixa,
     'Data': r.data,
     'Hora': r.hora,
-    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Troca entre caixas',
+    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Débito',
     'Atividade': r.atividade || '',
     'ID Cliente (Fiado)': r.clienteId || '',
     'Cliente (Fiado)': r.clienteNome || '',
