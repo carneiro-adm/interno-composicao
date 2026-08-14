@@ -473,20 +473,20 @@
         <div class="campo" id="campo-atividade">
           <label>Tipo de atividade</label>
           <select id="sel-atividade" onchange="atualizarCampoClienteFiado()">
-            <option value="Fiado">Fiado</option>
-            <option value="Notas">Notas</option>
-            <option value="Prêmios">Prêmios</option>
-            <option value="Market Place">Market Place</option>
             <option value="Brindes/Descontos">Brindes/Descontos</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Conta Loja">Conta Loja</option>
+            <option value="Depósito 003">Depósito 003</option>
             <option value="Envio cofre antes do carro forte">Envio cofre antes do carro forte</option>
             <option value="Envio cofre depois do carro forte">Envio cofre depois do carro forte</option>
+            <option value="Fiado">Fiado</option>
+            <option value="Market Place">Market Place</option>
+            <option value="Notas">Notas</option>
             <option value="Pix fora terminal">Pix fora terminal</option>
-            <option value="Conta Loja">Conta Loja</option>
-            <option value="Rede">Rede</option>
-            <option value="Cheque">Cheque</option>
-            <option value="Depósito 003">Depósito 003</option>
-            <option value="Troca Telesena">Troca Telesena</option>
+            <option value="Prêmios">Prêmios</option>
             <option value="Raspadinha premiada">Raspadinha premiada</option>
+            <option value="Rede">Rede</option>
+            <option value="Troca Telesena">Troca Telesena</option>
             <option value="Outros">Outros</option>
           </select>
         </div>
@@ -494,8 +494,6 @@
           <label>Tipo de atividade</label>
           <select id="sel-atividade-debito" onchange="atualizarCampoTrocaTerminal()">
             <option value="Troca de caixa">Troca de caixa</option>
-            <option value="Produtos">Produtos</option>
-            <option value="Troco">Troco</option>
           </select>
         </div>
         <div class="campo oculto" id="campo-cliente-fiado">
@@ -554,6 +552,23 @@
         <div class="historico-linha-filtro">
           <div class="campo"><label>De</label><input type="date" id="filtro-hist-inicio" onchange="atualizarTudo()"></div>
           <div class="campo"><label>Até</label><input type="date" id="filtro-hist-fim" onchange="atualizarTudo()"></div>
+        </div>
+        <div class="historico-linha-filtro oculto" id="filtro-hist-admin-extra">
+          <div class="campo">
+            <label>Funcionária</label>
+            <select id="filtro-hist-usuario" onchange="atualizarTudo()"><option value="">Todas</option></select>
+          </div>
+          <div class="campo">
+            <label>Terminal</label>
+            <select id="filtro-hist-terminal" onchange="atualizarTudo()">
+              <option value="">Todos</option>
+              <option value="9943">9943</option>
+              <option value="9944">9944</option>
+              <option value="9945">9945</option>
+              <option value="0000">0000 - Gerente</option>
+              <option value="0001">0001 - Bilhetes</option>
+            </select>
+          </div>
         </div>
         <div id="lista-historico"><div class="vazio">Nenhum lançamento registrado neste período.</div></div>
       </div>
@@ -646,6 +661,33 @@
 
         <button class="btn-primario" id="btn-registrar-fechamento" onclick="registrarFechamento()">Registrar Fechamento Caixa</button>
         <div id="fechamento-msg"></div>
+      </div>
+
+      <div class="painel oculto" id="painel-fechamentos-admin">
+        <h3>Fechamentos registrados</h3>
+        <div class="historico-linha-filtro">
+          <div class="campo"><label>De</label><input type="date" id="fech-admin-inicio"></div>
+          <div class="campo"><label>Até</label><input type="date" id="fech-admin-fim"></div>
+        </div>
+        <div class="historico-linha-filtro">
+          <div class="campo">
+            <label>Funcionária</label>
+            <select id="fech-admin-usuario"><option value="">Todas</option></select>
+          </div>
+          <div class="campo">
+            <label>Terminal</label>
+            <select id="fech-admin-terminal">
+              <option value="">Todos</option>
+              <option value="9943">9943</option>
+              <option value="9944">9944</option>
+              <option value="9945">9945</option>
+              <option value="0000">0000 - Gerente</option>
+              <option value="0001">0001 - Bilhetes</option>
+            </select>
+          </div>
+          <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="consultarFechamentosAdmin()">Consultar</button>
+        </div>
+        <div id="resultado-fechamentos-admin"><div class="vazio">Escolha o período e clique em Consultar.</div></div>
       </div>
     </div>
 
@@ -1203,6 +1245,10 @@ async function trocarTerminalDia(){
 
 async function entrarNoApp(achado){
   USUARIO_LOGADO = achado;
+  const souAdmin = achado.admin === true || achado.gerencia === true || achado.usuario === 'admin';
+  EH_ADMIN = souAdmin;
+  EH_GERENCIA = achado.gerencia === true;
+
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('tela-app').classList.remove('oculto');
   document.getElementById('nome-usuario-topo').textContent = achado.nome;
@@ -1211,30 +1257,41 @@ async function entrarNoApp(achado){
   trocarAba('lancamentos');
   selecionarTipo('Saida');
   montarComposicaoLista();
+  montarOpcoesAtividadeDebito();
   document.getElementById('exibicao-terminal-lancamento').textContent = TERMINAL_DO_DIA;
   document.getElementById('exibicao-terminal-fechamento').textContent = TERMINAL_DO_DIA;
   await carregarFechamentoExistente();
   await carregarConfigIntegracao();
   await popularSelectClientes();
-  await atualizarTudo();
 
-  const souAdmin = achado.admin === true || achado.gerencia === true || achado.usuario === 'admin';
-  EH_ADMIN = souAdmin;
-  EH_GERENCIA = achado.gerencia === true;
+  const hoje = hojeISO();
+  const opcoesUsuarios = '<option value="">Todas</option>' + TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
+
   if(souAdmin){
     document.getElementById('nav-admin').classList.remove('oculto');
     document.getElementById('nav-gestaofiado').classList.remove('oculto');
-    const hoje = hojeISO();
     document.getElementById('admin-data-inicio').value = hoje;
     document.getElementById('admin-data-fim').value = hoje;
     document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
       TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
     await consultarPainelAdmin();
+
+    document.getElementById('filtro-hist-admin-extra').classList.remove('oculto');
+    document.getElementById('filtro-hist-usuario').innerHTML = opcoesUsuarios;
+
+    document.getElementById('painel-fechamentos-admin').classList.remove('oculto');
+    document.getElementById('fech-admin-usuario').innerHTML = opcoesUsuarios;
+    document.getElementById('fech-admin-inicio').value = hoje;
+    document.getElementById('fech-admin-fim').value = hoje;
+    await consultarFechamentosAdmin();
   }else{
     document.getElementById('nav-admin').classList.add('oculto');
     document.getElementById('nav-gestaofiado').classList.add('oculto');
+    document.getElementById('filtro-hist-admin-extra').classList.add('oculto');
+    document.getElementById('painel-fechamentos-admin').classList.add('oculto');
   }
 
+  await atualizarTudo();
   INTERVALO_SYNC = setInterval(atualizarTudo, 5000);
 }
 
@@ -1276,11 +1333,22 @@ function selecionarTipo(tipo){
   atualizarCampoClienteFiado();
 }
 
+function montarOpcoesAtividadeDebito(){
+  const sel = document.getElementById('sel-atividade-debito');
+  let opcoes = '<option value="Troca de caixa">Troca de caixa</option>';
+  if(EH_GERENCIA){
+    opcoes += '<option value="Produtos">Produtos</option>';
+    opcoes += '<option value="Troco">Troco</option>';
+  }
+  const valorAtual = sel.value;
+  sel.innerHTML = opcoes;
+  if(sel.querySelector('option[value="'+valorAtual+'"]')) sel.value = valorAtual;
+}
+
 function atualizarCampoTrocaTerminal(){
-  const atividadeDebito = document.getElementById('sel-atividade-debito').value;
   const campoTerminalNormal = document.getElementById('campo-terminal-normal');
   const campoTrocaTerminais = document.getElementById('campo-troca-terminais');
-  if(TIPO_SELECIONADO === 'Troco' && atividadeDebito === 'Troca de caixa'){
+  if(TIPO_SELECIONADO === 'Troco'){
     campoTerminalNormal.classList.add('oculto');
     campoTrocaTerminais.classList.remove('oculto');
   }else{
@@ -1301,8 +1369,8 @@ async function registrarLancamento(){
     return;
   }
 
-  // ---- Débitos > Troca de caixa: gera 2 lançamentos (débito na origem, crédito no destino) ----
-  if(TIPO_SELECIONADO === 'Troco' && atividadeDebito === 'Troca de caixa'){
+  // ---- Débitos (Troca de caixa / Produtos / Troco): gera 2 lançamentos (débito na origem, crédito no destino) ----
+  if(TIPO_SELECIONADO === 'Troco'){
     const terminalDe = TERMINAL_DO_DIA;
     const terminalPara = document.getElementById('sel-terminal-para').value;
 
@@ -1323,7 +1391,7 @@ async function registrarLancamento(){
       return;
     }
 
-    const descricao = 'Troca entre caixas de ' + terminalDe + ' para ' + terminalPara;
+    const descricao = atividadeDebito + ' de ' + terminalDe + ' para ' + terminalPara;
     const obsCompleta = obs ? (descricao + ' · ' + obs) : descricao;
     const registros = await carregarRegistros();
     const agora = Date.now();
@@ -1338,7 +1406,7 @@ async function registrarLancamento(){
       hora: horaAgora(),
       caixa: terminalDe,
       tipo: 'Troco',
-      atividade: 'Troca de caixa',
+      atividade: atividadeDebito,
       clienteId: '',
       clienteNome: '',
       valor: valor,
@@ -1356,7 +1424,7 @@ async function registrarLancamento(){
       hora: horaAgora(),
       caixa: terminalPara,
       tipo: 'Saida',
-      atividade: 'Troca de caixa',
+      atividade: atividadeDebito,
       clienteId: '',
       clienteNome: '',
       valor: valor,
@@ -1378,7 +1446,7 @@ async function registrarLancamento(){
       data: registroDebito.data,
       hora: registroDebito.hora,
       tipo: 'Débito',
-      atividade: 'Troca de caixa',
+      atividade: atividadeDebito,
       valor: registroDebito.valor,
       observacao: registroDebito.obs
     });
@@ -1392,21 +1460,21 @@ async function registrarLancamento(){
       idTerminalOrigem: terminalDe,
       data: registroCredito.data,
       hora: registroCredito.hora,
-      tipo: 'Crédito (recebido em troca de caixa)',
-      atividade: 'Troca de caixa',
+      tipo: 'Crédito (recebido em ' + atividadeDebito.toLowerCase() + ')',
+      atividade: atividadeDebito,
       valor: registroCredito.valor,
       observacao: registroCredito.obs
     });
 
     document.getElementById('inp-valor').value='';
     document.getElementById('inp-obs').value='';
-    msg.innerHTML = '<div class="msg-ok">Troca entre caixas registrada com sucesso.</div>';
+    msg.innerHTML = '<div class="msg-ok">'+atividadeDebito+' registrado(a) com sucesso.</div>';
     setTimeout(()=>{msg.innerHTML='';}, 2500);
     await atualizarTudo();
     return;
   }
 
-  // ---- Fluxo normal: Saídas hoje ou Débitos (Produtos / Troco) ----
+  // ---- Fluxo normal: Saídas hoje ----
   const caixa = TERMINAL_DO_DIA;
   if(!caixa){
     msg.innerHTML = '<div class="msg-erro">Terminal do dia não identificado. Saia e faça login novamente.</div>';
@@ -2027,6 +2095,50 @@ async function registrarFechamento(){
   setTimeout(()=>{msg.innerHTML='';}, 2500);
 
   await carregarFechamentoExistente();
+  if(EH_ADMIN) await consultarFechamentosAdmin();
+}
+
+async function consultarFechamentosAdmin(){
+  if(!EH_ADMIN) return;
+  const dataIni = document.getElementById('fech-admin-inicio').value;
+  const dataFim = document.getElementById('fech-admin-fim').value;
+  const filtroUsuario = document.getElementById('fech-admin-usuario').value;
+  const filtroTerminal = document.getElementById('fech-admin-terminal').value;
+  const cont = document.getElementById('resultado-fechamentos-admin');
+
+  if(!dataIni || !dataFim){
+    cont.innerHTML = '<div class="vazio">Escolha o período e clique em Consultar.</div>';
+    return;
+  }
+
+  let fechamentos = (await carregarFechamentos()).filter(f => f.data >= dataIni && f.data <= dataFim);
+  if(filtroUsuario) fechamentos = fechamentos.filter(f => f.usuario === filtroUsuario);
+  if(filtroTerminal) fechamentos = fechamentos.filter(f => f.terminal === filtroTerminal);
+  fechamentos.sort((a,b) => b.timestamp - a.timestamp);
+
+  if(fechamentos.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum fechamento encontrado para este filtro.</div>';
+    return;
+  }
+
+  cont.innerHTML = `<div class="tabela-historico-dias"><table>
+    <thead><tr>
+      <th>Data</th><th>Hora</th><th>Funcionária</th><th>Terminal</th>
+      <th>c) Troco</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+    </tr></thead>
+    <tbody>
+      ${fechamentos.map(f => `<tr>
+        <td>${f.data.split('-').reverse().join('/')}</td>
+        <td>${f.hora}</td>
+        <td>${escaparHtml(f.nome)}</td>
+        <td>${escaparHtml(f.terminal)}</td>
+        <td>${formatarMoeda(f.c||0)}</td>
+        <td>${formatarMoeda(f.d!=null?f.d:(f.total||0))}</td>
+        <td>${formatarMoeda(f.e||0)}</td>
+        <td>${formatarMoeda(f.f||0)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
 }
 
 // ---------- Atualização de telas ----------
@@ -2056,8 +2168,14 @@ async function atualizarTudo(){
   const periodoInicio = inpInicio && inpInicio.value ? inpInicio.value : hoje;
   const periodoFim = inpFim && inpFim.value ? inpFim.value : hoje;
 
-  const meusPeriodo = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.data >= periodoInicio && r.data <= periodoFim)
-                                .sort((a,b) => b.timestamp - a.timestamp);
+  const meusPeriodo = (EH_ADMIN ? (() => {
+    const filtroUsuario = document.getElementById('filtro-hist-usuario')?.value || '';
+    const filtroTerminal = document.getElementById('filtro-hist-terminal')?.value || '';
+    return registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
+      && (!filtroUsuario || r.usuario === filtroUsuario)
+      && (!filtroTerminal || r.caixa === filtroTerminal));
+  })() : registros.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.data >= periodoInicio && r.data <= periodoFim)
+  ).sort((a,b) => b.timestamp - a.timestamp);
 
   const lista = document.getElementById('lista-historico');
   if(meusPeriodo.length === 0){
@@ -2071,6 +2189,7 @@ async function atualizarTudo(){
       const detalheAtividade = r.atividade ? r.atividade : '';
       const detalheCliente = r.clienteNome ? ('Cliente: '+r.clienteNome) : '';
       const detalheData = r.data.split('-').reverse().join('/');
+      const detalheAdmin = EH_ADMIN ? (escaparHtml(r.nome) + ' · Terminal ' + escaparHtml(r.caixa)) : '';
       const detalhe = [detalheAtividade, detalheCliente, r.obs].filter(Boolean).map(escaparHtml).join(' · ');
       const classeItem = r.excluido ? 'historico-item excluido' : 'historico-item';
       const botaoLabel = r.excluido ? '↺' : '✕';
@@ -2080,6 +2199,7 @@ async function atualizarTudo(){
         <div class="hist-esq">
           <span class="badge ${badgeClasse}">${rotuloTipo}</span>
           <div class="hist-info">
+            ${detalheAdmin ? `<div class="caixa">${detalheAdmin}</div>` : ''}
             <div class="caixa">${detalhe || '&nbsp;'}</div>
             <div class="hora">${detalheData} · ${r.hora}</div>
           </div>
