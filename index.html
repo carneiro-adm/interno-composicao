@@ -802,6 +802,70 @@
       </div>
     </div>
 
+    <!-- ===== ABA: DASHBOARD (visão consolidada, admin/gerência) ===== -->
+    <div class="aba-conteudo oculto" id="aba-dashboard">
+      <div class="painel">
+        <h3>Dashboard</h3>
+        <p class="aviso-fechamento">Visão consolidada de todos os lançamentos (Saídas e Débitos) de todos os perfis.</p>
+        <div class="historico-linha-filtro">
+          <div class="campo"><label>De</label><input type="date" id="dash-data-inicio"></div>
+          <div class="campo"><label>Até</label><input type="date" id="dash-data-fim"></div>
+        </div>
+        <div class="historico-linha-filtro">
+          <div class="campo">
+            <label>Terminal</label>
+            <select id="dash-terminal">
+              <option value="">Todos</option>
+              <option value="9943">9943</option>
+              <option value="9944">9944</option>
+              <option value="9945">9945</option>
+              <option value="0000">0000 - Gerente</option>
+              <option value="0001">0001 - Bilhetes</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Tipo de lançamento</label>
+            <select id="dash-tipo">
+              <option value="">Todos</option>
+              <option value="Saida">Saídas</option>
+              <option value="Troco">Débitos</option>
+            </select>
+          </div>
+          <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="atualizarDashboard()">Consultar</button>
+        </div>
+      </div>
+
+      <div class="subtotal-wrap">
+        <div class="subtotal-card venda"><div class="rotulo">Total Saídas</div><div class="valor" id="dash-total-saidas">R$ 0,00</div></div>
+        <div class="subtotal-card estorno"><div class="rotulo">Total Débitos</div><div class="valor" id="dash-total-debitos">R$ 0,00</div></div>
+        <div class="subtotal-card saldo"><div class="rotulo">Saldo</div><div class="valor" id="dash-saldo">R$ 0,00</div></div>
+      </div>
+
+      <div class="painel">
+        <h3>Lançamentos por dia</h3>
+        <div class="legenda-grafico">
+          <span class="legenda-item"><span class="ponto-legenda" style="background:var(--verde-venda);"></span> Saídas</span>
+          <span class="legenda-item"><span class="ponto-legenda" style="background:var(--vermelho-estorno);"></span> Débitos</span>
+        </div>
+        <div class="grafico-fiado-wrap" id="dash-grafico-dia"><div class="vazio">Escolha o período e clique em Consultar.</div></div>
+      </div>
+
+      <div class="painel">
+        <h3>Por terminal</h3>
+        <div class="tabela-historico-dias" id="dash-tabela-terminal"><div class="vazio">Nenhum dado no período.</div></div>
+      </div>
+
+      <div class="painel">
+        <h3>Por funcionária</h3>
+        <div class="tabela-historico-dias" id="dash-tabela-funcionaria"><div class="vazio">Nenhum dado no período.</div></div>
+      </div>
+
+      <div class="painel">
+        <h3>Por tipo de atividade</h3>
+        <div class="tabela-historico-dias" id="dash-tabela-atividade"><div class="vazio">Nenhum dado no período.</div></div>
+      </div>
+    </div>
+
     <!-- ===== ABA: GERÊNCIA (exclusivo perfil Gerência) ===== -->
     <div class="aba-conteudo oculto" id="aba-gerencia">
       <div class="painel">
@@ -987,6 +1051,7 @@
     <button class="nav-btn oculto" id="nav-gestaofiado" data-aba="gestaofiado" onclick="abrirGestaoFiado()"><span class="icone">💳</span><span>Fiado</span></button>
     <button class="nav-btn" data-aba="historico" onclick="trocarAba('historico')"><span class="icone">📅</span><span>Histórico</span></button>
     <button class="nav-btn" data-aba="geral" onclick="abrirAbaGeral()"><span class="icone">👥</span><span>Geral</span></button>
+    <button class="nav-btn oculto" id="nav-dashboard" data-aba="dashboard" onclick="abrirDashboard()"><span class="icone">📊</span><span>Dashboard</span></button>
     <button class="nav-btn oculto" id="nav-gerencia" data-aba="gerencia" onclick="trocarAba('gerencia')"><span class="icone">🏢</span><span>Gerência</span></button>
     <button class="nav-btn oculto" id="nav-admin" data-aba="admin" onclick="trocarAba('admin')"><span class="icone">⚙️</span><span>Admin</span></button>
   </nav>
@@ -1411,6 +1476,7 @@ async function entrarNoApp(achado){
   if(souAdmin){
     document.getElementById('nav-admin').classList.remove('oculto');
     document.getElementById('nav-gestaofiado').classList.remove('oculto');
+    document.getElementById('nav-dashboard').classList.remove('oculto');
     document.getElementById('admin-data-inicio').value = hoje;
     document.getElementById('admin-data-fim').value = hoje;
     document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
@@ -1428,6 +1494,7 @@ async function entrarNoApp(achado){
   }else{
     document.getElementById('nav-admin').classList.add('oculto');
     document.getElementById('nav-gestaofiado').classList.add('oculto');
+    document.getElementById('nav-dashboard').classList.add('oculto');
     document.getElementById('filtro-hist-admin-extra').classList.add('oculto');
     document.getElementById('painel-fechamentos-admin').classList.add('oculto');
   }
@@ -1456,6 +1523,7 @@ function sair(){
   document.getElementById('tela-login').classList.remove('oculto');
   document.getElementById('nav-admin').classList.add('oculto');
   document.getElementById('nav-gestaofiado').classList.add('oculto');
+  document.getElementById('nav-dashboard').classList.add('oculto');
   document.getElementById('nav-gerencia').classList.add('oculto');
   document.getElementById('inp-senha').value='';
   document.getElementById('sel-usuario').value='';
@@ -2077,6 +2145,133 @@ async function renderizarGraficoFiado(){
       <div class="grafico-data-label">${labelData}</div>
     </div>`;
   }).join('');
+}
+
+// ---------- Dashboard (visão consolidada, admin/gerência) ----------
+async function abrirDashboard(){
+  if(!EH_ADMIN) return;
+  trocarAba('dashboard');
+  const hoje = hojeISO();
+  const inicioEl = document.getElementById('dash-data-inicio');
+  const fimEl = document.getElementById('dash-data-fim');
+  if(!inicioEl.value){
+    const d = new Date(hoje+'T00:00:00');
+    d.setDate(d.getDate()-6);
+    inicioEl.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  if(!fimEl.value) fimEl.value = hoje;
+  await atualizarDashboard();
+}
+
+async function atualizarDashboard(){
+  if(!EH_ADMIN) return;
+  const dataIni = document.getElementById('dash-data-inicio').value;
+  const dataFim = document.getElementById('dash-data-fim').value;
+  const filtroTerminal = document.getElementById('dash-terminal').value;
+  const filtroTipo = document.getElementById('dash-tipo').value;
+  if(!dataIni || !dataFim) return;
+
+  let registros = (await carregarRegistros()).filter(r => !r.excluido && r.data >= dataIni && r.data <= dataFim);
+  if(filtroTerminal) registros = registros.filter(r => r.caixa === filtroTerminal);
+  if(filtroTipo) registros = registros.filter(r => r.tipo === filtroTipo);
+
+  const totalSaidas = registros.filter(r => r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
+  const totalDebitos = registros.filter(r => r.tipo==='Troco').reduce((s,r)=>s+r.valor,0);
+  document.getElementById('dash-total-saidas').textContent = formatarMoeda(totalSaidas);
+  document.getElementById('dash-total-debitos').textContent = formatarMoeda(totalDebitos);
+  document.getElementById('dash-saldo').textContent = formatarMoeda(totalSaidas - totalDebitos);
+
+  // ---- Gráfico por dia ----
+  const dias = [];
+  let cursor = new Date(dataIni+'T00:00:00');
+  const fimData = new Date(dataFim+'T00:00:00');
+  while(cursor <= fimData && dias.length < 62){
+    const iso = cursor.getFullYear()+'-'+String(cursor.getMonth()+1).padStart(2,'0')+'-'+String(cursor.getDate()).padStart(2,'0');
+    dias.push(iso);
+    cursor.setDate(cursor.getDate()+1);
+  }
+  const porDia = dias.map(d => ({
+    data: d,
+    saidas: registros.filter(r => r.data===d && r.tipo==='Saida').reduce((s,r)=>s+r.valor,0),
+    debitos: registros.filter(r => r.data===d && r.tipo==='Troco').reduce((s,r)=>s+r.valor,0)
+  }));
+  const contGrafico = document.getElementById('dash-grafico-dia');
+  if(porDia.every(d => d.saidas===0 && d.debitos===0)){
+    contGrafico.innerHTML = '<div class="vazio">Nenhum lançamento neste período.</div>';
+  }else{
+    const maxValor = Math.max(1, ...porDia.map(d => Math.max(d.saidas, d.debitos)));
+    contGrafico.innerHTML = porDia.map(d => {
+      const alturaDebitos = d.debitos > 0 ? Math.max(3, Math.round((d.debitos/maxValor)*160)) : 0;
+      const alturaSaidas = d.saidas > 0 ? Math.max(3, Math.round((d.saidas/maxValor)*160)) : 0;
+      const labelData = d.data.split('-').slice(1).reverse().join('/');
+      return `<div class="grafico-dia">
+        <div class="grafico-barras">
+          <div class="grafico-barra" style="height:${alturaDebitos}px;background:var(--vermelho-estorno);">${d.debitos>0?`<span class="grafico-valor">${formatarMoedaCompacta(d.debitos)}</span>`:''}</div>
+          <div class="grafico-barra" style="height:${alturaSaidas}px;background:var(--verde-venda);">${d.saidas>0?`<span class="grafico-valor">${formatarMoedaCompacta(d.saidas)}</span>`:''}</div>
+        </div>
+        <div class="grafico-data-label">${labelData}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ---- Por terminal ----
+  const porTerminal = {};
+  registros.forEach(r => {
+    if(!porTerminal[r.caixa]) porTerminal[r.caixa] = {terminal:r.caixa, saidas:0, debitos:0, qtd:0};
+    if(r.tipo==='Saida') porTerminal[r.caixa].saidas += r.valor; else porTerminal[r.caixa].debitos += r.valor;
+    porTerminal[r.caixa].qtd++;
+  });
+  const linhasTerminal = Object.values(porTerminal).sort((a,b) => a.terminal.localeCompare(b.terminal));
+  const contTerminal = document.getElementById('dash-tabela-terminal');
+  contTerminal.innerHTML = linhasTerminal.length === 0 ? '<div class="vazio">Nenhum dado no período.</div>' : `<table>
+    <thead><tr><th>Terminal</th><th>Saídas</th><th>Débitos</th><th>Saldo</th><th>Qtd</th></tr></thead>
+    <tbody>${linhasTerminal.map(t => `<tr>
+      <td>${escaparHtml(t.terminal)}</td>
+      <td style="color:var(--verde-venda);">${formatarMoeda(t.saidas)}</td>
+      <td style="color:var(--vermelho-estorno);">${formatarMoeda(t.debitos)}</td>
+      <td style="font-weight:700;">${formatarMoeda(t.saidas - t.debitos)}</td>
+      <td>${t.qtd}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+
+  // ---- Por funcionária ----
+  const porFuncionaria = {};
+  registros.forEach(r => {
+    if(!porFuncionaria[r.nome]) porFuncionaria[r.nome] = {nome:r.nome, saidas:0, debitos:0, qtd:0};
+    if(r.tipo==='Saida') porFuncionaria[r.nome].saidas += r.valor; else porFuncionaria[r.nome].debitos += r.valor;
+    porFuncionaria[r.nome].qtd++;
+  });
+  const linhasFuncionaria = Object.values(porFuncionaria).sort((a,b) => a.nome.localeCompare(b.nome));
+  const contFuncionaria = document.getElementById('dash-tabela-funcionaria');
+  contFuncionaria.innerHTML = linhasFuncionaria.length === 0 ? '<div class="vazio">Nenhum dado no período.</div>' : `<table>
+    <thead><tr><th>Funcionária</th><th>Saídas</th><th>Débitos</th><th>Saldo</th><th>Qtd</th></tr></thead>
+    <tbody>${linhasFuncionaria.map(f => `<tr>
+      <td>${escaparHtml(f.nome)}</td>
+      <td style="color:var(--verde-venda);">${formatarMoeda(f.saidas)}</td>
+      <td style="color:var(--vermelho-estorno);">${formatarMoeda(f.debitos)}</td>
+      <td style="font-weight:700;">${formatarMoeda(f.saidas - f.debitos)}</td>
+      <td>${f.qtd}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+
+  // ---- Por tipo de atividade ----
+  const porAtividade = {};
+  registros.forEach(r => {
+    const chave = r.atividade || '(sem atividade)';
+    if(!porAtividade[chave]) porAtividade[chave] = {atividade:chave, total:0, qtd:0};
+    porAtividade[chave].total += r.valor;
+    porAtividade[chave].qtd++;
+  });
+  const linhasAtividade = Object.values(porAtividade).sort((a,b) => b.total - a.total);
+  const contAtividade = document.getElementById('dash-tabela-atividade');
+  contAtividade.innerHTML = linhasAtividade.length === 0 ? '<div class="vazio">Nenhum dado no período.</div>' : `<table>
+    <thead><tr><th>Atividade</th><th>Total</th><th>Qtd</th></tr></thead>
+    <tbody>${linhasAtividade.map(a => `<tr>
+      <td>${escaparHtml(a.atividade)}</td>
+      <td style="font-weight:700;">${formatarMoeda(a.total)}</td>
+      <td>${a.qtd}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
 }
 
 // ---------- Fechamento de caixa / Composição final ----------
