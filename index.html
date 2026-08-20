@@ -924,15 +924,16 @@
       </div>
 
       <div class="painel">
-        <h3>Finais</h3>
-        <div class="campo" style="margin-bottom:0;">
-          <label>Valor (R$)</label>
-          <input type="number" id="inp-finais" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+        <h3>Troca Telesena gerencial</h3>
+        <p class="aviso-fechamento">Soma de "Troca Telesena" de todos os lançamentos, em todos os terminais, hoje.</p>
+        <div class="composicao-total" style="width:100%;align-items:flex-start;">
+          <span class="rotulo">Troca Telesena gerencial</span>
+          <span class="valor" id="troca-telesena-gerencial">R$ 0,00</span>
         </div>
       </div>
 
       <div class="painel">
-        <h3>Quina Especial</h3>
+        <h3>Bolões especiais</h3>
         <div class="campo" style="margin-bottom:0;">
           <label>Valor (R$)</label>
           <input type="number" id="inp-quina-especial" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
@@ -2602,6 +2603,18 @@ async function calcularCaixaGerencial(){
   return totalGeral;
 }
 
+async function calcularTrocaTelesenaGerencial(){
+  const el = document.getElementById('troca-telesena-gerencial');
+  if(!el) return;
+  const hoje = hojeISO();
+  const registros = await carregarRegistros();
+  const total = registros
+    .filter(r => r.data===hoje && r.tipo==='Saida' && r.atividade==='Troca Telesena' && !r.excluido)
+    .reduce((s,r) => s+r.valor, 0);
+  el.textContent = formatarMoeda(total);
+  return total;
+}
+
 async function calcularSaldosClientes(){
   const clientes = await carregarClientes();
   const registros = await carregarRegistros();
@@ -2644,7 +2657,6 @@ async function carregarComposicaoGerenciaExistente(){
       const item = existente.trocoCofreDenominacoes ? existente.trocoCofreDenominacoes.find(x => x.valor===v) : null;
       document.getElementById('cofre-qtd-'+id).value = item ? item.qtd : 0;
     });
-    document.getElementById('inp-finais').value = existente.finais || 0;
     document.getElementById('inp-quina-especial').value = existente.quinaEspecial || 0;
     document.getElementById('inp-gaveta').value = existente.gaveta || 0;
     calcularEstoqueGerencia();
@@ -2655,7 +2667,6 @@ async function carregarComposicaoGerenciaExistente(){
     PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('estoque-qtd-'+p.id).value = 0; });
     document.getElementById('inp-vitrine-raspadinha').value = 0;
     DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('cofre-qtd-'+idDenom(v)).value = 0; });
-    document.getElementById('inp-finais').value = 0;
     document.getElementById('inp-quina-especial').value = 0;
     document.getElementById('inp-gaveta').value = 0;
     calcularEstoqueGerencia();
@@ -2666,6 +2677,7 @@ async function carregarComposicaoGerenciaExistente(){
 
   await calcularCaixaGerencial();
   await atualizarFiadoTotalGerencia();
+  await calcularTrocaTelesenaGerencial();
 }
 
 function montarObjetoComposicaoGerencia(idExistente){
@@ -2682,7 +2694,6 @@ function montarObjetoComposicaoGerencia(idExistente){
   });
   const trocoCofreTotal = trocoCofreDenominacoes.reduce((s,d) => s+d.subtotal, 0);
 
-  const finais = parseFloat(document.getElementById('inp-finais').value) || 0;
   const quinaEspecial = parseFloat(document.getElementById('inp-quina-especial').value) || 0;
   const gaveta = parseFloat(document.getElementById('inp-gaveta').value) || 0;
 
@@ -2694,7 +2705,7 @@ function montarObjetoComposicaoGerencia(idExistente){
     hora: horaAgora(),
     produtosEstoque, totalEstoque, vitrineRaspadinha,
     trocoCofreDenominacoes, trocoCofreTotal,
-    finais, quinaEspecial, gaveta,
+    quinaEspecial, gaveta,
     timestamp: Date.now()
   };
 }
@@ -2721,7 +2732,6 @@ async function registrarComposicaoGerencia(){
     totalEstoque: registro.totalEstoque,
     vitrineRaspadinha: registro.vitrineRaspadinha,
     trocoCofreTotal: registro.trocoCofreTotal,
-    finais: registro.finais,
     quinaEspecial: registro.quinaEspecial,
     gaveta: registro.gaveta,
     produtosEstoque: registro.produtosEstoque,
@@ -2906,6 +2916,7 @@ async function atualizarTudo(){
   if(EH_GERENCIA){
     await calcularCaixaGerencial();
     await atualizarFiadoTotalGerencia();
+    await calcularTrocaTelesenaGerencial();
   }
 }
 
@@ -3359,8 +3370,7 @@ async function exportarExcel(){
         'Total Estoque': c.totalEstoque,
         'Vitrine Raspadinha': c.vitrineRaspadinha || 0,
         'Troco no Cofre (total)': c.trocoCofreTotal || 0,
-        'Finais': c.finais || 0,
-        'Quina Especial': c.quinaEspecial || 0,
+        'Bolões especiais': c.quinaEspecial || 0,
         'Gaveta': c.gaveta || 0
       });
     });
@@ -3391,7 +3401,7 @@ async function exportarExcel(){
   const wsPagamentosFiado = XLSX.utils.json_to_sheet(linhasPagamentosFiado);
   aplicarFormatoMoedaColunas(wsPagamentosFiado, ['Valor pago']);
   const wsComposicaoGerencia = XLSX.utils.json_to_sheet(linhasComposicaoGerencia);
-  aplicarFormatoMoedaColunas(wsComposicaoGerencia, ['Valor unitário','Subtotal produto','Total Estoque','Vitrine Raspadinha','Troco no Cofre (total)','Finais','Quina Especial','Gaveta']);
+  aplicarFormatoMoedaColunas(wsComposicaoGerencia, ['Valor unitário','Subtotal produto','Total Estoque','Vitrine Raspadinha','Troco no Cofre (total)','Bolões especiais','Gaveta']);
   const wsTrocoCofre = XLSX.utils.json_to_sheet(linhasTrocoCofre);
   aplicarFormatoMoedaColunas(wsTrocoCofre, ['Subtotal','Total Troco Cofre']);
 
