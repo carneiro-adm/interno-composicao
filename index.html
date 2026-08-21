@@ -528,6 +528,10 @@
           <input type="number" id="inp-valor" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
         </div>
         <div class="campo">
+          <label>Data do lançamento</label>
+          <input type="date" id="inp-data-lancamento">
+        </div>
+        <div class="campo">
           <label>Observação</label>
           <input type="text" id="inp-obs" placeholder="ex: Cliente que recebeu desconto ou que fez o pix ou que fez fiado.">
         </div>
@@ -548,9 +552,13 @@
             <input type="number" id="inp-valor-pagamento-fiado" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
           </div>
           <div class="campo" style="margin-bottom:0;">
-            <label>Observação</label>
-            <input type="text" id="inp-obs-pagamento-fiado" placeholder="opcional">
+            <label>Data do pagamento</label>
+            <input type="date" id="inp-data-pagamento-fiado">
           </div>
+        </div>
+        <div class="campo">
+          <label>Observação</label>
+          <input type="text" id="inp-obs-pagamento-fiado" placeholder="opcional">
         </div>
         <button class="btn-primario" onclick="registrarPagamentoFiado()">Registrar Pagamento</button>
         <div id="pagamento-fiado-msg"></div>
@@ -613,6 +621,10 @@
         <div class="campo" id="campo-terminal-fechamento-fixo">
           <label>Terminal</label>
           <div class="terminal-fixo" id="exibicao-terminal-fechamento">—</div>
+        </div>
+        <div class="campo" id="campo-data-fechamento-normal">
+          <label>Data do fechamento</label>
+          <input type="date" id="fech-data-normal" onchange="carregarFechamentoExistente()">
         </div>
         <div id="fechamento-status"></div>
 
@@ -893,6 +905,10 @@
       <div class="painel">
         <h3>Estoque de produtos gerencial</h3>
         <p class="aviso-fechamento">Deve ser registrado uma vez por dia. Preencha a quantidade de cada produto — o valor é calculado automaticamente.</p>
+        <div class="campo">
+          <label>Data da composição</label>
+          <input type="date" id="inp-data-gerencia" onchange="carregarComposicaoGerenciaExistente()">
+        </div>
         <div id="composicao-gerencia-status"></div>
         <div class="composicao-header">
           <h4 style="margin:0;">Produtos em estoque</h4>
@@ -1527,17 +1543,23 @@ async function entrarNoApp(achado){
   montarOpcoesAtividadeDebito();
   document.getElementById('exibicao-terminal-lancamento').textContent = TERMINAL_DO_DIA;
   document.getElementById('exibicao-terminal-fechamento').textContent = TERMINAL_DO_DIA;
+  document.getElementById('inp-data-lancamento').value = hoje;
+  document.getElementById('inp-data-pagamento-fiado').value = hoje;
 
   if(EH_GERENCIA){
     document.getElementById('fechamento-filtro-gerencia').classList.remove('oculto');
     document.getElementById('campo-terminal-fechamento-fixo').classList.add('oculto');
+    document.getElementById('campo-data-fechamento-normal').classList.add('oculto');
     document.getElementById('fech-ger-terminal').value = TERMINAL_DO_DIA;
     document.getElementById('fech-ger-usuario').innerHTML = '<option value="">'+escaparHtml(achado.nome)+' (eu)</option>' +
       TODOS_USUARIOS.filter(u => u.usuario !== achado.usuario).map(u => `<option value="${u.usuario}">${escaparHtml(u.nome)}</option>`).join('');
     document.getElementById('fech-ger-data').value = hoje;
+    document.getElementById('inp-data-gerencia').value = hoje;
   }else{
     document.getElementById('fechamento-filtro-gerencia').classList.add('oculto');
     document.getElementById('campo-terminal-fechamento-fixo').classList.remove('oculto');
+    document.getElementById('campo-data-fechamento-normal').classList.remove('oculto');
+    document.getElementById('fech-data-normal').value = hoje;
   }
 
   await carregarFechamentoExistente();
@@ -1655,6 +1677,7 @@ async function registrarLancamento(){
   const obs = document.getElementById('inp-obs').value.trim();
   const atividade = TIPO_SELECIONADO === 'Saida' ? document.getElementById('sel-atividade').value : '';
   const atividadeDebito = TIPO_SELECIONADO === 'Troco' ? document.getElementById('sel-atividade-debito').value : '';
+  const dataLancamento = document.getElementById('inp-data-lancamento').value || hojeISO();
   const msg = document.getElementById('registro-msg');
 
   if(isNaN(valor) || valor <= 0){
@@ -1676,11 +1699,11 @@ async function registrarLancamento(){
       return;
     }
 
-    const hoje = hojeISO();
-    const funcPara = await obterFuncionarioDoTerminal(terminalPara, hoje);
+    const dataRegistro = dataLancamento;
+    const funcPara = await obterFuncionarioDoTerminal(terminalPara, dataRegistro);
 
     if(!funcPara){
-      msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalPara+' hoje. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
+      msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalPara+' nessa data. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
       return;
     }
 
@@ -1695,7 +1718,7 @@ async function registrarLancamento(){
       nome: USUARIO_LOGADO.nome,
       registradoPor: USUARIO_LOGADO.usuario,
       registradoPorNome: USUARIO_LOGADO.nome,
-      data: hoje,
+      data: dataRegistro,
       hora: horaAgora(),
       caixa: terminalDe,
       tipo: 'Troco',
@@ -1713,7 +1736,7 @@ async function registrarLancamento(){
       nome: funcPara.nome,
       registradoPor: USUARIO_LOGADO.usuario,
       registradoPorNome: USUARIO_LOGADO.nome,
-      data: hoje,
+      data: dataRegistro,
       hora: horaAgora(),
       caixa: terminalPara,
       tipo: 'Saida',
@@ -1793,7 +1816,7 @@ async function registrarLancamento(){
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
     usuario: USUARIO_LOGADO.usuario,
     nome: USUARIO_LOGADO.nome,
-    data: hojeISO(),
+    data: dataLancamento,
     hora: horaAgora(),
     caixa: caixa,
     tipo: TIPO_SELECIONADO,
@@ -2059,6 +2082,7 @@ async function registrarPagamentoFiado(){
   const clienteId = document.getElementById('sel-cliente-pagamento').value;
   const valor = parseFloat(document.getElementById('inp-valor-pagamento-fiado').value);
   const obs = document.getElementById('inp-obs-pagamento-fiado').value.trim();
+  const dataPagamento = document.getElementById('inp-data-pagamento-fiado').value || hojeISO();
   const msg = document.getElementById('pagamento-fiado-msg');
 
   if(!clienteId || isNaN(valor) || valor <= 0){
@@ -2078,7 +2102,7 @@ async function registrarPagamentoFiado(){
     obs: obs,
     usuario: USUARIO_LOGADO.usuario,
     nome: USUARIO_LOGADO.nome,
-    data: hojeISO(),
+    data: dataPagamento,
     hora: horaAgora(),
     timestamp: Date.now()
   };
@@ -2397,7 +2421,9 @@ function obterContextoFechamento(){
     }
     return {terminal, usuario, nome, data};
   }
-  return {terminal: TERMINAL_DO_DIA, usuario: USUARIO_LOGADO.usuario, nome: USUARIO_LOGADO.nome, data: hojeISO()};
+  const dataEl = document.getElementById('fech-data-normal');
+  const data = (dataEl && dataEl.value) ? dataEl.value : hojeISO();
+  return {terminal: TERMINAL_DO_DIA, usuario: USUARIO_LOGADO.usuario, nome: USUARIO_LOGADO.nome, data};
 }
 
 async function carregarFechamentoExistente(){
@@ -2658,13 +2684,18 @@ function calcularEnvioTroco(){
   return total;
 }
 
+function obterDataGerencial(){
+  const el = document.getElementById('inp-data-gerencia');
+  return (el && el.value) ? el.value : hojeISO();
+}
+
 async function calcularCaixaGerencial(){
   const contTotal = document.getElementById('caixa-gerencial-total');
   const contDetalhe = document.getElementById('caixa-gerencial-detalhe');
   if(!contTotal || !contDetalhe) return;
 
-  const hoje = hojeISO();
-  const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === hoje);
+  const dataRef = obterDataGerencial();
+  const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === dataRef);
   const porTerminal = {};
   fechamentosHoje.forEach(f => {
     if(!porTerminal[f.terminal]) porTerminal[f.terminal] = {terminal:f.terminal, c:0, d:0, e:0};
@@ -2678,7 +2709,7 @@ async function calcularCaixaGerencial(){
   contTotal.textContent = formatarMoeda(totalGeral);
 
   if(linhas.length === 0){
-    contDetalhe.innerHTML = '<div class="vazio">Nenhum fechamento registrado hoje.</div>';
+    contDetalhe.innerHTML = '<div class="vazio">Nenhum fechamento registrado nesta data.</div>';
   }else{
     contDetalhe.innerHTML = `<table>
       <thead><tr><th>Terminal</th><th>c) Troco</th><th>d) Composição</th><th>e) Bolão</th><th>Total</th></tr></thead>
@@ -2699,10 +2730,10 @@ async function calcularCaixaGerencial(){
 async function calcularTrocaTelesenaGerencial(){
   const el = document.getElementById('troca-telesena-gerencial');
   if(!el) return;
-  const hoje = hojeISO();
+  const dataRef = obterDataGerencial();
   const registros = await carregarRegistros();
   const total = registros
-    .filter(r => r.data===hoje && r.tipo==='Saida' && r.atividade==='Troca Telesena' && !r.excluido)
+    .filter(r => r.data===dataRef && r.tipo==='Saida' && r.atividade==='Troca Telesena' && !r.excluido)
     .reduce((s,r) => s+r.valor, 0);
   el.textContent = formatarMoeda(total);
   return total;
@@ -2714,7 +2745,7 @@ async function calcularBatimentoGerencial(){
   const elDebito = document.getElementById('debito-gerencial-valor');
   if(!elDebito) return;
 
-  const hoje = hojeISO();
+  const hoje = obterDataGerencial();
   const ontem = diaAnteriorISO(hoje);
 
   // ---- DÉBITO GERENCIAL ----
@@ -2803,9 +2834,9 @@ async function atualizarFiadoTotalGerencia(){
 
 async function carregarComposicaoGerenciaExistente(){
   if(!USUARIO_LOGADO) return;
-  const hoje = hojeISO();
+  const dataRef = obterDataGerencial();
   const lista = await carregarComposicaoGerencia();
-  const existente = lista.find(c => c.usuario===USUARIO_LOGADO.usuario && c.data===hoje);
+  const existente = lista.find(c => c.usuario===USUARIO_LOGADO.usuario && c.data===dataRef);
   const status = document.getElementById('composicao-gerencia-status');
   const btn = document.getElementById('btn-registrar-composicao-gerencia');
 
@@ -2825,7 +2856,7 @@ async function carregarComposicaoGerenciaExistente(){
     document.getElementById('inp-entrada-produtos').value = existente.entradaProdutos || 0;
     calcularEstoqueGerencia();
     calcularTrocoCofre();
-    status.innerHTML = `<div class="msg-ok">Composição já registrada hoje às ${existente.hora}. Registrar novamente atualiza os valores.</div>`;
+    status.innerHTML = `<div class="msg-ok">Composição já registrada nesta data às ${existente.hora}. Registrar novamente atualiza os valores.</div>`;
     btn.textContent = 'Atualizar Composição de Caixa Gerência';
   }else{
     PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('estoque-qtd-'+p.id).value = 0; });
@@ -2868,7 +2899,7 @@ function montarObjetoComposicaoGerencia(idExistente){
     id: idExistente || (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
     usuario: USUARIO_LOGADO.usuario,
     nome: USUARIO_LOGADO.nome,
-    data: hojeISO(),
+    data: obterDataGerencial(),
     hora: horaAgora(),
     produtosEstoque, totalEstoque, vitrineRaspadinha,
     trocoCofreDenominacoes, trocoCofreTotal,
@@ -2879,8 +2910,8 @@ function montarObjetoComposicaoGerencia(idExistente){
 
 async function salvarComposicaoGerenciaAtual(){
   const lista = await carregarComposicaoGerencia();
-  const hoje = hojeISO();
-  const idx = lista.findIndex(c => c.usuario===USUARIO_LOGADO.usuario && c.data===hoje);
+  const dataRef = obterDataGerencial();
+  const idx = lista.findIndex(c => c.usuario===USUARIO_LOGADO.usuario && c.data===dataRef);
   const registro = montarObjetoComposicaoGerencia(idx>=0 ? lista[idx].id : null);
   if(idx>=0) lista[idx] = registro; else lista.push(registro);
   await salvarComposicaoGerencia(lista);
@@ -2946,10 +2977,10 @@ async function enviarTrocoGerencia(){
     return;
   }
 
-  const hoje = hojeISO();
+  const hoje = obterDataGerencial();
   const funcPara = await obterFuncionarioDoTerminal(terminalPara, hoje);
   if(!funcPara){
-    msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalPara+' hoje. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
+    msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalPara+' nessa data. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
     return;
   }
 
