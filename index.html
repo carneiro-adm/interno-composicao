@@ -588,7 +588,29 @@
       <div class="painel">
         <h3>Composição de caixa</h3>
         <p class="aviso-fechamento">Deve ser registrado uma vez por dia, por funcionário(a) e por terminal. Os valores usados no cálculo são somados por terminal.</p>
-        <div class="campo">
+
+        <div class="historico-linha-filtro oculto" id="fechamento-filtro-gerencia">
+          <div class="campo">
+            <label>Terminal</label>
+            <select id="fech-ger-terminal" onchange="carregarFechamentoExistente()">
+              <option value="9943">9943</option>
+              <option value="9944">9944</option>
+              <option value="9945">9945</option>
+              <option value="0000">0000 - Gerente</option>
+              <option value="0001">0001 - Bilhetes</option>
+            </select>
+          </div>
+          <div class="campo">
+            <label>Funcionária</label>
+            <select id="fech-ger-usuario" onchange="carregarFechamentoExistente()"></select>
+          </div>
+          <div class="campo">
+            <label>Data</label>
+            <input type="date" id="fech-ger-data" onchange="carregarFechamentoExistente()">
+          </div>
+        </div>
+
+        <div class="campo" id="campo-terminal-fechamento-fixo">
           <label>Terminal</label>
           <div class="terminal-fixo" id="exibicao-terminal-fechamento">—</div>
         </div>
@@ -1492,6 +1514,7 @@ async function entrarNoApp(achado){
   const souAdmin = achado.admin === true || achado.gerencia === true || achado.usuario === 'admin';
   EH_ADMIN = souAdmin;
   EH_GERENCIA = achado.gerencia === true;
+  const hoje = hojeISO();
 
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('tela-app').classList.remove('oculto');
@@ -1504,11 +1527,23 @@ async function entrarNoApp(achado){
   montarOpcoesAtividadeDebito();
   document.getElementById('exibicao-terminal-lancamento').textContent = TERMINAL_DO_DIA;
   document.getElementById('exibicao-terminal-fechamento').textContent = TERMINAL_DO_DIA;
+
+  if(EH_GERENCIA){
+    document.getElementById('fechamento-filtro-gerencia').classList.remove('oculto');
+    document.getElementById('campo-terminal-fechamento-fixo').classList.add('oculto');
+    document.getElementById('fech-ger-terminal').value = TERMINAL_DO_DIA;
+    document.getElementById('fech-ger-usuario').innerHTML = '<option value="">'+escaparHtml(achado.nome)+' (eu)</option>' +
+      TODOS_USUARIOS.filter(u => u.usuario !== achado.usuario).map(u => `<option value="${u.usuario}">${escaparHtml(u.nome)}</option>`).join('');
+    document.getElementById('fech-ger-data').value = hoje;
+  }else{
+    document.getElementById('fechamento-filtro-gerencia').classList.add('oculto');
+    document.getElementById('campo-terminal-fechamento-fixo').classList.remove('oculto');
+  }
+
   await carregarFechamentoExistente();
   await carregarConfigIntegracao();
   await popularSelectClientes();
 
-  const hoje = hojeISO();
   const opcoesUsuarios = '<option value="">Todas</option>' + TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
 
   if(souAdmin){
@@ -2350,14 +2385,31 @@ function onComposicaoInput(){
   atualizarTotaisFechamento();
 }
 
+function obterContextoFechamento(){
+  if(EH_GERENCIA){
+    const terminal = document.getElementById('fech-ger-terminal').value || TERMINAL_DO_DIA;
+    const usuarioSel = document.getElementById('fech-ger-usuario').value;
+    const data = document.getElementById('fech-ger-data').value || hojeISO();
+    let usuario = USUARIO_LOGADO.usuario, nome = USUARIO_LOGADO.nome;
+    if(usuarioSel){
+      const u = TODOS_USUARIOS.find(x => x.usuario === usuarioSel);
+      if(u){ usuario = u.usuario; nome = u.nome; }
+    }
+    return {terminal, usuario, nome, data};
+  }
+  return {terminal: TERMINAL_DO_DIA, usuario: USUARIO_LOGADO.usuario, nome: USUARIO_LOGADO.nome, data: hojeISO()};
+}
+
 async function carregarFechamentoExistente(){
   if(!USUARIO_LOGADO) return;
-  const terminal = TERMINAL_DO_DIA;
+  const ctx = obterContextoFechamento();
   const fechamentos = await carregarFechamentos();
-  const hoje = hojeISO();
-  const existente = fechamentos.find(f => f.data===hoje && f.usuario===USUARIO_LOGADO.usuario && f.terminal===terminal);
+  const existente = fechamentos.find(f => f.data===ctx.data && f.usuario===ctx.usuario && f.terminal===ctx.terminal);
   const status = document.getElementById('fechamento-status');
   const btn = document.getElementById('btn-registrar-fechamento');
+
+  const elExibicao = document.getElementById('exibicao-terminal-fechamento');
+  if(elExibicao) elExibicao.textContent = ctx.terminal;
 
   if(existente){
     PRODUTOS_FECHAMENTO.forEach(p => {
@@ -2368,7 +2420,8 @@ async function carregarFechamentoExistente(){
     document.getElementById('inp-fechamento-e').value = existente.e || 0;
     document.getElementById('inp-fechamento-f').value = existente.f || 0;
     calcularComposicao();
-    status.innerHTML = `<div class="msg-ok">Fechamento já registrado hoje às ${existente.hora} para o terminal ${terminal}. Registrar novamente atualiza os valores.</div>`;
+    const dataLabel = ctx.data.split('-').reverse().join('/');
+    status.innerHTML = `<div class="msg-ok">Fechamento já registrado em ${dataLabel} às ${existente.hora} para o terminal ${ctx.terminal} (${escaparHtml(ctx.nome)}). Registrar novamente atualiza os valores.</div>`;
     btn.textContent = 'Atualizar Fechamento Caixa';
   }else{
     PRODUTOS_FECHAMENTO.forEach(p => { document.getElementById('qtd-'+p.id).value = 0; });
@@ -2383,18 +2436,19 @@ async function carregarFechamentoExistente(){
 }
 
 async function atualizarTotaisFechamento(){
-  if(!TERMINAL_DO_DIA) return;
-  const terminal = TERMINAL_DO_DIA;
-  const hoje = hojeISO();
-  const ontem = diaAnteriorISO(hoje);
+  if(!USUARIO_LOGADO) return;
+  const ctx = obterContextoFechamento();
+  if(!ctx.terminal) return;
+  const dataRef = ctx.data;
+  const ontem = diaAnteriorISO(dataRef);
 
   const registros = await carregarRegistros();
-  const doTerminalHoje = registros.filter(r => r.caixa===terminal && r.data===hoje && !r.excluido);
-  const a = doTerminalHoje.filter(r=>r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
-  const b = doTerminalHoje.filter(r=>r.tipo==='Troco').reduce((s,r)=>s+r.valor,0);
+  const doTerminalDia = registros.filter(r => r.caixa===ctx.terminal && r.data===dataRef && !r.excluido);
+  const a = doTerminalDia.filter(r=>r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
+  const b = doTerminalDia.filter(r=>r.tipo==='Troco').reduce((s,r)=>s+r.valor,0);
 
   const fechamentos = await carregarFechamentos();
-  const doTerminalOntem = fechamentos.filter(f => f.terminal===terminal && f.data===ontem);
+  const doTerminalOntem = fechamentos.filter(f => f.terminal===ctx.terminal && f.data===ontem);
   const total1 = doTerminalOntem.reduce((s,f)=> s + (f.c||0) + (f.d!=null ? f.d : (f.total||0)) + (f.e||0), 0);
 
   const d = calcularComposicao();
@@ -2419,7 +2473,7 @@ async function atualizarTotaisFechamento(){
 }
 
 async function registrarFechamento(){
-  const terminal = TERMINAL_DO_DIA;
+  const ctx = obterContextoFechamento();
   const produtos = PRODUTOS_FECHAMENTO.map(p => {
     const qtd = parseFloat(document.getElementById('qtd-'+p.id).value) || 0;
     return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:qtd, subtotal: qtd*p.valor};
@@ -2430,15 +2484,16 @@ async function registrarFechamento(){
   const f = parseFloat(document.getElementById('inp-fechamento-f').value) || 0;
 
   const fechamentos = await carregarFechamentos();
-  const hoje = hojeISO();
-  const idx = fechamentos.findIndex(f2 => f2.data===hoje && f2.usuario===USUARIO_LOGADO.usuario && f2.terminal===terminal);
+  const idx = fechamentos.findIndex(f2 => f2.data===ctx.data && f2.usuario===ctx.usuario && f2.terminal===ctx.terminal);
 
   const registro = {
     id: idx>=0 ? fechamentos[idx].id : (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
-    usuario: USUARIO_LOGADO.usuario,
-    nome: USUARIO_LOGADO.nome,
-    data: hoje,
-    terminal: terminal,
+    usuario: ctx.usuario,
+    nome: ctx.nome,
+    registradoPor: USUARIO_LOGADO.usuario,
+    registradoPorNome: USUARIO_LOGADO.nome,
+    data: ctx.data,
+    terminal: ctx.terminal,
     hora: horaAgora(),
     produtos: produtos,
     d: d,
@@ -2455,6 +2510,7 @@ async function registrarFechamento(){
     idFechamento: registro.id,
     idFuncionaria: registro.usuario,
     funcionaria: registro.nome,
+    registradoPor: registro.registradoPorNome,
     idTerminal: registro.terminal,
     data: registro.data,
     hora: registro.hora,
