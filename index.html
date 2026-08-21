@@ -3482,27 +3482,38 @@ async function exportarExcel(){
     'Status': r.excluido ? 'Excluído' : 'Ativo'
   }));
 
-  const linhasFechamentos = [];
+  // Fechamentos-Produtos: uma linha por produto, SEM repetir c/d-total/e/f (isso vai para Subtotais Fechamentos)
+  const linhasFechamentosProdutos = [];
   fechamentos.forEach(f => {
     f.produtos.forEach(p => {
-      linhasFechamentos.push({
+      linhasFechamentosProdutos.push({
         'ID Fechamento': f.id,
         'ID Funcionária': f.usuario,
         'Funcionária': f.nome,
         'ID Terminal': f.terminal,
         'Data': f.data,
         'Hora': f.hora,
-        'c) Troco terminal': f.c || 0,
         'Produto (d)': p.nome,
         'Quantidade': p.qtd,
         'Valor unitário': p.valorUnit,
-        'Subtotal produto': p.subtotal,
-        'd) Total composição': f.d != null ? f.d : (f.total || 0),
-        'e) Bolão fechamento': f.e || 0,
-        'f) Relatório terminal': f.f || 0
+        'Subtotal produto': p.subtotal
       });
     });
   });
+
+  // Subtotais Fechamentos: uma linha por fechamento (c/d-total/e/f)
+  const linhasSubtotaisFechamentos = fechamentos.map(f => ({
+    'ID Fechamento': f.id,
+    'ID Funcionária': f.usuario,
+    'Funcionária': f.nome,
+    'ID Terminal': f.terminal,
+    'Data': f.data,
+    'Hora': f.hora,
+    'c) Troco terminal': f.c || 0,
+    'd) Total composição': f.d != null ? f.d : (f.total || 0),
+    'e) Bolão fechamento': f.e || 0,
+    'f) Relatório terminal': f.f || 0
+  }));
 
   const linhasClientes = clientes.map(c => ({
     'ID Cliente': c.id,
@@ -3527,10 +3538,11 @@ async function exportarExcel(){
     'Observação': p.obs || ''
   }));
 
-  const linhasComposicaoGerencia = [];
+  // Composição Gerência-Estoque: uma linha por produto, SEM repetir os totais (isso vai para Subtotais Gerência)
+  const linhasComposicaoEstoque = [];
   composicoesGerencia.forEach(c => {
     c.produtosEstoque.forEach(p => {
-      linhasComposicaoGerencia.push({
+      linhasComposicaoEstoque.push({
         'ID Composição': c.id,
         'ID Funcionária': c.usuario,
         'Funcionária': c.nome,
@@ -3539,17 +3551,12 @@ async function exportarExcel(){
         'Produto (Estoque)': p.nome,
         'Quantidade': p.qtd,
         'Valor unitário': p.valorUnit,
-        'Subtotal produto': p.subtotal,
-        'Total Estoque': c.totalEstoque,
-        'Vitrine Raspadinha': c.vitrineRaspadinha || 0,
-        'Troco no Cofre (total)': c.trocoCofreTotal || 0,
-        'Bolões especiais': c.quinaEspecial || 0,
-        'Gaveta': c.gaveta || 0,
-        'Entrada Produtos': c.entradaProdutos || 0
+        'Subtotal produto': p.subtotal
       });
     });
   });
 
+  // Troco Cofre-Denominações: uma linha por denominação, SEM repetir o total (isso vai para Subtotais Gerência)
   const linhasTrocoCofre = [];
   composicoesGerencia.forEach(c => {
     (c.trocoCofreDenominacoes || []).forEach(d => {
@@ -3561,31 +3568,51 @@ async function exportarExcel(){
         'Hora': c.hora,
         'Denominação': 'R$ ' + d.valor.toFixed(2),
         'Quantidade': d.qtd,
-        'Subtotal': d.subtotal,
-        'Total Troco Cofre': c.trocoCofreTotal || 0
+        'Subtotal': d.subtotal
       });
     });
   });
 
+  // Subtotais Gerência: uma linha por composição
+  const linhasSubtotaisGerencia = composicoesGerencia.map(c => ({
+    'ID Composição': c.id,
+    'ID Funcionária': c.usuario,
+    'Funcionária': c.nome,
+    'Data': c.data,
+    'Hora': c.hora,
+    'Total Estoque': c.totalEstoque || 0,
+    'Vitrine Raspadinha': c.vitrineRaspadinha || 0,
+    'Troco Cofre (total)': c.trocoCofreTotal || 0,
+    'Bolões especiais': c.quinaEspecial || 0,
+    'Gaveta': c.gaveta || 0,
+    'Entrada Produtos': c.entradaProdutos || 0
+  }));
+
   const wsLancamentos = XLSX.utils.json_to_sheet(linhasLancamentos);
   aplicarFormatoMoedaColunas(wsLancamentos, ['Valor']);
-  const wsFechamentos = XLSX.utils.json_to_sheet(linhasFechamentos);
-  aplicarFormatoMoedaColunas(wsFechamentos, ['c) Troco terminal','Valor unitário','Subtotal produto','d) Total composição','e) Bolão fechamento','f) Relatório terminal']);
+  const wsFechamentosProdutos = XLSX.utils.json_to_sheet(linhasFechamentosProdutos);
+  aplicarFormatoMoedaColunas(wsFechamentosProdutos, ['Valor unitário','Subtotal produto']);
+  const wsSubtotaisFechamentos = XLSX.utils.json_to_sheet(linhasSubtotaisFechamentos);
+  aplicarFormatoMoedaColunas(wsSubtotaisFechamentos, ['c) Troco terminal','d) Total composição','e) Bolão fechamento','f) Relatório terminal']);
   const wsClientes = XLSX.utils.json_to_sheet(linhasClientes);
   const wsPagamentosFiado = XLSX.utils.json_to_sheet(linhasPagamentosFiado);
   aplicarFormatoMoedaColunas(wsPagamentosFiado, ['Valor pago']);
-  const wsComposicaoGerencia = XLSX.utils.json_to_sheet(linhasComposicaoGerencia);
-  aplicarFormatoMoedaColunas(wsComposicaoGerencia, ['Valor unitário','Subtotal produto','Total Estoque','Vitrine Raspadinha','Troco no Cofre (total)','Bolões especiais','Gaveta','Entrada Produtos']);
+  const wsComposicaoEstoque = XLSX.utils.json_to_sheet(linhasComposicaoEstoque);
+  aplicarFormatoMoedaColunas(wsComposicaoEstoque, ['Valor unitário','Subtotal produto']);
   const wsTrocoCofre = XLSX.utils.json_to_sheet(linhasTrocoCofre);
-  aplicarFormatoMoedaColunas(wsTrocoCofre, ['Subtotal','Total Troco Cofre']);
+  aplicarFormatoMoedaColunas(wsTrocoCofre, ['Subtotal']);
+  const wsSubtotaisGerencia = XLSX.utils.json_to_sheet(linhasSubtotaisGerencia);
+  aplicarFormatoMoedaColunas(wsSubtotaisGerencia, ['Total Estoque','Vitrine Raspadinha','Troco Cofre (total)','Bolões especiais','Gaveta','Entrada Produtos']);
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsLancamentos, 'Lançamentos');
-  XLSX.utils.book_append_sheet(wb, wsFechamentos, 'Fechamentos');
+  XLSX.utils.book_append_sheet(wb, wsFechamentosProdutos, 'Fechamentos-Produtos');
+  XLSX.utils.book_append_sheet(wb, wsSubtotaisFechamentos, 'Subtotais Fechamentos');
   XLSX.utils.book_append_sheet(wb, wsClientes, 'Clientes');
   XLSX.utils.book_append_sheet(wb, wsPagamentosFiado, 'Pagamentos Fiado');
-  XLSX.utils.book_append_sheet(wb, wsComposicaoGerencia, 'Composição Gerência');
-  XLSX.utils.book_append_sheet(wb, wsTrocoCofre, 'Troco Cofre (denominações)');
+  XLSX.utils.book_append_sheet(wb, wsComposicaoEstoque, 'Composição Gerência-Estoque');
+  XLSX.utils.book_append_sheet(wb, wsTrocoCofre, 'Troco Cofre-Denominações');
+  XLSX.utils.book_append_sheet(wb, wsSubtotaisGerencia, 'Subtotais Gerência');
   XLSX.writeFile(wb, 'composicao_caixa_carneiro_ganhador_'+hojeISO()+'.xlsx');
 }
 
@@ -3621,27 +3648,36 @@ async function exportarExcelPeriodoAdmin(){
     'Status': r.excluido ? 'Excluído' : 'Ativo'
   }));
 
-  const linhasFechamentos = [];
+  const linhasFechamentosProdutos = [];
   fechamentos.forEach(f => {
     f.produtos.forEach(p => {
-      linhasFechamentos.push({
+      linhasFechamentosProdutos.push({
         'ID Fechamento': f.id,
         'ID Funcionária': f.usuario,
         'Funcionária': f.nome,
         'ID Terminal': f.terminal,
         'Data': f.data,
         'Hora': f.hora,
-        'c) Troco terminal': f.c || 0,
         'Produto (d)': p.nome,
         'Quantidade': p.qtd,
         'Valor unitário': p.valorUnit,
-        'Subtotal produto': p.subtotal,
-        'd) Total composição': f.d != null ? f.d : (f.total || 0),
-        'e) Bolão fechamento': f.e || 0,
-        'f) Relatório terminal': f.f || 0
+        'Subtotal produto': p.subtotal
       });
     });
   });
+
+  const linhasSubtotaisFechamentos = fechamentos.map(f => ({
+    'ID Fechamento': f.id,
+    'ID Funcionária': f.usuario,
+    'Funcionária': f.nome,
+    'ID Terminal': f.terminal,
+    'Data': f.data,
+    'Hora': f.hora,
+    'c) Troco terminal': f.c || 0,
+    'd) Total composição': f.d != null ? f.d : (f.total || 0),
+    'e) Bolão fechamento': f.e || 0,
+    'f) Relatório terminal': f.f || 0
+  }));
 
   const linhasPagamentosFiado = pagamentosFiado.map(p => ({
     'ID Pagamento': p.id,
@@ -3657,14 +3693,17 @@ async function exportarExcelPeriodoAdmin(){
 
   const wsLancamentos = XLSX.utils.json_to_sheet(linhasLancamentos);
   aplicarFormatoMoedaColunas(wsLancamentos, ['Valor']);
-  const wsFechamentos = XLSX.utils.json_to_sheet(linhasFechamentos);
-  aplicarFormatoMoedaColunas(wsFechamentos, ['c) Troco terminal','Valor unitário','Subtotal produto','d) Total composição','e) Bolão fechamento','f) Relatório terminal']);
+  const wsFechamentosProdutos = XLSX.utils.json_to_sheet(linhasFechamentosProdutos);
+  aplicarFormatoMoedaColunas(wsFechamentosProdutos, ['Valor unitário','Subtotal produto']);
+  const wsSubtotaisFechamentos = XLSX.utils.json_to_sheet(linhasSubtotaisFechamentos);
+  aplicarFormatoMoedaColunas(wsSubtotaisFechamentos, ['c) Troco terminal','d) Total composição','e) Bolão fechamento','f) Relatório terminal']);
   const wsPagamentosFiado = XLSX.utils.json_to_sheet(linhasPagamentosFiado);
   aplicarFormatoMoedaColunas(wsPagamentosFiado, ['Valor pago']);
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsLancamentos, 'Lançamentos');
-  XLSX.utils.book_append_sheet(wb, wsFechamentos, 'Fechamentos');
+  XLSX.utils.book_append_sheet(wb, wsFechamentosProdutos, 'Fechamentos-Produtos');
+  XLSX.utils.book_append_sheet(wb, wsSubtotaisFechamentos, 'Subtotais Fechamentos');
   XLSX.utils.book_append_sheet(wb, wsPagamentosFiado, 'Pagamentos Fiado');
   XLSX.writeFile(wb, 'relatorio_admin_'+dataIni+'_a_'+dataFim+'.xlsx');
 }
