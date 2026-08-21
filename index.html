@@ -891,7 +891,7 @@
         <h3>Vitrine raspadinha</h3>
         <div class="campo" style="margin-bottom:0;">
           <label>Valor (R$)</label>
-          <input type="number" id="inp-vitrine-raspadinha" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          <input type="number" id="inp-vitrine-raspadinha" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
         </div>
       </div>
 
@@ -936,7 +936,7 @@
         <h3>Bolões especiais</h3>
         <div class="campo" style="margin-bottom:0;">
           <label>Valor (R$)</label>
-          <input type="number" id="inp-quina-especial" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          <input type="number" id="inp-quina-especial" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
         </div>
       </div>
 
@@ -944,7 +944,7 @@
         <h3>Gaveta</h3>
         <div class="campo" style="margin-bottom:0;">
           <label>Valor (R$)</label>
-          <input type="number" id="inp-gaveta" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          <input type="number" id="inp-gaveta" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
         </div>
       </div>
 
@@ -986,6 +986,43 @@
         </div>
         <button class="btn-primario" style="margin-top:14px;" onclick="enviarTrocoGerencia()">Enviar troco</button>
         <div id="envio-troco-msg"></div>
+      </div>
+
+      <div class="painel">
+        <h3>Entrada Produtos</h3>
+        <div class="campo" style="margin-bottom:0;">
+          <label>Valor (R$)</label>
+          <input type="number" id="inp-entrada-produtos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
+        </div>
+      </div>
+
+      <div class="painel">
+        <h3>Batimento Gerencial</h3>
+        <div class="totais-grandes">
+          <div class="total-card total1">
+            <div>
+              <div class="nome">DÉBITO GERENCIAL</div>
+              <div class="formula">TOTAL1 (dia anterior) + Total Relatórios + Entrada Produtos</div>
+            </div>
+            <div class="num" id="debito-gerencial-valor">R$ 0,00</div>
+          </div>
+          <div class="total-card total2">
+            <div>
+              <div class="nome">CRÉDITO GERENCIAL</div>
+              <div class="formula">TOTAL2 (hoje) + Saídas</div>
+            </div>
+            <div class="num" id="credito-gerencial-valor">R$ 0,00</div>
+          </div>
+          <div class="total-card total3 neutro" id="diferenca-gerencial-card">
+            <div>
+              <div class="nome">DIFERENÇA GERENCIAL</div>
+              <div class="formula">Crédito Gerencial − Débito Gerencial</div>
+            </div>
+            <div class="num" id="diferenca-gerencial-valor">R$ 0,00</div>
+          </div>
+        </div>
+        <h4 style="margin-bottom:8px;">Detalhamento</h4>
+        <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
       </div>
     </div>
 
@@ -2500,7 +2537,7 @@ function montarEstoqueGerenciaLista(){
   cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="estoque-qtd-${p.id}" value="0" oninput="calcularEstoqueGerencia()">
+      <input type="number" min="0" step="1" class="composicao-qtd" id="estoque-qtd-${p.id}" value="0" oninput="calcularEstoqueGerencia(); calcularBatimentoGerencial();">
       <span class="composicao-subtotal" id="estoque-subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -2523,7 +2560,7 @@ function montarTrocoCofreLista(){
   cont.innerHTML = DENOMINACOES_TROCO_COFRE.map(v => `
     <div class="composicao-linha">
       <span class="composicao-nome">${formatarDenominacao(v)}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="cofre-qtd-${idDenom(v)}" value="0" oninput="calcularTrocoCofre()">
+      <input type="number" min="0" step="1" class="composicao-qtd" id="cofre-qtd-${idDenom(v)}" value="0" oninput="calcularTrocoCofre(); calcularBatimentoGerencial();">
       <span class="composicao-subtotal" id="cofre-subtotal-${idDenom(v)}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -2615,6 +2652,76 @@ async function calcularTrocaTelesenaGerencial(){
   return total;
 }
 
+const TERMINAIS_OPERACIONAIS_GERENCIA = ['9943','9944','9945'];
+
+async function calcularBatimentoGerencial(){
+  const elDebito = document.getElementById('debito-gerencial-valor');
+  if(!elDebito) return;
+
+  const hoje = hojeISO();
+  const ontem = diaAnteriorISO(hoje);
+
+  // ---- DÉBITO GERENCIAL ----
+  const fechamentosOntem = (await carregarFechamentos()).filter(f => f.data === ontem);
+  const total1Gerencial = fechamentosOntem.reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
+
+  const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === hoje);
+  const totalRelatorios = fechamentosHoje
+    .filter(f => TERMINAIS_OPERACIONAIS_GERENCIA.includes(f.terminal))
+    .reduce((s,f) => s + (f.f||0), 0);
+
+  const entradaProdutos = parseFloat(document.getElementById('inp-entrada-produtos').value) || 0;
+
+  const debitoGerencial = total1Gerencial + totalRelatorios + entradaProdutos;
+
+  // ---- CRÉDITO GERENCIAL ----
+  const totalEstoque = calcularEstoqueGerencia();
+  const vitrineRaspadinha = parseFloat(document.getElementById('inp-vitrine-raspadinha').value) || 0;
+  const trocoCofreTotal = calcularTrocoCofre();
+  const caixaGerencial = await calcularCaixaGerencial();
+  const trocaTelesenaGerencial = await calcularTrocaTelesenaGerencial();
+  const boloesEspeciais = parseFloat(document.getElementById('inp-quina-especial').value) || 0;
+  const gaveta = parseFloat(document.getElementById('inp-gaveta').value) || 0;
+  const fiadoTotal = await atualizarFiadoTotalGerencia();
+
+  const total2Gerencial = totalEstoque + vitrineRaspadinha + trocoCofreTotal + caixaGerencial
+                         + trocaTelesenaGerencial + boloesEspeciais + gaveta + fiadoTotal;
+
+  const registrosHoje = (await carregarRegistros()).filter(r =>
+    r.data===hoje && r.tipo==='Saida' && !r.excluido && TERMINAIS_OPERACIONAIS_GERENCIA.includes(r.caixa));
+  const totalSaidas = registrosHoje.reduce((s,r) => s+r.valor, 0);
+
+  const creditoGerencial = total2Gerencial + totalSaidas;
+
+  // ---- DIFERENÇA GERENCIAL ----
+  const diferencaGerencial = creditoGerencial - debitoGerencial;
+
+  document.getElementById('debito-gerencial-valor').textContent = formatarMoeda(debitoGerencial);
+  document.getElementById('credito-gerencial-valor').textContent = formatarMoeda(creditoGerencial);
+  document.getElementById('diferenca-gerencial-valor').textContent = formatarMoeda(diferencaGerencial);
+
+  const card = document.getElementById('diferenca-gerencial-card');
+  card.classList.remove('positivo','negativo');
+  if(diferencaGerencial < -0.005) card.classList.add('negativo');
+  else if(diferencaGerencial > 0.005) card.classList.add('positivo');
+
+  const cont = document.getElementById('detalhe-batimento-gerencial');
+  cont.innerHTML = `<table>
+    <thead><tr><th>Componente</th><th>Valor</th></tr></thead>
+    <tbody>
+      <tr><td>TOTAL1 — Composição de caixa (dia anterior), todos os terminais</td><td>${formatarMoeda(total1Gerencial)}</td></tr>
+      <tr><td>Total Relatórios (f) — terminais 9943/9944/9945</td><td>${formatarMoeda(totalRelatorios)}</td></tr>
+      <tr><td>Entrada Produtos</td><td>${formatarMoeda(entradaProdutos)}</td></tr>
+      <tr><td style="font-weight:800;">Débito Gerencial</td><td style="font-weight:800;">${formatarMoeda(debitoGerencial)}</td></tr>
+      <tr><td>TOTAL2 — Composição de caixa (hoje) gerencial</td><td>${formatarMoeda(total2Gerencial)}</td></tr>
+      <tr><td>Saídas hoje — terminais 9943/9944/9945</td><td>${formatarMoeda(totalSaidas)}</td></tr>
+      <tr><td style="font-weight:800;">Crédito Gerencial</td><td style="font-weight:800;">${formatarMoeda(creditoGerencial)}</td></tr>
+    </tbody>
+  </table>`;
+
+  return {debitoGerencial, creditoGerencial, diferencaGerencial};
+}
+
 async function calcularSaldosClientes(){
   const clientes = await carregarClientes();
   const registros = await carregarRegistros();
@@ -2659,6 +2766,7 @@ async function carregarComposicaoGerenciaExistente(){
     });
     document.getElementById('inp-quina-especial').value = existente.quinaEspecial || 0;
     document.getElementById('inp-gaveta').value = existente.gaveta || 0;
+    document.getElementById('inp-entrada-produtos').value = existente.entradaProdutos || 0;
     calcularEstoqueGerencia();
     calcularTrocoCofre();
     status.innerHTML = `<div class="msg-ok">Composição já registrada hoje às ${existente.hora}. Registrar novamente atualiza os valores.</div>`;
@@ -2669,6 +2777,7 @@ async function carregarComposicaoGerenciaExistente(){
     DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('cofre-qtd-'+idDenom(v)).value = 0; });
     document.getElementById('inp-quina-especial').value = 0;
     document.getElementById('inp-gaveta').value = 0;
+    document.getElementById('inp-entrada-produtos').value = 0;
     calcularEstoqueGerencia();
     calcularTrocoCofre();
     status.innerHTML = '';
@@ -2678,6 +2787,7 @@ async function carregarComposicaoGerenciaExistente(){
   await calcularCaixaGerencial();
   await atualizarFiadoTotalGerencia();
   await calcularTrocaTelesenaGerencial();
+  await calcularBatimentoGerencial();
 }
 
 function montarObjetoComposicaoGerencia(idExistente){
@@ -2696,6 +2806,7 @@ function montarObjetoComposicaoGerencia(idExistente){
 
   const quinaEspecial = parseFloat(document.getElementById('inp-quina-especial').value) || 0;
   const gaveta = parseFloat(document.getElementById('inp-gaveta').value) || 0;
+  const entradaProdutos = parseFloat(document.getElementById('inp-entrada-produtos').value) || 0;
 
   return {
     id: idExistente || (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
@@ -2705,7 +2816,7 @@ function montarObjetoComposicaoGerencia(idExistente){
     hora: horaAgora(),
     produtosEstoque, totalEstoque, vitrineRaspadinha,
     trocoCofreDenominacoes, trocoCofreTotal,
-    quinaEspecial, gaveta,
+    quinaEspecial, gaveta, entradaProdutos,
     timestamp: Date.now()
   };
 }
@@ -2722,6 +2833,7 @@ async function salvarComposicaoGerenciaAtual(){
 
 async function registrarComposicaoGerencia(){
   const registro = await salvarComposicaoGerenciaAtual();
+  const batimento = await calcularBatimentoGerencial();
   enviarParaWebhook({
     origem: 'composicao_gerencia',
     idComposicao: registro.id,
@@ -2734,6 +2846,10 @@ async function registrarComposicaoGerencia(){
     trocoCofreTotal: registro.trocoCofreTotal,
     quinaEspecial: registro.quinaEspecial,
     gaveta: registro.gaveta,
+    entradaProdutos: registro.entradaProdutos,
+    debitoGerencial: batimento ? batimento.debitoGerencial : null,
+    creditoGerencial: batimento ? batimento.creditoGerencial : null,
+    diferencaGerencial: batimento ? batimento.diferencaGerencial : null,
     produtosEstoque: registro.produtosEstoque,
     trocoCofreDenominacoes: registro.trocoCofreDenominacoes
   });
@@ -2917,6 +3033,7 @@ async function atualizarTudo(){
     await calcularCaixaGerencial();
     await atualizarFiadoTotalGerencia();
     await calcularTrocaTelesenaGerencial();
+    await calcularBatimentoGerencial();
   }
 }
 
@@ -3371,7 +3488,8 @@ async function exportarExcel(){
         'Vitrine Raspadinha': c.vitrineRaspadinha || 0,
         'Troco no Cofre (total)': c.trocoCofreTotal || 0,
         'Bolões especiais': c.quinaEspecial || 0,
-        'Gaveta': c.gaveta || 0
+        'Gaveta': c.gaveta || 0,
+        'Entrada Produtos': c.entradaProdutos || 0
       });
     });
   });
@@ -3401,7 +3519,7 @@ async function exportarExcel(){
   const wsPagamentosFiado = XLSX.utils.json_to_sheet(linhasPagamentosFiado);
   aplicarFormatoMoedaColunas(wsPagamentosFiado, ['Valor pago']);
   const wsComposicaoGerencia = XLSX.utils.json_to_sheet(linhasComposicaoGerencia);
-  aplicarFormatoMoedaColunas(wsComposicaoGerencia, ['Valor unitário','Subtotal produto','Total Estoque','Vitrine Raspadinha','Troco no Cofre (total)','Bolões especiais','Gaveta']);
+  aplicarFormatoMoedaColunas(wsComposicaoGerencia, ['Valor unitário','Subtotal produto','Total Estoque','Vitrine Raspadinha','Troco no Cofre (total)','Bolões especiais','Gaveta','Entrada Produtos']);
   const wsTrocoCofre = XLSX.utils.json_to_sheet(linhasTrocoCofre);
   aplicarFormatoMoedaColunas(wsTrocoCofre, ['Subtotal','Total Troco Cofre']);
 
