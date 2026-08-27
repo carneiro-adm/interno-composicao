@@ -423,11 +423,7 @@
       <label>Terminal</label>
       <select id="sel-terminal-dia">
         <option value="">Selecione...</option>
-        <option value="9943">9943</option>
-        <option value="9944">9944</option>
-        <option value="9945">9945</option>
-        <option value="0000">0000 - Gerente</option>
-        <option value="0001">0001 - Bilhetes</option>
+        
       </select>
     </div>
     <button class="btn-primario" onclick="confirmarTerminalDia()">Confirmar</button>
@@ -516,11 +512,7 @@
         <div class="campo oculto" id="campo-troca-terminais">
           <label>Terminal para</label>
           <select id="sel-terminal-para">
-            <option value="9943">9943</option>
-            <option value="9944">9944</option>
-            <option value="9945">9945</option>
-            <option value="0000">0000 - Gerente</option>
-            <option value="0001">0001 - Bilhetes</option>
+            
           </select>
         </div>
         <div class="campo">
@@ -579,11 +571,7 @@
             <label>Terminal</label>
             <select id="filtro-hist-terminal" onchange="atualizarTudo()">
               <option value="">Todos</option>
-              <option value="9943">9943</option>
-              <option value="9944">9944</option>
-              <option value="9945">9945</option>
-              <option value="0000">0000 - Gerente</option>
-              <option value="0001">0001 - Bilhetes</option>
+              
             </select>
           </div>
         </div>
@@ -601,11 +589,7 @@
           <div class="campo">
             <label>Terminal</label>
             <select id="fech-ger-terminal" onchange="carregarFechamentoExistente()">
-              <option value="9943">9943</option>
-              <option value="9944">9944</option>
-              <option value="9945">9945</option>
-              <option value="0000">0000 - Gerente</option>
-              <option value="0001">0001 - Bilhetes</option>
+              
             </select>
           </div>
           <div class="campo">
@@ -721,11 +705,7 @@
             <label>Terminal</label>
             <select id="fech-admin-terminal">
               <option value="">Todos</option>
-              <option value="9943">9943</option>
-              <option value="9944">9944</option>
-              <option value="9945">9945</option>
-              <option value="0000">0000 - Gerente</option>
-              <option value="0001">0001 - Bilhetes</option>
+              
             </select>
           </div>
           <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="consultarFechamentosAdmin()">Consultar</button>
@@ -850,11 +830,7 @@
             <label>Terminal</label>
             <select id="dash-terminal">
               <option value="">Todos</option>
-              <option value="9943">9943</option>
-              <option value="9944">9944</option>
-              <option value="9945">9945</option>
-              <option value="0000">0000 - Gerente</option>
-              <option value="0001">0001 - Bilhetes</option>
+              
             </select>
           </div>
           <div class="campo">
@@ -1002,14 +978,11 @@
 
       <div class="painel">
         <h3>Enviar troco do cofre para outro terminal</h3>
-        <p class="aviso-fechamento">De caixa gerência (0000) para o terminal informado. O envio é registrado como débito no terminal de destino e abatido do Troco cofre.</p>
+        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como débito no terminal de destino e abatido do Troco cofre.</p>
         <div class="campo">
           <label>Terminal para</label>
           <select id="sel-terminal-envio-troco">
-            <option value="9943">9943</option>
-            <option value="9944">9944</option>
-            <option value="9945">9945</option>
-            <option value="0001">0001 - Bilhetes</option>
+            
           </select>
         </div>
         <div class="composicao-tabela">
@@ -1067,6 +1040,29 @@
     <!-- ===== ABA: ADMIN ===== -->
     <div class="aba-conteudo oculto" id="aba-admin">
       <div class="painel">
+        <h3>Gestão de Terminais</h3>
+        <p class="aviso-fechamento">Cadastre aqui todos os terminais disponíveis na loja. Todos os cálculos que somam "todos os terminais" (Caixa gerencial, Total1/Total Relatórios/Saídas do Batimento Gerencial) consideram apenas os terminais do tipo "Terminal caixa".</p>
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Número/Código do terminal</label>
+            <input type="text" id="novo-terminal-numero" placeholder="ex: 9943">
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Tipo</label>
+            <select id="novo-terminal-tipo">
+              <option value="Caixa">Terminal caixa</option>
+              <option value="Gerência">Terminal gerência</option>
+              <option value="Bilhetes">Terminal bilhetes</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-primario" onclick="cadastrarTerminal()">Adicionar terminal</button>
+        <div id="terminais-cad-msg"></div>
+        <h4 style="margin:16px 0 8px;">Terminais cadastrados</h4>
+        <div id="lista-terminais-cadastrados"><div class="vazio">Nenhum terminal cadastrado ainda.</div></div>
+      </div>
+
+      <div class="painel">
         <h3>Acesso Administrador</h3>
         <p class="aviso-fechamento">Totais de todos os blocos (a, b, c, d, e, f) e dos Totais 1/2/3, agrupados por funcionária, terminal e data.</p>
         <div class="historico-linha-filtro">
@@ -1095,6 +1091,17 @@
         </div>
         <button class="btn-secundario" style="margin-top:0;" onclick="adminRedefinirSenha()">Redefinir senha</button>
         <div id="admin-reset-msg"></div>
+      </div>
+
+      <div class="painel" style="border:1.5px solid var(--vermelho-estorno);">
+        <h3 style="color:var(--vermelho-estorno);">⚠ Reset de Dados de Produção</h3>
+        <p class="aviso-fechamento">Apaga permanentemente todos os Lançamentos, Fechamentos, Clientes, Pagamentos de Fiado, Composições de Caixa Gerência e os vínculos de Terminal do Dia. Os usuários cadastrados e os terminais configurados <strong>não</strong> são apagados. Use isso uma única vez, antes de começar a usar o app em produção. Essa ação não pode ser desfeita.</p>
+        <div class="campo">
+          <label>Para confirmar, digite: APAGAR DADOS</label>
+          <input type="text" id="reset-confirmacao-texto" placeholder="APAGAR DADOS">
+        </div>
+        <button class="btn-primario" style="background:var(--vermelho-estorno);" onclick="resetarDadosProducao()">Apagar todos os dados de transações</button>
+        <div id="reset-dados-msg"></div>
       </div>
 
       <div class="painel">
@@ -1288,6 +1295,132 @@ async function obterFuncionarioDoTerminal(terminal, data){
   candidatos.sort((a,b) => b.timestamp - a.timestamp);
   return candidatos[0];
 }
+
+// ---------- Gestão de Terminais (dinâmica, sem números fixos no código) ----------
+let TERMINAIS_CADASTRADOS = [];
+
+async function carregarTerminais(){
+  try{
+    const r = await window.storage.get('terminais_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarTerminaisStorage(lista){
+  await window.storage.set('terminais_loterica', JSON.stringify(lista), true);
+}
+async function recarregarTerminaisCache(){
+  TERMINAIS_CADASTRADOS = await carregarTerminais();
+  return TERMINAIS_CADASTRADOS;
+}
+function terminaisPorTipo(tipo){
+  return TERMINAIS_CADASTRADOS.filter(t => t.tipo === tipo);
+}
+function numerosTerminaisCaixa(){
+  return terminaisPorTipo('Caixa').map(t => t.numero);
+}
+function rotuloTerminal(numero){
+  const t = TERMINAIS_CADASTRADOS.find(x => x.numero === numero);
+  if(!t) return numero;
+  return t.tipo === 'Caixa' ? t.numero : (t.numero + ' - ' + t.tipo);
+}
+function opcoesTerminaisHTML(opts){
+  opts = opts || {};
+  let lista = TERMINAIS_CADASTRADOS.slice();
+  if(opts.tipos) lista = lista.filter(t => opts.tipos.includes(t.tipo));
+  if(opts.excluir) lista = lista.filter(t => t.numero !== opts.excluir);
+  lista.sort((a,b) => a.numero.localeCompare(b.numero, undefined, {numeric:true}));
+  let html = '';
+  if(opts.comBranco) html += `<option value="">${escaparHtml(opts.rotuloBranco || 'Todos')}</option>`;
+  if(lista.length === 0){
+    if(!opts.comBranco) html += '<option value="">Nenhum terminal cadastrado</option>';
+  }else{
+    html += lista.map(t => `<option value="${t.numero}">${escaparHtml(rotuloTerminal(t.numero))}</option>`).join('');
+  }
+  return html;
+}
+function popularSelectTerminais(id, opts){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const valorAtual = el.value;
+  el.innerHTML = opcoesTerminaisHTML(opts);
+  if(valorAtual && el.querySelector('option[value="'+valorAtual+'"]')) el.value = valorAtual;
+}
+
+async function cadastrarTerminal(){
+  const numero = document.getElementById('novo-terminal-numero').value.trim();
+  const tipo = document.getElementById('novo-terminal-tipo').value;
+  const msg = document.getElementById('terminais-cad-msg');
+
+  if(!numero){
+    msg.innerHTML = '<div class="msg-erro">Informe o número/código do terminal.</div>';
+    return;
+  }
+  const terminais = await carregarTerminais();
+  if(terminais.find(t => t.numero === numero)){
+    msg.innerHTML = '<div class="msg-erro">Já existe um terminal cadastrado com esse número.</div>';
+    return;
+  }
+  terminais.push({
+    id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
+    numero: numero,
+    tipo: tipo,
+    criadoPor: USUARIO_LOGADO.usuario,
+    criadoNome: USUARIO_LOGADO.nome,
+    criadoData: hojeISO(),
+    criadoHora: horaAgora()
+  });
+  await salvarTerminaisStorage(terminais);
+  await recarregarTerminaisCache();
+
+  document.getElementById('novo-terminal-numero').value = '';
+  msg.innerHTML = '<div class="msg-ok">Terminal cadastrado com sucesso.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+  await renderizarListaTerminais();
+  await atualizarTodosSelectsTerminais();
+}
+
+async function excluirTerminal(id){
+  let terminais = await carregarTerminais();
+  terminais = terminais.filter(t => t.id !== id);
+  await salvarTerminaisStorage(terminais);
+  await recarregarTerminaisCache();
+  await renderizarListaTerminais();
+  await atualizarTodosSelectsTerminais();
+}
+
+async function renderizarListaTerminais(){
+  const cont = document.getElementById('lista-terminais-cadastrados');
+  if(!cont) return;
+  const terminais = (await carregarTerminais()).sort((a,b) => a.numero.localeCompare(b.numero, undefined, {numeric:true}));
+  if(terminais.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum terminal cadastrado ainda.</div>';
+    return;
+  }
+  cont.innerHTML = `<table>
+    <thead><tr><th>Número</th><th>Tipo</th><th>Cadastrado por</th><th></th></tr></thead>
+    <tbody>
+      ${terminais.map(t => `<tr>
+        <td style="font-weight:700;">${escaparHtml(t.numero)}</td>
+        <td>${escaparHtml(t.tipo)}</td>
+        <td>${escaparHtml(t.criadoNome)} · ${t.criadoData.split('-').reverse().join('/')}</td>
+        <td><button class="btn-excluir" onclick="excluirTerminal('${t.id}')" title="Excluir">✕</button></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// Repopula todos os selects de terminal do app com os dados atuais cadastrados
+async function atualizarTodosSelectsTerminais(){
+  await recarregarTerminaisCache();
+  popularSelectTerminais('sel-terminal-dia', {comBranco:true, rotuloBranco:'Selecione...'});
+  popularSelectTerminais('sel-terminal-para', {excluir: TERMINAL_DO_DIA});
+  popularSelectTerminais('filtro-hist-terminal', {comBranco:true, rotuloBranco:'Todos'});
+  popularSelectTerminais('fech-ger-terminal', {});
+  popularSelectTerminais('fech-admin-terminal', {comBranco:true, rotuloBranco:'Todos'});
+  popularSelectTerminais('dash-terminal', {comBranco:true, rotuloBranco:'Todos'});
+  popularSelectTerminais('sel-terminal-envio-troco', {tipos:['Caixa','Bilhetes'], excluir: TERMINAL_DO_DIA});
+}
+
 async function carregarComposicaoGerencia(){
   try{
     const r = await window.storage.get('composicao_gerencia_loterica', true);
@@ -1479,11 +1612,19 @@ async function fazerLogin(){
   const ultimoTerminal = historicoUsuario.length > 0 ? historicoUsuario[0].terminal : '';
 
   USUARIO_PENDENTE_LOGIN = achado;
+  await recarregarTerminaisCache();
+  popularSelectTerminais('sel-terminal-dia', {comBranco:true, rotuloBranco:'Selecione...'});
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('tela-terminal-dia').classList.remove('oculto');
   document.getElementById('terminal-dia-nome').textContent = achado.nome;
-  document.getElementById('terminal-dia-erro').classList.add('oculto');
   document.getElementById('sel-terminal-dia').value = ultimoTerminal;
+  const erroInicial = document.getElementById('terminal-dia-erro');
+  if(TERMINAIS_CADASTRADOS.length === 0){
+    erroInicial.textContent = 'Nenhum terminal foi cadastrado ainda. Peça para um administrador cadastrar os terminais em Admin > Gestão de Terminais.';
+    erroInicial.classList.remove('oculto');
+  }else{
+    erroInicial.classList.add('oculto');
+  }
 }
 
 async function confirmarTerminalDia(){
@@ -1536,15 +1677,17 @@ async function entrarNoApp(achado){
   document.getElementById('tela-app').classList.remove('oculto');
   document.getElementById('nome-usuario-topo').textContent = achado.nome + (achado.gerencia ? ' (Gerencial)' : '');
   document.getElementById('data-hoje-topo').textContent = formatarDataExtenso();
-  document.getElementById('pill-terminal-dia').textContent = 'Terminal: ' + TERMINAL_DO_DIA;
+  await recarregarTerminaisCache();
+  document.getElementById('pill-terminal-dia').textContent = 'Terminal: ' + rotuloTerminal(TERMINAL_DO_DIA);
   trocarAba('lancamentos');
   selecionarTipo('Saida');
   montarComposicaoLista();
   montarOpcoesAtividadeDebito();
-  document.getElementById('exibicao-terminal-lancamento').textContent = TERMINAL_DO_DIA;
-  document.getElementById('exibicao-terminal-fechamento').textContent = TERMINAL_DO_DIA;
+  document.getElementById('exibicao-terminal-lancamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
+  document.getElementById('exibicao-terminal-fechamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
   document.getElementById('inp-data-lancamento').value = hoje;
   document.getElementById('inp-data-pagamento-fiado').value = hoje;
+  await atualizarTodosSelectsTerminais();
 
   if(EH_GERENCIA){
     document.getElementById('fechamento-filtro-gerencia').classList.remove('oculto');
@@ -1572,6 +1715,7 @@ async function entrarNoApp(achado){
     document.getElementById('nav-admin').classList.remove('oculto');
     document.getElementById('nav-gestaofiado').classList.remove('oculto');
     document.getElementById('nav-dashboard').classList.remove('oculto');
+    await renderizarListaTerminais();
     document.getElementById('admin-data-inicio').value = hoje;
     document.getElementById('admin-data-fim').value = hoje;
     document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
@@ -2695,7 +2839,7 @@ async function calcularCaixaGerencial(){
   if(!contTotal || !contDetalhe) return;
 
   const dataRef = obterDataGerencial();
-  const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === dataRef);
+  const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === dataRef && numerosTerminaisCaixa().includes(f.terminal));
   const porTerminal = {};
   fechamentosHoje.forEach(f => {
     if(!porTerminal[f.terminal]) porTerminal[f.terminal] = {terminal:f.terminal, c:0, d:0, e:0};
@@ -2739,8 +2883,6 @@ async function calcularTrocaTelesenaGerencial(){
   return total;
 }
 
-const TERMINAIS_OPERACIONAIS_GERENCIA = ['9943','9944','9945'];
-
 async function calcularBatimentoGerencial(){
   const elDebito = document.getElementById('debito-gerencial-valor');
   if(!elDebito) return;
@@ -2749,12 +2891,12 @@ async function calcularBatimentoGerencial(){
   const ontem = diaAnteriorISO(hoje);
 
   // ---- DÉBITO GERENCIAL ----
-  const fechamentosOntem = (await carregarFechamentos()).filter(f => f.data === ontem);
+  const fechamentosOntem = (await carregarFechamentos()).filter(f => f.data === ontem && numerosTerminaisCaixa().includes(f.terminal));
   const total1Gerencial = fechamentosOntem.reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
 
   const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === hoje);
   const totalRelatorios = fechamentosHoje
-    .filter(f => TERMINAIS_OPERACIONAIS_GERENCIA.includes(f.terminal))
+    .filter(f => numerosTerminaisCaixa().includes(f.terminal))
     .reduce((s,f) => s + (f.f||0), 0);
 
   const entradaProdutos = parseFloat(document.getElementById('inp-entrada-produtos').value) || 0;
@@ -2775,7 +2917,7 @@ async function calcularBatimentoGerencial(){
                          + trocaTelesenaGerencial + boloesEspeciais + gaveta + fiadoTotal;
 
   const registrosHoje = (await carregarRegistros()).filter(r =>
-    r.data===hoje && r.tipo==='Saida' && !r.excluido && TERMINAIS_OPERACIONAIS_GERENCIA.includes(r.caixa));
+    r.data===hoje && r.tipo==='Saida' && !r.excluido && r.atividade !== 'Fiado' && numerosTerminaisCaixa().includes(r.caixa));
   const totalSaidas = registrosHoje.reduce((s,r) => s+r.valor, 0);
 
   const creditoGerencial = total2Gerencial + totalSaidas;
@@ -2792,16 +2934,18 @@ async function calcularBatimentoGerencial(){
   if(diferencaGerencial < -0.005) card.classList.add('negativo');
   else if(diferencaGerencial > 0.005) card.classList.add('positivo');
 
+  const rotuloTerminaisCaixa = numerosTerminaisCaixa().join('/') || 'nenhum terminal caixa cadastrado';
+
   const cont = document.getElementById('detalhe-batimento-gerencial');
   cont.innerHTML = `<table>
     <thead><tr><th>Componente</th><th>Valor</th></tr></thead>
     <tbody>
-      <tr><td>TOTAL1 — Composição de caixa (dia anterior), todos os terminais</td><td>${formatarMoeda(total1Gerencial)}</td></tr>
-      <tr><td>Total Relatórios (f) — terminais 9943/9944/9945</td><td>${formatarMoeda(totalRelatorios)}</td></tr>
+      <tr><td>TOTAL1 — Composição de caixa (dia anterior), todos os terminais caixa</td><td>${formatarMoeda(total1Gerencial)}</td></tr>
+      <tr><td>Total Relatórios (f) — terminais caixa (${rotuloTerminaisCaixa})</td><td>${formatarMoeda(totalRelatorios)}</td></tr>
       <tr><td>Entrada Produtos</td><td>${formatarMoeda(entradaProdutos)}</td></tr>
       <tr><td style="font-weight:800;">Débito Gerencial</td><td style="font-weight:800;">${formatarMoeda(debitoGerencial)}</td></tr>
       <tr><td>TOTAL2 — Composição de caixa (hoje) gerencial</td><td>${formatarMoeda(total2Gerencial)}</td></tr>
-      <tr><td>Saídas hoje — terminais 9943/9944/9945</td><td>${formatarMoeda(totalSaidas)}</td></tr>
+      <tr><td>Saídas hoje — terminais caixa (${rotuloTerminaisCaixa}), exceto Fiado</td><td>${formatarMoeda(totalSaidas)}</td></tr>
       <tr><td style="font-weight:800;">Crédito Gerencial</td><td style="font-weight:800;">${formatarMoeda(creditoGerencial)}</td></tr>
     </tbody>
   </table>`;
@@ -2995,7 +3139,7 @@ async function enviarTrocoGerencia(){
   await salvarComposicaoGerenciaAtual();
 
   const detalheDenominacoes = detalhesEnvio.map(d => d.qtd+'x '+formatarDenominacao(d.valor)).join(', ');
-  const obsCompleta = 'Troco cofre de gerência (0000) para ' + terminalPara + ': ' + detalheDenominacoes;
+  const obsCompleta = 'Troco cofre de gerência (' + TERMINAL_DO_DIA + ') para ' + terminalPara + ': ' + detalheDenominacoes;
 
   const registros = await carregarRegistros();
   const novoRegistro = {
@@ -3025,7 +3169,7 @@ async function enviarTrocoGerencia(){
     funcionaria: novoRegistro.nome,
     registradoPor: novoRegistro.registradoPorNome,
     idTerminal: novoRegistro.caixa,
-    idTerminalOrigem: '0000',
+    idTerminalOrigem: TERMINAL_DO_DIA,
     data: novoRegistro.data,
     hora: novoRegistro.hora,
     tipo: 'Débito',
@@ -3413,6 +3557,32 @@ async function adminRedefinirSenha(){
   document.getElementById('admin-reset-senha').value = '';
   msg.innerHTML = '<div class="msg-ok">Senha redefinida com sucesso.</div>';
   setTimeout(()=>{msg.innerHTML='';}, 2500);
+}
+
+async function resetarDadosProducao(){
+  const texto = document.getElementById('reset-confirmacao-texto').value.trim();
+  const msg = document.getElementById('reset-dados-msg');
+
+  if(texto !== 'APAGAR DADOS'){
+    msg.innerHTML = '<div class="msg-erro">Digite exatamente "APAGAR DADOS" no campo acima para confirmar. Essa ação é permanente e não pode ser desfeita.</div>';
+    return;
+  }
+
+  msg.innerHTML = '<div class="msg-ok">Apagando dados, aguarde...</div>';
+
+  await salvarRegistros([]);
+  await salvarFechamentos([]);
+  await salvarClientes([]);
+  await salvarPagamentosFiado([]);
+  await salvarComposicaoGerencia([]);
+  await salvarTerminalDia([]);
+
+  document.getElementById('reset-confirmacao-texto').value = '';
+  msg.innerHTML = '<div class="msg-ok">Todos os dados de transações foram apagados. O app está pronto para começar em produção.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 6000);
+
+  await atualizarTudo();
+  if(EH_ADMIN) await consultarPainelAdmin();
 }
 
 // ---------- Integração com Excel / Office 365 ----------
