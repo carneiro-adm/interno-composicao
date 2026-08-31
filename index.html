@@ -1319,6 +1319,7 @@ function numerosTerminaisCaixa(){
   return terminaisPorTipo('Caixa').map(t => t.numero);
 }
 function rotuloTerminal(numero){
+  if(!numero) return '—';
   const t = TERMINAIS_CADASTRADOS.find(x => x.numero === numero);
   if(!t) return numero;
   return t.tipo === 'Caixa' ? t.numero : (t.numero + ' - ' + t.tipo);
@@ -1611,20 +1612,23 @@ async function fazerLogin(){
                                        .sort((a,b) => b.timestamp - a.timestamp);
   const ultimoTerminal = historicoUsuario.length > 0 ? historicoUsuario[0].terminal : '';
 
-  USUARIO_PENDENTE_LOGIN = achado;
   await recarregarTerminaisCache();
+
+  // Se ainda não existe nenhum terminal cadastrado no sistema, entra direto no app
+  // (sem exigir seleção) para permitir que um administrador cadastre os terminais primeiro.
+  if(TERMINAIS_CADASTRADOS.length === 0){
+    TERMINAL_DO_DIA = null;
+    await entrarNoApp(achado);
+    return;
+  }
+
+  USUARIO_PENDENTE_LOGIN = achado;
   popularSelectTerminais('sel-terminal-dia', {comBranco:true, rotuloBranco:'Selecione...'});
   document.getElementById('tela-login').classList.add('oculto');
   document.getElementById('tela-terminal-dia').classList.remove('oculto');
   document.getElementById('terminal-dia-nome').textContent = achado.nome;
   document.getElementById('sel-terminal-dia').value = ultimoTerminal;
-  const erroInicial = document.getElementById('terminal-dia-erro');
-  if(TERMINAIS_CADASTRADOS.length === 0){
-    erroInicial.textContent = 'Nenhum terminal foi cadastrado ainda. Peça para um administrador cadastrar os terminais em Admin > Gestão de Terminais.';
-    erroInicial.classList.remove('oculto');
-  }else{
-    erroInicial.classList.add('oculto');
-  }
+  document.getElementById('terminal-dia-erro').classList.add('oculto');
 }
 
 async function confirmarTerminalDia(){
@@ -1658,6 +1662,14 @@ async function confirmarTerminalDia(){
 
 async function trocarTerminalDia(){
   if(!USUARIO_LOGADO) return;
+  await recarregarTerminaisCache();
+  if(TERMINAIS_CADASTRADOS.length === 0){
+    const pill = document.getElementById('pill-terminal-dia');
+    pill.textContent = 'Sem terminais cadastrados';
+    setTimeout(()=>{ pill.textContent = 'Terminal: ' + rotuloTerminal(TERMINAL_DO_DIA); }, 3000);
+    return;
+  }
+  popularSelectTerminais('sel-terminal-dia', {comBranco:true, rotuloBranco:'Selecione...'});
   document.getElementById('sel-terminal-dia').value = TERMINAL_DO_DIA || '';
   document.getElementById('terminal-dia-nome').textContent = USUARIO_LOGADO.nome;
   document.getElementById('terminal-dia-erro').classList.add('oculto');
