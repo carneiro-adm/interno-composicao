@@ -451,14 +451,18 @@
 
     <!-- ===== ABA: LANÇAMENTOS ===== -->
     <div class="aba-conteudo" id="aba-lancamentos">
+      <div class="campo" style="max-width:220px;margin:0 auto 12px;">
+        <label>Data dos totais abaixo</label>
+        <input type="date" id="filtro-data-subtotal" onchange="atualizarTudo()">
+      </div>
       <div class="subtotal-wrap">
         <div class="subtotal-card venda">
-          <div class="rotulo">Saídas hoje (a)</div>
+          <div class="rotulo">Saídas (a)</div>
           <div class="valor" id="sub-vendas">R$ 0,00</div>
           <div class="qtd" id="sub-vendas-qtd">0 lançamentos</div>
         </div>
         <div class="subtotal-card estorno">
-          <div class="rotulo">Débitos (b)</div>
+          <div class="rotulo">Entradas (b)</div>
           <div class="valor" id="sub-estornos">R$ 0,00</div>
           <div class="qtd" id="sub-estornos-qtd">0 lançamentos</div>
         </div>
@@ -473,7 +477,7 @@
         <h3>Novo lançamento</h3>
         <div class="tipo-botoes">
           <button class="tipo-btn" id="btn-tipo-saida" onclick="selecionarTipo('Saida')">Saídas hoje<span class="sub">(a) saldo positivo</span></button>
-          <button class="tipo-btn" id="btn-tipo-troco" onclick="selecionarTipo('Troco')">Débitos<span class="sub">(b) saldo negativo</span></button>
+          <button class="tipo-btn" id="btn-tipo-troco" onclick="selecionarTipo('Troco')">Entradas<span class="sub">(b) saldo negativo</span></button>
         </div>
         <div class="campo" id="campo-atividade">
           <label>Tipo de atividade</label>
@@ -640,7 +644,7 @@
           <div class="titulo-bloco"><span class="letra-label">a-b</span> Registro de lançamentos hoje</div>
           <div class="resumo-ab">
             <div class="resumo-ab-item"><div class="rotulo">Saídas (a)</div><div class="valor" id="resumo-a" style="color:var(--verde-venda);">R$ 0,00</div></div>
-            <div class="resumo-ab-item"><div class="rotulo">Débitos (b)</div><div class="valor" id="resumo-b" style="color:var(--vermelho-estorno);">R$ 0,00</div></div>
+            <div class="resumo-ab-item"><div class="rotulo">Entradas (b)</div><div class="valor" id="resumo-b" style="color:var(--vermelho-estorno);">R$ 0,00</div></div>
             <div class="resumo-ab-item"><div class="rotulo">Saldo (a-b)</div><div class="valor" id="resumo-ab">R$ 0,00</div></div>
           </div>
         </div>
@@ -820,7 +824,7 @@
     <div class="aba-conteudo oculto" id="aba-dashboard">
       <div class="painel">
         <h3>Dashboard</h3>
-        <p class="aviso-fechamento">Visão consolidada de todos os lançamentos (Saídas e Débitos) de todos os perfis.</p>
+        <p class="aviso-fechamento">Visão consolidada de todos os lançamentos (Saídas e Entradas) de todos os perfis.</p>
         <div class="historico-linha-filtro">
           <div class="campo"><label>De</label><input type="date" id="dash-data-inicio"></div>
           <div class="campo"><label>Até</label><input type="date" id="dash-data-fim"></div>
@@ -838,7 +842,7 @@
             <select id="dash-tipo">
               <option value="">Todos</option>
               <option value="Saida">Saídas</option>
-              <option value="Troco">Débitos</option>
+              <option value="Troco">Entradas</option>
             </select>
           </div>
           <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="atualizarDashboard()">Consultar</button>
@@ -847,7 +851,7 @@
 
       <div class="subtotal-wrap">
         <div class="subtotal-card venda"><div class="rotulo">Total Saídas</div><div class="valor" id="dash-total-saidas">R$ 0,00</div></div>
-        <div class="subtotal-card estorno"><div class="rotulo">Total Débitos</div><div class="valor" id="dash-total-debitos">R$ 0,00</div></div>
+        <div class="subtotal-card estorno"><div class="rotulo">Total Entradas</div><div class="valor" id="dash-total-debitos">R$ 0,00</div></div>
         <div class="subtotal-card saldo"><div class="rotulo">Saldo</div><div class="valor" id="dash-saldo">R$ 0,00</div></div>
       </div>
 
@@ -855,7 +859,7 @@
         <h3>Lançamentos por dia</h3>
         <div class="legenda-grafico">
           <span class="legenda-item"><span class="ponto-legenda" style="background:var(--verde-venda);"></span> Saídas</span>
-          <span class="legenda-item"><span class="ponto-legenda" style="background:var(--vermelho-estorno);"></span> Débitos</span>
+          <span class="legenda-item"><span class="ponto-legenda" style="background:var(--vermelho-estorno);"></span> Entradas</span>
         </div>
         <div class="grafico-fiado-wrap" id="dash-grafico-dia"><div class="vazio">Escolha o período e clique em Consultar.</div></div>
       </div>
@@ -1706,6 +1710,7 @@ async function entrarNoApp(achado){
   document.getElementById('exibicao-terminal-lancamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
   document.getElementById('exibicao-terminal-fechamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
   document.getElementById('inp-data-lancamento').value = hoje;
+  document.getElementById('filtro-data-subtotal').value = hoje;
   document.getElementById('inp-data-pagamento-fiado').value = hoje;
   await atualizarTodosSelectsTerminais();
 
@@ -1892,6 +1897,10 @@ async function registrarLancamento(){
       excluido: false,
       timestamp: agora
     };
+    // Quando a atividade for "Troco" (troco enviado da gerência), ambos os lados ficam
+    // negativos (Débito) — não é uma troca de caixa operacional, é fornecimento de troco.
+    const tipoDestino = atividadeDebito === 'Troco' ? 'Troco' : 'Saida';
+
     const registroCredito = {
       id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
       usuario: funcPara.usuario,
@@ -1901,7 +1910,7 @@ async function registrarLancamento(){
       data: dataRegistro,
       hora: horaAgora(),
       caixa: terminalPara,
-      tipo: 'Saida',
+      tipo: tipoDestino,
       atividade: atividadeDebito,
       clienteId: '',
       clienteNome: '',
@@ -1923,7 +1932,7 @@ async function registrarLancamento(){
       idTerminalDestino: terminalPara,
       data: registroDebito.data,
       hora: registroDebito.hora,
-      tipo: 'Débito',
+      tipo: 'Entrada',
       atividade: atividadeDebito,
       valor: registroDebito.valor,
       observacao: registroDebito.obs
@@ -1938,7 +1947,7 @@ async function registrarLancamento(){
       idTerminalOrigem: terminalDe,
       data: registroCredito.data,
       hora: registroCredito.hora,
-      tipo: 'Crédito (recebido em ' + atividadeDebito.toLowerCase() + ')',
+      tipo: tipoDestino === 'Troco' ? 'Entrada (troco recebido)' : 'Crédito (recebido em ' + atividadeDebito.toLowerCase() + ')',
       atividade: atividadeDebito,
       valor: registroCredito.valor,
       observacao: registroCredito.obs
@@ -2000,7 +2009,7 @@ async function registrarLancamento(){
     idTerminal: novoRegistro.caixa,
     data: novoRegistro.data,
     hora: novoRegistro.hora,
-    tipo: novoRegistro.tipo === 'Saida' ? 'Saída' : 'Débito',
+    tipo: novoRegistro.tipo === 'Saida' ? 'Saída' : 'Entrada',
     atividade: novoRegistro.atividade,
     idCliente: novoRegistro.clienteId,
     cliente: novoRegistro.clienteNome,
@@ -2483,7 +2492,7 @@ async function atualizarDashboard(){
   const linhasTerminal = Object.values(porTerminal).sort((a,b) => a.terminal.localeCompare(b.terminal));
   const contTerminal = document.getElementById('dash-tabela-terminal');
   contTerminal.innerHTML = linhasTerminal.length === 0 ? '<div class="vazio">Nenhum dado no período.</div>' : `<table>
-    <thead><tr><th>Terminal</th><th>Saídas</th><th>Débitos</th><th>Saldo</th><th>Qtd</th></tr></thead>
+    <thead><tr><th>Terminal</th><th>Saídas</th><th>Entradas</th><th>Saldo</th><th>Qtd</th></tr></thead>
     <tbody>${linhasTerminal.map(t => `<tr>
       <td>${escaparHtml(t.terminal)}</td>
       <td style="color:var(--verde-venda);">${formatarMoeda(t.saidas)}</td>
@@ -2503,7 +2512,7 @@ async function atualizarDashboard(){
   const linhasFuncionaria = Object.values(porFuncionaria).sort((a,b) => a.nome.localeCompare(b.nome));
   const contFuncionaria = document.getElementById('dash-tabela-funcionaria');
   contFuncionaria.innerHTML = linhasFuncionaria.length === 0 ? '<div class="vazio">Nenhum dado no período.</div>' : `<table>
-    <thead><tr><th>Funcionária</th><th>Saídas</th><th>Débitos</th><th>Saldo</th><th>Qtd</th></tr></thead>
+    <thead><tr><th>Funcionária</th><th>Saídas</th><th>Entradas</th><th>Saldo</th><th>Qtd</th></tr></thead>
     <tbody>${linhasFuncionaria.map(f => `<tr>
       <td>${escaparHtml(f.nome)}</td>
       <td style="color:var(--verde-venda);">${formatarMoeda(f.saidas)}</td>
@@ -3192,7 +3201,7 @@ async function enviarTrocoGerencia(){
     idTerminalOrigem: TERMINAL_DO_DIA,
     data: novoRegistro.data,
     hora: novoRegistro.hora,
-    tipo: 'Débito',
+    tipo: 'Entrada',
     atividade: 'Troco cofre',
     denominacoes: detalhesEnvio,
     valor: novoRegistro.valor,
@@ -3211,7 +3220,12 @@ async function atualizarTudo(){
   if(!USUARIO_LOGADO) return;
   const registros = await carregarRegistros();
   const hoje = hojeISO();
-  const meus = registros.filter(r => r.data === hoje && r.usuario === USUARIO_LOGADO.usuario)
+
+  const inpSubtotalData = document.getElementById('filtro-data-subtotal');
+  if(inpSubtotalData && !inpSubtotalData.value) inpSubtotalData.value = hoje;
+  const dataSubtotal = (inpSubtotalData && inpSubtotalData.value) ? inpSubtotalData.value : hoje;
+
+  const meus = registros.filter(r => r.data === dataSubtotal && r.usuario === USUARIO_LOGADO.usuario)
                          .sort((a,b) => b.timestamp - a.timestamp);
 
   const totalVendas = meus.filter(r=>r.tipo==='Saida' && !r.excluido).reduce((s,r)=>s+r.valor,0);
@@ -3249,7 +3263,7 @@ async function atualizarTudo(){
     lista.innerHTML = meusPeriodo.map(r => {
       const badgeClasse = r.tipo==='Saida' ? 'badge-saida' : 'badge-troco';
       const valorClasse = r.tipo==='Saida' ? 'saida' : 'troco';
-      const rotuloTipo = r.tipo==='Saida' ? 'Saída' : 'Débito';
+      const rotuloTipo = r.tipo==='Saida' ? 'Saída' : 'Entrada';
       const sinal = r.tipo==='Troco' ? '- ' : '';
       const detalheAtividade = r.atividade ? r.atividade : '';
       const detalheCliente = r.clienteNome ? ('Cliente: '+r.clienteNome) : '';
@@ -3353,7 +3367,7 @@ async function atualizarPainelGeral(){
   cont.innerHTML = `<div class="tabela-historico-dias"><table>
     <thead><tr>
       <th>Funcionário(a)</th>
-      <th>a) Saídas</th><th>b) Débitos</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+      <th>a) Saídas</th><th>b) Entradas</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
       <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
     </tr></thead>
     <tbody>
@@ -3409,7 +3423,7 @@ async function consultarHistoricoDias(){
           <td>${escaparHtml(r.nome)}</td>
           <td>${escaparHtml(r.caixa)}</td>
           <td>${r.hora}</td>
-          <td>${r.tipo==='Saida' ? 'Saída' : 'Débito'}</td>
+          <td>${r.tipo==='Saida' ? 'Saída' : 'Entrada'}</td>
           <td>${escaparHtml(r.atividade || '—')}</td>
           <td>${escaparHtml(r.clienteNome || '—')}</td>
           <td style="font-weight:700;">${formatarMoeda(r.valor)}</td>
@@ -3539,7 +3553,7 @@ async function consultarPainelAdmin(){
       <div class="tabela-historico-dias" style="margin-bottom:6px;"><table>
         <thead><tr>
           <th>Funcionária</th><th>Terminal</th>
-          <th>a) Saídas</th><th>b) Débitos</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
+          <th>a) Saídas</th><th>b) Entradas</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
           <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
         </tr></thead>
         <tbody>
@@ -3694,7 +3708,7 @@ async function exportarExcel(){
     'ID Terminal': r.caixa,
     'Data': r.data,
     'Hora': r.hora,
-    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Débito',
+    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Entrada',
     'Atividade': r.atividade || '',
     'ID Cliente (Fiado)': r.clienteId || '',
     'Cliente (Fiado)': r.clienteNome || '',
@@ -3860,7 +3874,7 @@ async function exportarExcelPeriodoAdmin(){
     'ID Terminal': r.caixa,
     'Data': r.data,
     'Hora': r.hora,
-    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Débito',
+    'Tipo': r.tipo === 'Saida' ? 'Saída' : 'Entrada',
     'Atividade': r.atividade || '',
     'ID Cliente (Fiado)': r.clienteId || '',
     'Cliente (Fiado)': r.clienteNome || '',
