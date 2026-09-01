@@ -1864,11 +1864,9 @@ async function registrarLancamento(){
     }
 
     const dataRegistro = dataLancamento;
-    const funcPara = await obterFuncionarioDoTerminal(terminalPara, dataRegistro);
-
+    let funcPara = await obterFuncionarioDoTerminal(terminalPara, dataRegistro);
     if(!funcPara){
-      msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalPara+' nessa data. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
-      return;
+      funcPara = {usuario: USUARIO_LOGADO.usuario, nome: USUARIO_LOGADO.nome};
     }
 
     const descricao = atividadeDebito + ' de ' + terminalDe + ' para ' + terminalPara;
@@ -3145,10 +3143,9 @@ async function enviarTrocoGerencia(){
   }
 
   const hoje = obterDataGerencial();
-  const funcPara = await obterFuncionarioDoTerminal(terminalPara, hoje);
+  let funcPara = await obterFuncionarioDoTerminal(terminalPara, hoje);
   if(!funcPara){
-    msg.innerHTML = '<div class="msg-erro">Nenhuma funcionária está associada ao terminal '+terminalPara+' nessa data. Peça para ela fazer login e selecionar esse terminal antes de continuar.</div>';
-    return;
+    funcPara = {usuario: USUARIO_LOGADO.usuario, nome: USUARIO_LOGADO.nome};
   }
 
   // Abate as quantidades enviadas do Troco cofre
