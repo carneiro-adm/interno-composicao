@@ -351,7 +351,7 @@
       </div>
       <div class="campo">
         <label>Senha</label>
-        <input type="password" id="inp-senha" placeholder="Digite sua senha">
+        <input type="password" id="inp-senha" placeholder="Digite sua senha" onkeydown="if(event.key==='Enter'){fazerLogin();}">
       </div>
       <button class="btn-primario" onclick="fazerLogin()">Entrar</button>
       <button class="btn-secundario" onclick="mostrarCadastro()">Cadastrar novo funcionário</button>
@@ -1084,16 +1084,21 @@
       </div>
 
       <div class="painel">
-        <h3>Redefinir senha de funcionário</h3>
+        <h3>Gerenciar funcionário</h3>
         <div class="campo">
           <label>Funcionário(a)</label>
-          <select id="admin-reset-usuario"><option value="">Selecione...</option></select>
+          <select id="admin-reset-usuario" onchange="atualizarStatusFuncionarioAdmin()"><option value="">Selecione...</option></select>
         </div>
+        <div id="admin-status-funcionario"></div>
         <div class="campo">
           <label>Nova senha</label>
           <input type="password" id="admin-reset-senha" placeholder="Nova senha">
         </div>
         <button class="btn-secundario" style="margin-top:0;" onclick="adminRedefinirSenha()">Redefinir senha</button>
+        <div class="linha-form" style="margin-top:10px;">
+          <button class="btn-secundario" style="margin-top:0;" id="btn-bloquear-usuario" onclick="adminAlternarBloqueioUsuario()">Bloquear</button>
+          <button class="btn-secundario" style="margin-top:0;color:var(--vermelho-estorno);border-color:var(--vermelho-estorno);" onclick="adminApagarUsuario()">Apagar usuário</button>
+        </div>
         <div id="admin-reset-msg"></div>
       </div>
 
@@ -1605,6 +1610,11 @@ async function fazerLogin(){
   const achado = usuarios.find(u => u.usuario === usuario && u.senha === senha);
   if(!achado){
     erro.textContent = 'Senha incorreta.';
+    erro.classList.remove('oculto');
+    return;
+  }
+  if(achado.bloqueado === true){
+    erro.textContent = 'Esta conta está bloqueada. Contate um administrador.';
     erro.classList.remove('oculto');
     return;
   }
@@ -3253,7 +3263,7 @@ async function atualizarTudo(){
     return registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
       && (!filtroUsuario || r.usuario === filtroUsuario)
       && (!filtroTerminal || r.caixa === filtroTerminal));
-  })() : registros.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.data >= periodoInicio && r.data <= periodoFim)
+  })() : registros.filter(r => (r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA) && r.data >= periodoInicio && r.data <= periodoFim)
   ).sort((a,b) => b.timestamp - a.timestamp);
 
   const lista = document.getElementById('lista-historico');
@@ -3268,7 +3278,9 @@ async function atualizarTudo(){
       const detalheAtividade = r.atividade ? r.atividade : '';
       const detalheCliente = r.clienteNome ? ('Cliente: '+r.clienteNome) : '';
       const detalheData = r.data.split('-').reverse().join('/');
-      const detalheAdmin = EH_ADMIN ? (escaparHtml(r.nome) + ' · Terminal ' + escaparHtml(r.caixa)) : '';
+      const detalheAdmin = (EH_ADMIN || r.usuario !== USUARIO_LOGADO.usuario)
+        ? (escaparHtml(r.nome) + ' · Terminal ' + escaparHtml(r.caixa))
+        : '';
       const detalhe = [detalheAtividade, detalheCliente, r.obs].filter(Boolean).map(escaparHtml).join(' · ');
       const classeItem = r.excluido ? 'historico-item excluido' : 'historico-item';
       const botaoLabel = r.excluido ? '↺' : '✕';
@@ -3590,6 +3602,68 @@ async function adminRedefinirSenha(){
   await salvarUsuarios(usuarios);
   document.getElementById('admin-reset-senha').value = '';
   msg.innerHTML = '<div class="msg-ok">Senha redefinida com sucesso.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+}
+
+async function atualizarStatusFuncionarioAdmin(){
+  const usuario = document.getElementById('admin-reset-usuario').value;
+  const cont = document.getElementById('admin-status-funcionario');
+  const btnBloquear = document.getElementById('btn-bloquear-usuario');
+  if(!usuario){
+    cont.innerHTML = '';
+    btnBloquear.textContent = 'Bloquear';
+    return;
+  }
+  const usuarios = await carregarUsuarios();
+  const u = usuarios.find(x => x.usuario === usuario);
+  if(!u){ cont.innerHTML = ''; return; }
+  const bloqueado = u.bloqueado === true;
+  cont.innerHTML = `<span class="status-pill ${bloqueado ? 'inativo' : 'ativo'}"><span class="ponto"></span> ${bloqueado ? 'Bloqueado' : 'Ativo'}</span>`;
+  btnBloquear.textContent = bloqueado ? 'Desbloquear' : 'Bloquear';
+}
+
+async function adminAlternarBloqueioUsuario(){
+  const usuario = document.getElementById('admin-reset-usuario').value;
+  const msg = document.getElementById('admin-reset-msg');
+  if(!usuario){
+    msg.innerHTML = '<div class="msg-erro">Selecione um funcionário.</div>';
+    return;
+  }
+  if(usuario === USUARIO_LOGADO.usuario){
+    msg.innerHTML = '<div class="msg-erro">Você não pode bloquear a própria conta.</div>';
+    return;
+  }
+  const usuarios = await carregarUsuarios();
+  const idx = usuarios.findIndex(u => u.usuario === usuario);
+  if(idx < 0) return;
+  usuarios[idx].bloqueado = !usuarios[idx].bloqueado;
+  await salvarUsuarios(usuarios);
+  await atualizarStatusFuncionarioAdmin();
+  msg.innerHTML = `<div class="msg-ok">Funcionário ${usuarios[idx].bloqueado ? 'bloqueado' : 'desbloqueado'} com sucesso.</div>`;
+  setTimeout(()=>{msg.innerHTML='';}, 2500);
+}
+
+async function adminApagarUsuario(){
+  const usuario = document.getElementById('admin-reset-usuario').value;
+  const msg = document.getElementById('admin-reset-msg');
+  if(!usuario){
+    msg.innerHTML = '<div class="msg-erro">Selecione um funcionário.</div>';
+    return;
+  }
+  if(usuario === USUARIO_LOGADO.usuario){
+    msg.innerHTML = '<div class="msg-erro">Você não pode apagar a própria conta.</div>';
+    return;
+  }
+  let usuarios = await carregarUsuarios();
+  const alvo = usuarios.find(u => u.usuario === usuario);
+  usuarios = usuarios.filter(u => u.usuario !== usuario);
+  await salvarUsuarios(usuarios);
+  await popularSelectUsuarios();
+  document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
+    TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
+  document.getElementById('admin-status-funcionario').innerHTML = '';
+  document.getElementById('btn-bloquear-usuario').textContent = 'Bloquear';
+  msg.innerHTML = `<div class="msg-ok">Funcionário ${alvo ? escaparHtml(alvo.nome) : ''} apagado com sucesso.</div>`;
   setTimeout(()=>{msg.innerHTML='';}, 2500);
 }
 
