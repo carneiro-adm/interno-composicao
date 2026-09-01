@@ -1881,13 +1881,21 @@ async function registrarLancamento(){
     const dataRegistro = dataLancamento;
     let funcPara = await obterFuncionarioDoTerminal(terminalPara, dataRegistro);
     if(!funcPara){
-      funcPara = {usuario: USUARIO_LOGADO.usuario, nome: USUARIO_LOGADO.nome};
+      // Sem funcionária associada ao terminal de destino: usa um identificador neutro,
+      // para que o lançamento NÃO apareça no histórico pessoal de quem enviou.
+      funcPara = {usuario: '', nome: 'Terminal ' + terminalPara + ' (sem funcionária associada)'};
     }
 
-    const descricao = atividadeDebito + ' de ' + terminalDe + ' para ' + terminalPara;
+    const descricao = atividadeDebito + ' · ' + USUARIO_LOGADO.nome + ': ' + terminalDe + ' > ' + terminalPara;
     const obsCompleta = obs ? (descricao + ' · ' + obs) : descricao;
     const registros = await carregarRegistros();
     const agora = Date.now();
+
+    // Terminal DE (origem): Saída (+), exceto para "Troco" — nesse caso, ambos os lados ficam negativos,
+    // pois é fornecimento de troco (não é uma transferência de caixa operacional).
+    // Terminal PARA (destino): sempre Entrada (-).
+    const tipoOrigem = atividadeDebito === 'Troco' ? 'Troco' : 'Saida';
+    const tipoDestino = 'Troco';
 
     const registroDebito = {
       id: agora + '-' + Math.random().toString(36).slice(2,7),
@@ -1898,7 +1906,7 @@ async function registrarLancamento(){
       data: dataRegistro,
       hora: horaAgora(),
       caixa: terminalDe,
-      tipo: 'Troco',
+      tipo: tipoOrigem,
       atividade: atividadeDebito,
       clienteId: '',
       clienteNome: '',
@@ -1907,9 +1915,6 @@ async function registrarLancamento(){
       excluido: false,
       timestamp: agora
     };
-    // Quando a atividade for "Troco" (troco enviado da gerência), ambos os lados ficam
-    // negativos (Débito) — não é uma troca de caixa operacional, é fornecimento de troco.
-    const tipoDestino = atividadeDebito === 'Troco' ? 'Troco' : 'Saida';
 
     const registroCredito = {
       id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
@@ -1942,7 +1947,7 @@ async function registrarLancamento(){
       idTerminalDestino: terminalPara,
       data: registroDebito.data,
       hora: registroDebito.hora,
-      tipo: 'Entrada',
+      tipo: tipoOrigem === 'Saida' ? 'Saída' : 'Entrada',
       atividade: atividadeDebito,
       valor: registroDebito.valor,
       observacao: registroDebito.obs
@@ -1957,7 +1962,7 @@ async function registrarLancamento(){
       idTerminalOrigem: terminalDe,
       data: registroCredito.data,
       hora: registroCredito.hora,
-      tipo: tipoDestino === 'Troco' ? 'Entrada (troco recebido)' : 'Crédito (recebido em ' + atividadeDebito.toLowerCase() + ')',
+      tipo: 'Entrada (recebido em ' + atividadeDebito.toLowerCase() + ')',
       atividade: atividadeDebito,
       valor: registroCredito.valor,
       observacao: registroCredito.obs
@@ -3164,7 +3169,9 @@ async function enviarTrocoGerencia(){
   const hoje = obterDataGerencial();
   let funcPara = await obterFuncionarioDoTerminal(terminalPara, hoje);
   if(!funcPara){
-    funcPara = {usuario: USUARIO_LOGADO.usuario, nome: USUARIO_LOGADO.nome};
+    // Sem funcionária associada ao terminal de destino: usa um identificador neutro,
+    // para que o lançamento NÃO apareça no histórico pessoal da gerência.
+    funcPara = {usuario: '', nome: 'Terminal ' + terminalPara + ' (sem funcionária associada)'};
   }
 
   // Abate as quantidades enviadas do Troco cofre
@@ -3178,11 +3185,34 @@ async function enviarTrocoGerencia(){
   await salvarComposicaoGerenciaAtual();
 
   const detalheDenominacoes = detalhesEnvio.map(d => d.qtd+'x '+formatarDenominacao(d.valor)).join(', ');
-  const obsCompleta = 'Troco cofre de gerência (' + TERMINAL_DO_DIA + ') para ' + terminalPara + ': ' + detalheDenominacoes;
+  const descricao = 'Troco cofre · ' + USUARIO_LOGADO.nome + ': ' + TERMINAL_DO_DIA + ' > ' + terminalPara;
+  const obsCompleta = descricao + ' · ' + detalheDenominacoes;
 
   const registros = await carregarRegistros();
-  const novoRegistro = {
-    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+  const agora = Date.now();
+
+  // Terminal de origem (gerência): também negativo — não é uma transferência de caixa
+  // operacional, é fornecimento de troco, e ambos os lados ficam com saldo negativo.
+  const registroOrigem = {
+    id: agora + '-' + Math.random().toString(36).slice(2,7),
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    registradoPor: USUARIO_LOGADO.usuario,
+    registradoPorNome: USUARIO_LOGADO.nome,
+    data: hoje,
+    hora: horaAgora(),
+    caixa: TERMINAL_DO_DIA,
+    tipo: 'Troco',
+    atividade: 'Troco cofre',
+    clienteId: '',
+    clienteNome: '',
+    valor: totalEnvio,
+    obs: obsCompleta,
+    excluido: false,
+    timestamp: agora
+  };
+  const registroDestino = {
+    id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
     usuario: funcPara.usuario,
     nome: funcPara.nome,
     registradoPor: USUARIO_LOGADO.usuario,
@@ -3197,30 +3227,46 @@ async function enviarTrocoGerencia(){
     valor: totalEnvio,
     obs: obsCompleta,
     excluido: false,
-    timestamp: Date.now()
+    timestamp: agora+1
   };
-  registros.push(novoRegistro);
+  registros.push(registroOrigem, registroDestino);
   await salvarRegistros(registros);
   enviarParaWebhook({
     origem: 'lancamento',
-    idTransacao: novoRegistro.id,
-    idFuncionaria: novoRegistro.usuario,
-    funcionaria: novoRegistro.nome,
-    registradoPor: novoRegistro.registradoPorNome,
-    idTerminal: novoRegistro.caixa,
-    idTerminalOrigem: TERMINAL_DO_DIA,
-    data: novoRegistro.data,
-    hora: novoRegistro.hora,
+    idTransacao: registroOrigem.id,
+    idFuncionaria: registroOrigem.usuario,
+    funcionaria: registroOrigem.nome,
+    registradoPor: registroOrigem.registradoPorNome,
+    idTerminal: registroOrigem.caixa,
+    idTerminalDestino: terminalPara,
+    data: registroOrigem.data,
+    hora: registroOrigem.hora,
     tipo: 'Entrada',
     atividade: 'Troco cofre',
     denominacoes: detalhesEnvio,
-    valor: novoRegistro.valor,
-    observacao: novoRegistro.obs
+    valor: registroOrigem.valor,
+    observacao: registroOrigem.obs
+  });
+  enviarParaWebhook({
+    origem: 'lancamento',
+    idTransacao: registroDestino.id,
+    idFuncionaria: registroDestino.usuario,
+    funcionaria: registroDestino.nome,
+    registradoPor: registroDestino.registradoPorNome,
+    idTerminal: registroDestino.caixa,
+    idTerminalOrigem: TERMINAL_DO_DIA,
+    data: registroDestino.data,
+    hora: registroDestino.hora,
+    tipo: 'Entrada',
+    atividade: 'Troco cofre',
+    denominacoes: detalhesEnvio,
+    valor: registroDestino.valor,
+    observacao: registroDestino.obs
   });
 
   DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('envio-qtd-'+idDenom(v)).value = 0; });
   calcularEnvioTroco();
-  msg.innerHTML = '<div class="msg-ok">Troco enviado e registrado como débito no terminal '+terminalPara+' (funcionária: '+funcPara.nome+'). Abatido do Troco cofre.</div>';
+  msg.innerHTML = '<div class="msg-ok">Troco enviado e registrado como Entrada negativa em ambos os terminais ('+TERMINAL_DO_DIA+' e '+terminalPara+', funcionária: '+funcPara.nome+'). Abatido do Troco cofre.</div>';
   setTimeout(()=>{msg.innerHTML='';}, 4000);
   await atualizarTudo();
 }
