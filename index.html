@@ -1613,10 +1613,11 @@ async function fazerLogin(){
   const ultimoTerminal = historicoUsuario.length > 0 ? historicoUsuario[0].terminal : '';
 
   await recarregarTerminaisCache();
+  const ehAdminLogin = achado.admin === true || achado.usuario === 'admin';
 
-  // Se ainda não existe nenhum terminal cadastrado no sistema, entra direto no app
-  // (sem exigir seleção) para permitir que um administrador cadastre os terminais primeiro.
-  if(TERMINAIS_CADASTRADOS.length === 0){
+  // Apenas o Administrador pode entrar sem terminal cadastrado (para poder cadastrar os terminais).
+  // Usuários normais e Gerência continuam exigidos a selecionar um terminal.
+  if(TERMINAIS_CADASTRADOS.length === 0 && ehAdminLogin){
     TERMINAL_DO_DIA = null;
     await entrarNoApp(achado);
     return;
@@ -1628,7 +1629,14 @@ async function fazerLogin(){
   document.getElementById('tela-terminal-dia').classList.remove('oculto');
   document.getElementById('terminal-dia-nome').textContent = achado.nome;
   document.getElementById('sel-terminal-dia').value = ultimoTerminal;
-  document.getElementById('terminal-dia-erro').classList.add('oculto');
+
+  const erroInicial = document.getElementById('terminal-dia-erro');
+  if(TERMINAIS_CADASTRADOS.length === 0){
+    erroInicial.textContent = 'Nenhum terminal foi cadastrado ainda. Peça para um administrador cadastrar os terminais em Admin > Gestão de Terminais antes de continuar.';
+    erroInicial.classList.remove('oculto');
+  }else{
+    erroInicial.classList.add('oculto');
+  }
 }
 
 async function confirmarTerminalDia(){
@@ -2531,6 +2539,8 @@ async function atualizarDashboard(){
 const PRODUTOS_FECHAMENTO = [
   {id:'telesena', nome:'Telesena', valor:15.00},
   {id:'bilhete', nome:'Bilhete especial', valor:10.00},
+  {id:'bilhete_quarta', nome:'Bilhete Quarta', valor:4.00},
+  {id:'bilhete_sabado', nome:'Bilhete Sábado', valor:4.00},
   {id:'raspadinha250', nome:'Raspadinha 2,50', valor:2.50},
   {id:'raspadinha500', nome:'Raspadinha 5,00', valor:5.00},
   {id:'raspadinha1000', nome:'Raspadinha 10,00', valor:10.00},
