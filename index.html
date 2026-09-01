@@ -1001,6 +1001,52 @@
       </div>
 
       <div class="painel">
+        <h3>Entrada Produtos</h3>
+        <p class="aviso-fechamento">Soma das Entradas de produtos registradas hoje (bloco "Entrada de produtos", dentro de Estoque de produtos gerencial).</p>
+        <div class="composicao-total" style="width:100%;align-items:flex-start;">
+          <span class="rotulo">Entrada Produtos</span>
+          <span class="valor" id="entrada-produtos-gerencial-total">R$ 0,00</span>
+        </div>
+      </div>
+
+      <div class="painel">
+        <h3>Batimento Gerencial</h3>
+        <div class="campo">
+          <label>Data</label>
+          <input type="date" id="inp-data-batimento" onchange="calcularBatimentoGerencial()">
+        </div>
+        <div class="totais-grandes">
+          <div class="total-card total1">
+            <div>
+              <div class="nome">DÉBITO GERENCIAL</div>
+              <div class="formula">TOTAL1 (dia anterior) + Total Relatórios + Entrada Produtos</div>
+            </div>
+            <div class="num" id="debito-gerencial-valor">R$ 0,00</div>
+          </div>
+          <div class="total-card total2">
+            <div>
+              <div class="nome">CRÉDITO GERENCIAL</div>
+              <div class="formula">TOTAL2 (hoje) + Saídas</div>
+            </div>
+            <div class="num" id="credito-gerencial-valor">R$ 0,00</div>
+          </div>
+          <div class="total-card total3 neutro" id="diferenca-gerencial-card">
+            <div>
+              <div class="nome">DIFERENÇA GERENCIAL</div>
+              <div class="formula">Crédito Gerencial − Débito Gerencial</div>
+            </div>
+            <div class="num" id="diferenca-gerencial-valor">R$ 0,00</div>
+          </div>
+        </div>
+        <h4 style="margin-bottom:8px;">Detalhamento</h4>
+        <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
+
+        <h4 style="margin:18px 0 8px;">Saídas</h4>
+        <p class="aviso-fechamento">Saídas hoje — terminais caixa, exceto Fiado. Ordenado por atividade (A-Z).</p>
+        <div class="tabela-historico-dias" id="detalhe-saidas-batimento"><div class="vazio">Calculando...</div></div>
+      </div>
+
+      <div class="painel">
         <h3>Enviar troco do cofre para outro terminal</h3>
         <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Troco cofre.</p>
         <div class="campo">
@@ -1044,44 +1090,6 @@
         </div>
         <button class="btn-primario" style="margin-top:14px;" onclick="enviarProdutosGerencia()">Enviar produtos</button>
         <div id="envio-produtos-msg"></div>
-      </div>
-
-      <div class="painel">
-        <h3>Entrada Produtos</h3>
-        <p class="aviso-fechamento">Soma das Entradas de produtos registradas hoje (bloco "Entrada de produtos", dentro de Estoque de produtos gerencial).</p>
-        <div class="composicao-total" style="width:100%;align-items:flex-start;">
-          <span class="rotulo">Entrada Produtos</span>
-          <span class="valor" id="entrada-produtos-gerencial-total">R$ 0,00</span>
-        </div>
-      </div>
-
-      <div class="painel">
-        <h3>Batimento Gerencial</h3>
-        <div class="totais-grandes">
-          <div class="total-card total1">
-            <div>
-              <div class="nome">DÉBITO GERENCIAL</div>
-              <div class="formula">TOTAL1 (dia anterior) + Total Relatórios + Entrada Produtos</div>
-            </div>
-            <div class="num" id="debito-gerencial-valor">R$ 0,00</div>
-          </div>
-          <div class="total-card total2">
-            <div>
-              <div class="nome">CRÉDITO GERENCIAL</div>
-              <div class="formula">TOTAL2 (hoje) + Saídas</div>
-            </div>
-            <div class="num" id="credito-gerencial-valor">R$ 0,00</div>
-          </div>
-          <div class="total-card total3 neutro" id="diferenca-gerencial-card">
-            <div>
-              <div class="nome">DIFERENÇA GERENCIAL</div>
-              <div class="formula">Crédito Gerencial − Débito Gerencial</div>
-            </div>
-            <div class="num" id="diferenca-gerencial-valor">R$ 0,00</div>
-          </div>
-        </div>
-        <h4 style="margin-bottom:8px;">Detalhamento</h4>
-        <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
       </div>
     </div>
 
@@ -1828,6 +1836,7 @@ async function entrarNoApp(achado){
       TODOS_USUARIOS.filter(u => u.usuario !== achado.usuario).map(u => `<option value="${u.usuario}">${escaparHtml(u.nome)}</option>`).join('');
     document.getElementById('fech-ger-data').value = hoje;
     document.getElementById('inp-data-gerencia').value = hoje;
+    document.getElementById('inp-data-batimento').value = hoje;
   }else{
     document.getElementById('fechamento-filtro-gerencia').classList.add('oculto');
     document.getElementById('campo-terminal-fechamento-fixo').classList.remove('oculto');
@@ -2977,6 +2986,11 @@ function obterDataGerencial(){
   return (el && el.value) ? el.value : hojeISO();
 }
 
+function obterDataBatimento(){
+  const el = document.getElementById('inp-data-batimento');
+  return (el && el.value) ? el.value : hojeISO();
+}
+
 // ---------- Entrada de Produtos (incorpora ao Estoque de produtos gerencial) ----------
 function alternarEntradaProdutos(){
   const bloco = document.getElementById('bloco-entrada-produtos');
@@ -3291,7 +3305,7 @@ async function calcularBatimentoGerencial(){
   const elDebito = document.getElementById('debito-gerencial-valor');
   if(!elDebito) return;
 
-  const hoje = obterDataGerencial();
+  const hoje = obterDataBatimento();
   const ontem = diaAnteriorISO(hoje);
 
   // ---- DÉBITO GERENCIAL ----
@@ -3353,6 +3367,40 @@ async function calcularBatimentoGerencial(){
       <tr><td style="font-weight:800;">Crédito Gerencial</td><td style="font-weight:800;">${formatarMoeda(creditoGerencial)}</td></tr>
     </tbody>
   </table>`;
+
+  // ---- Saídas por tipo de atividade (ordem alfabética) ----
+  const porAtividadeSaidas = {};
+  registrosHoje.forEach(r => {
+    const chave = r.atividade || '(sem atividade)';
+    if(!porAtividadeSaidas[chave]) porAtividadeSaidas[chave] = {atividade:chave, total:0, qtd:0};
+    porAtividadeSaidas[chave].total += r.valor;
+    porAtividadeSaidas[chave].qtd++;
+  });
+  const linhasSaidas = Object.values(porAtividadeSaidas)
+    .sort((a,b) => a.atividade.localeCompare(b.atividade, 'pt-BR'));
+
+  const contSaidas = document.getElementById('detalhe-saidas-batimento');
+  if(contSaidas){
+    if(linhasSaidas.length === 0){
+      contSaidas.innerHTML = '<div class="vazio">Nenhuma saída nesta data.</div>';
+    }else{
+      contSaidas.innerHTML = `<table>
+        <thead><tr><th>Atividade</th><th>Valor</th><th>Quantidade</th></tr></thead>
+        <tbody>
+          ${linhasSaidas.map(l => `<tr>
+            <td>${escaparHtml(l.atividade)}</td>
+            <td style="font-weight:700;">${formatarMoeda(l.total)}</td>
+            <td>${l.qtd}</td>
+          </tr>`).join('')}
+          <tr>
+            <td style="font-weight:800;">Total</td>
+            <td style="font-weight:800;">${formatarMoeda(totalSaidas)}</td>
+            <td style="font-weight:800;">${registrosHoje.length}</td>
+          </tr>
+        </tbody>
+      </table>`;
+    }
+  }
 
   return {debitoGerencial, creditoGerencial, diferencaGerencial};
 }
