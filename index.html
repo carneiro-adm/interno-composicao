@@ -3281,7 +3281,7 @@ async function atualizarTudo(){
   if(inpSubtotalData && !inpSubtotalData.value) inpSubtotalData.value = hoje;
   const dataSubtotal = (inpSubtotalData && inpSubtotalData.value) ? inpSubtotalData.value : hoje;
 
-  const meus = registros.filter(r => r.data === dataSubtotal && r.usuario === USUARIO_LOGADO.usuario)
+  const meus = registros.filter(r => r.data === dataSubtotal && (r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA))
                          .sort((a,b) => b.timestamp - a.timestamp);
 
   const totalVendas = meus.filter(r=>r.tipo==='Saida' && !r.excluido).reduce((s,r)=>s+r.valor,0);
@@ -3383,8 +3383,8 @@ async function atualizarPainelGeral(){
   let fechamentosDoDia = todosFechamentos.filter(f => f.data === dataSelecionada);
 
   if(!EH_ADMIN){
-    doDia = doDia.filter(r => r.usuario === USUARIO_LOGADO.usuario);
-    fechamentosDoDia = fechamentosDoDia.filter(f => f.usuario === USUARIO_LOGADO.usuario);
+    doDia = doDia.filter(r => r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA);
+    fechamentosDoDia = fechamentosDoDia.filter(f => f.usuario === USUARIO_LOGADO.usuario || f.terminal === TERMINAL_DO_DIA);
   }
 
   const porFuncionario = {};
@@ -3457,8 +3457,8 @@ async function consultarHistoricoDias(){
   let fechamentos = (await carregarFechamentos()).filter(f => f.data === data);
 
   if(!EH_ADMIN){
-    registros = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario);
-    fechamentos = fechamentos.filter(f => f.usuario === USUARIO_LOGADO.usuario);
+    registros = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA);
+    fechamentos = fechamentos.filter(f => f.usuario === USUARIO_LOGADO.usuario || f.terminal === TERMINAL_DO_DIA);
   }
 
   if(registros.length === 0 && fechamentos.length === 0){
