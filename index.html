@@ -442,7 +442,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="btn-sair" id="pill-terminal-dia" onclick="trocarTerminalDia()" title="Trocar terminal do dia">Terminal: —</button>
-      <button class="btn-sair" onclick="sair()">Sair</button>
+      <button class="btn-sair" onclick="confirmarSair()">Sair</button>
     </div>
   </header>
 
@@ -529,7 +529,7 @@
         </div>
         <div class="campo">
           <label>Observação</label>
-          <input type="text" id="inp-obs" placeholder="ex: Cliente que recebeu desconto ou que fez o pix ou que fez fiado.">
+          <input type="text" id="inp-obs" placeholder="ex: Cliente que recebeu desconto ou que fez o pix ou que fez fiado." oninput="marcarFormularioSujo()">
         </div>
         <button class="btn-primario" onclick="registrarLancamento()">Registrar</button>
         <div id="registro-msg"></div>
@@ -554,7 +554,7 @@
         </div>
         <div class="campo">
           <label>Observação</label>
-          <input type="text" id="inp-obs-pagamento-fiado" placeholder="opcional">
+          <input type="text" id="inp-obs-pagamento-fiado" placeholder="opcional" oninput="marcarFormularioSujo()">
         </div>
         <button class="btn-primario" onclick="registrarPagamentoFiado()">Registrar Pagamento</button>
         <div id="pagamento-fiado-msg"></div>
@@ -903,6 +903,26 @@
           </div>
           <div id="estoque-gerencia-lista"></div>
         </div>
+
+        <button class="btn-secundario" style="margin-top:14px;" onclick="alternarEntradaProdutos()">+ Entrada de produtos</button>
+        <div class="oculto" id="bloco-entrada-produtos" style="margin-top:14px;border-top:1.5px solid var(--cinza-borda);padding-top:14px;">
+          <p class="aviso-fechamento">Registre a chegada de novos produtos. As quantidades informadas aqui são somadas ao estoque acima.</p>
+          <div class="composicao-header">
+            <h4 style="margin:0;">Quantidade recebida</h4>
+            <div class="composicao-total">
+              <span class="rotulo">Total da entrada</span>
+              <span class="valor" id="entrada-produtos-total">R$ 0,00</span>
+            </div>
+          </div>
+          <div class="composicao-tabela">
+            <div class="composicao-linha composicao-cabecalho">
+              <span>Produto</span><span>Quantidade</span><span>Valor</span>
+            </div>
+            <div id="entrada-produtos-lista"></div>
+          </div>
+          <button class="btn-primario" style="margin-top:14px;" onclick="registrarEntradaProdutos()">Registrar Entrada de produtos</button>
+          <div id="entrada-produtos-msg"></div>
+        </div>
       </div>
 
       <div class="painel">
@@ -982,7 +1002,7 @@
 
       <div class="painel">
         <h3>Enviar troco do cofre para outro terminal</h3>
-        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como débito no terminal de destino e abatido do Troco cofre.</p>
+        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Troco cofre.</p>
         <div class="campo">
           <label>Terminal para</label>
           <select id="sel-terminal-envio-troco">
@@ -1004,10 +1024,34 @@
       </div>
 
       <div class="painel">
+        <h3>Enviar produtos para outro terminal</h3>
+        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Estoque de produtos gerencial.</p>
+        <div class="campo">
+          <label>Terminal para</label>
+          <select id="sel-terminal-envio-produtos">
+            
+          </select>
+        </div>
+        <div class="composicao-tabela">
+          <div class="composicao-linha composicao-cabecalho">
+            <span>Produto</span><span>Qtd a enviar</span><span>Valor</span>
+          </div>
+          <div id="envio-produtos-lista"></div>
+        </div>
+        <div class="composicao-total" style="margin-top:14px;width:100%;align-items:flex-start;">
+          <span class="rotulo">Total a enviar</span>
+          <span class="valor" id="total-envio-produtos">R$ 0,00</span>
+        </div>
+        <button class="btn-primario" style="margin-top:14px;" onclick="enviarProdutosGerencia()">Enviar produtos</button>
+        <div id="envio-produtos-msg"></div>
+      </div>
+
+      <div class="painel">
         <h3>Entrada Produtos</h3>
-        <div class="campo" style="margin-bottom:0;">
-          <label>Valor (R$)</label>
-          <input type="number" id="inp-entrada-produtos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
+        <p class="aviso-fechamento">Soma das Entradas de produtos registradas hoje (bloco "Entrada de produtos", dentro de Estoque de produtos gerencial).</p>
+        <div class="composicao-total" style="width:100%;align-items:flex-start;">
+          <span class="rotulo">Entrada Produtos</span>
+          <span class="valor" id="entrada-produtos-gerencial-total">R$ 0,00</span>
         </div>
       </div>
 
@@ -1149,7 +1193,46 @@
   </nav>
 </div>
 
+<!-- ================= MODAL: DADOS NÃO REGISTRADOS ================= -->
+<div id="modal-nao-registrado" class="oculto" style="position:fixed;inset:0;background:rgba(0,32,91,0.55);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div class="card-login" style="max-width:380px;">
+    <div class="logo-box">
+      <div class="logo-emblema"><span>!</span></div>
+      <h1>Atenção</h1>
+    </div>
+    <p style="text-align:center;font-size:14px;color:var(--texto-escuro);margin-bottom:22px;">Existem lançamentos não registrados. Deseja sair mesmo assim?</p>
+    <button class="btn-primario" onclick="fecharModalNaoRegistrado()">Registrar</button>
+    <button class="btn-secundario" onclick="sairForcado()">Sair sem salvar</button>
+  </div>
+</div>
+
 <script>
+let FORM_DIRTY = false;
+function marcarFormularioSujo(){ FORM_DIRTY = true; }
+function limparFormularioSujo(){ FORM_DIRTY = false; }
+
+function confirmarSair(){
+  if(FORM_DIRTY){
+    document.getElementById('modal-nao-registrado').classList.remove('oculto');
+  }else{
+    sair();
+  }
+}
+function fecharModalNaoRegistrado(){
+  document.getElementById('modal-nao-registrado').classList.add('oculto');
+}
+function sairForcado(){
+  FORM_DIRTY = false;
+  document.getElementById('modal-nao-registrado').classList.add('oculto');
+  sair();
+}
+window.addEventListener('beforeunload', function(e){
+  if(FORM_DIRTY){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 // ---------- Conexão Supabase (substitui window.storage) ----------
 const SUPABASE_URL = 'https://psebppouysydhyvuujss.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vElgJP3XPT8jVsSTZ26MtA_b_1mC-7K';
@@ -1239,6 +1322,7 @@ function formatarMoeda(v){
 function formatarValorDecimal(el){
   const v = parseFloat(el.value);
   el.value = isNaN(v) ? '0.00' : v.toFixed(2);
+  if(!isNaN(v) && v > 0) marcarFormularioSujo();
 }
 function formatarDataExtenso(){
   const d = new Date();
@@ -1429,6 +1513,7 @@ async function atualizarTodosSelectsTerminais(){
   popularSelectTerminais('fech-admin-terminal', {comBranco:true, rotuloBranco:'Todos'});
   popularSelectTerminais('dash-terminal', {comBranco:true, rotuloBranco:'Todos'});
   popularSelectTerminais('sel-terminal-envio-troco', {tipos:['Caixa','Bilhetes'], excluir: TERMINAL_DO_DIA});
+  popularSelectTerminais('sel-terminal-envio-produtos', {tipos:['Caixa','Bilhetes'], excluir: TERMINAL_DO_DIA});
 }
 
 async function carregarComposicaoGerencia(){
@@ -1439,6 +1524,15 @@ async function carregarComposicaoGerencia(){
 }
 async function salvarComposicaoGerencia(lista){
   await window.storage.set('composicao_gerencia_loterica', JSON.stringify(lista), true);
+}
+async function carregarEntradasProdutosGerencia(){
+  try{
+    const r = await window.storage.get('entradas_produtos_gerencia_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarEntradasProdutosGerencia(lista){
+  await window.storage.set('entradas_produtos_gerencia_loterica', JSON.stringify(lista), true);
 }
 async function carregarClientes(){
   try{
@@ -1702,6 +1796,7 @@ async function trocarTerminalDia(){
 
 async function entrarNoApp(achado){
   USUARIO_LOGADO = achado;
+  FORM_DIRTY = false;
   const souAdmin = achado.admin === true || achado.gerencia === true || achado.usuario === 'admin';
   EH_ADMIN = souAdmin;
   EH_GERENCIA = achado.gerencia === true;
@@ -1778,6 +1873,7 @@ async function entrarNoApp(achado){
     montarEstoqueGerenciaLista();
     montarTrocoCofreLista();
     montarEnvioTrocoLista();
+    montarEnvioProdutosLista();
     await carregarComposicaoGerenciaExistente();
   }else{
     document.getElementById('nav-gerencia').classList.add('oculto');
@@ -1829,11 +1925,7 @@ function selecionarTipo(tipo){
 
 function montarOpcoesAtividadeDebito(){
   const sel = document.getElementById('sel-atividade-debito');
-  let opcoes = '<option value="Troca de caixa">Troca de caixa</option>';
-  if(EH_GERENCIA){
-    opcoes += '<option value="Produtos">Produtos</option>';
-    opcoes += '<option value="Troco">Troco</option>';
-  }
+  const opcoes = '<option value="Troca de caixa">Troca de caixa</option>';
   const valorAtual = sel.value;
   sel.innerHTML = opcoes;
   if(sel.querySelector('option[value="'+valorAtual+'"]')) sel.value = valorAtual;
@@ -1971,6 +2063,7 @@ async function registrarLancamento(){
     document.getElementById('inp-valor').value='';
     document.getElementById('inp-obs').value='';
     msg.innerHTML = '<div class="msg-ok">'+atividadeDebito+' registrado(a) com sucesso.</div>';
+    limparFormularioSujo();
     setTimeout(()=>{msg.innerHTML='';}, 2500);
     await atualizarTudo();
     return;
@@ -2038,6 +2131,7 @@ async function registrarLancamento(){
   document.getElementById('inp-valor').value='';
   document.getElementById('inp-obs').value='';
   msg.innerHTML = '<div class="msg-ok">Lançamento registrado com sucesso.</div>';
+  limparFormularioSujo();
   setTimeout(()=>{msg.innerHTML='';}, 2500);
 
   await atualizarTudo();
@@ -2311,6 +2405,7 @@ async function registrarPagamentoFiado(){
   document.getElementById('inp-obs-pagamento-fiado').value='';
   document.getElementById('sel-cliente-pagamento').value='';
   msg.innerHTML = '<div class="msg-ok">Pagamento de fiado registrado com sucesso.</div>';
+  limparFormularioSujo();
   setTimeout(()=>{msg.innerHTML='';}, 2500);
 }
 
@@ -2596,6 +2691,7 @@ function calcularComposicao(){
 function onComposicaoInput(){
   calcularComposicao();
   atualizarTotaisFechamento();
+  marcarFormularioSujo();
 }
 
 function obterContextoFechamento(){
@@ -2738,6 +2834,7 @@ async function registrarFechamento(){
 
   const msg = document.getElementById('fechamento-msg');
   msg.innerHTML = '<div class="msg-ok">Fechamento de caixa registrado com sucesso.</div>';
+  limparFormularioSujo();
   setTimeout(()=>{msg.innerHTML='';}, 2500);
 
   await carregarFechamentoExistente();
@@ -2810,7 +2907,7 @@ function montarEstoqueGerenciaLista(){
   cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="estoque-qtd-${p.id}" value="0" oninput="calcularEstoqueGerencia(); calcularBatimentoGerencial();">
+      <input type="number" min="0" step="1" class="composicao-qtd" id="estoque-qtd-${p.id}" value="0" oninput="calcularEstoqueGerencia(); calcularBatimentoGerencial(); marcarFormularioSujo();">
       <span class="composicao-subtotal" id="estoque-subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -2833,7 +2930,7 @@ function montarTrocoCofreLista(){
   cont.innerHTML = DENOMINACOES_TROCO_COFRE.map(v => `
     <div class="composicao-linha">
       <span class="composicao-nome">${formatarDenominacao(v)}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="cofre-qtd-${idDenom(v)}" value="0" oninput="calcularTrocoCofre(); calcularBatimentoGerencial();">
+      <input type="number" min="0" step="1" class="composicao-qtd" id="cofre-qtd-${idDenom(v)}" value="0" oninput="calcularTrocoCofre(); calcularBatimentoGerencial(); marcarFormularioSujo();">
       <span class="composicao-subtotal" id="cofre-subtotal-${idDenom(v)}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -2857,7 +2954,7 @@ function montarEnvioTrocoLista(){
   cont.innerHTML = DENOMINACOES_TROCO_COFRE.map(v => `
     <div class="composicao-linha">
       <span class="composicao-nome">${formatarDenominacao(v)}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="envio-qtd-${idDenom(v)}" value="0" oninput="calcularEnvioTroco()">
+      <input type="number" min="0" step="1" class="composicao-qtd" id="envio-qtd-${idDenom(v)}" value="0" oninput="calcularEnvioTroco(); marcarFormularioSujo();">
       <span class="composicao-subtotal" id="envio-subtotal-${idDenom(v)}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -2878,6 +2975,266 @@ function calcularEnvioTroco(){
 function obterDataGerencial(){
   const el = document.getElementById('inp-data-gerencia');
   return (el && el.value) ? el.value : hojeISO();
+}
+
+// ---------- Entrada de Produtos (incorpora ao Estoque de produtos gerencial) ----------
+function alternarEntradaProdutos(){
+  const bloco = document.getElementById('bloco-entrada-produtos');
+  const estaOculto = bloco.classList.contains('oculto');
+  if(estaOculto){
+    montarEntradaProdutosLista();
+    bloco.classList.remove('oculto');
+  }else{
+    bloco.classList.add('oculto');
+  }
+}
+
+function montarEntradaProdutosLista(){
+  const cont = document.getElementById('entrada-produtos-lista');
+  if(!cont) return;
+  cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
+    <div class="composicao-linha">
+      <span class="composicao-nome">${p.nome}</span>
+      <input type="number" min="0" step="1" class="composicao-qtd" id="entrada-prod-qtd-${p.id}" value="0" oninput="calcularEntradaProdutosForm(); marcarFormularioSujo();">
+      <span class="composicao-subtotal" id="entrada-prod-subtotal-${p.id}">R$ 0,00</span>
+    </div>`).join('');
+  calcularEntradaProdutosForm();
+}
+
+function calcularEntradaProdutosForm(){
+  let total = 0;
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+    const qtd = parseFloat(document.getElementById('entrada-prod-qtd-'+p.id).value) || 0;
+    const subtotal = qtd * p.valor;
+    document.getElementById('entrada-prod-subtotal-'+p.id).textContent = formatarMoeda(subtotal);
+    total += subtotal;
+  });
+  document.getElementById('entrada-produtos-total').textContent = formatarMoeda(total);
+  return total;
+}
+
+async function registrarEntradaProdutos(){
+  const msg = document.getElementById('entrada-produtos-msg');
+  const produtos = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
+    const qtd = parseFloat(document.getElementById('entrada-prod-qtd-'+p.id).value) || 0;
+    return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:qtd, subtotal: qtd*p.valor};
+  });
+  const total = produtos.reduce((s,p) => s+p.subtotal, 0);
+
+  if(total <= 0){
+    msg.innerHTML = '<div class="msg-erro">Informe a quantidade de ao menos um produto recebido.</div>';
+    return;
+  }
+
+  // Incorpora ao Estoque de produtos gerencial (soma às quantidades já preenchidas na tela)
+  produtos.forEach(p => {
+    if(p.qtd > 0){
+      const elEstoque = document.getElementById('estoque-qtd-'+p.id);
+      const atual = parseFloat(elEstoque.value) || 0;
+      elEstoque.value = atual + p.qtd;
+    }
+  });
+  calcularEstoqueGerencia();
+  await salvarComposicaoGerenciaAtual();
+
+  const dataRef = obterDataGerencial();
+  const entradas = await carregarEntradasProdutosGerencia();
+  const novaEntrada = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    data: dataRef,
+    hora: horaAgora(),
+    produtos: produtos.filter(p => p.qtd > 0),
+    total: total,
+    timestamp: Date.now()
+  };
+  entradas.push(novaEntrada);
+  await salvarEntradasProdutosGerencia(entradas);
+  enviarParaWebhook({
+    origem: 'entrada_produtos_gerencia',
+    idEntrada: novaEntrada.id,
+    idFuncionaria: novaEntrada.usuario,
+    funcionaria: novaEntrada.nome,
+    data: novaEntrada.data,
+    hora: novaEntrada.hora,
+    produtos: novaEntrada.produtos,
+    total: novaEntrada.total
+  });
+
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('entrada-prod-qtd-'+p.id).value = 0; });
+  calcularEntradaProdutosForm();
+  limparFormularioSujo();
+  await calcularEntradaProdutosGerencial();
+  await calcularBatimentoGerencial();
+
+  msg.innerHTML = '<div class="msg-ok">Entrada de produtos registrada e incorporada ao estoque.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 3000);
+}
+
+async function calcularEntradaProdutosGerencial(){
+  const el = document.getElementById('entrada-produtos-gerencial-total');
+  const dataRef = obterDataGerencial();
+  const entradas = await carregarEntradasProdutosGerencia();
+  const total = entradas
+    .filter(e => e.usuario===USUARIO_LOGADO.usuario && e.data===dataRef)
+    .reduce((s,e) => s+e.total, 0);
+  if(el) el.textContent = formatarMoeda(total);
+  return total;
+}
+
+// ---------- Enviar produtos para outro terminal (abate do Estoque de produtos gerencial) ----------
+function montarEnvioProdutosLista(){
+  const cont = document.getElementById('envio-produtos-lista');
+  if(!cont) return;
+  cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
+    <div class="composicao-linha">
+      <span class="composicao-nome">${p.nome}</span>
+      <input type="number" min="0" step="1" class="composicao-qtd" id="envio-prod-qtd-${p.id}" value="0" oninput="calcularEnvioProdutos(); marcarFormularioSujo();">
+      <span class="composicao-subtotal" id="envio-prod-subtotal-${p.id}">R$ 0,00</span>
+    </div>`).join('');
+}
+
+function calcularEnvioProdutos(){
+  let total = 0;
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+    const qtd = parseFloat(document.getElementById('envio-prod-qtd-'+p.id).value) || 0;
+    const subtotal = qtd * p.valor;
+    document.getElementById('envio-prod-subtotal-'+p.id).textContent = formatarMoeda(subtotal);
+    total += subtotal;
+  });
+  document.getElementById('total-envio-produtos').textContent = formatarMoeda(total);
+  return total;
+}
+
+async function enviarProdutosGerencia(){
+  const terminalPara = document.getElementById('sel-terminal-envio-produtos').value;
+  const msg = document.getElementById('envio-produtos-msg');
+  const totalEnvio = calcularEnvioProdutos();
+
+  if(totalEnvio <= 0){
+    msg.innerHTML = '<div class="msg-erro">Informe a quantidade de ao menos um produto para enviar.</div>';
+    return;
+  }
+  if(!terminalPara){
+    msg.innerHTML = '<div class="msg-erro">Selecione o terminal de destino.</div>';
+    return;
+  }
+
+  let produtoExcedido = null;
+  const detalhesEnvio = [];
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+    const qtdEnviar = parseFloat(document.getElementById('envio-prod-qtd-'+p.id).value) || 0;
+    const qtdEstoque = parseFloat(document.getElementById('estoque-qtd-'+p.id).value) || 0;
+    if(qtdEnviar > qtdEstoque) produtoExcedido = p.nome;
+    if(qtdEnviar > 0) detalhesEnvio.push({id:p.id, nome:p.nome, qtd:qtdEnviar, valorUnit:p.valor, subtotal:qtdEnviar*p.valor});
+  });
+  if(produtoExcedido){
+    msg.innerHTML = '<div class="msg-erro">A quantidade a enviar de "'+produtoExcedido+'" é maior do que a disponível no estoque.</div>';
+    return;
+  }
+
+  const dataRef = obterDataGerencial();
+  let funcPara = await obterFuncionarioDoTerminal(terminalPara, dataRef);
+  if(!funcPara){
+    funcPara = {usuario:'', nome:'Terminal ' + terminalPara + ' (sem funcionária associada)'};
+  }
+
+  // Abate as quantidades enviadas do Estoque de produtos gerencial
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+    const qtdEnviar = parseFloat(document.getElementById('envio-prod-qtd-'+p.id).value) || 0;
+    const elEstoque = document.getElementById('estoque-qtd-'+p.id);
+    const atual = parseFloat(elEstoque.value) || 0;
+    elEstoque.value = atual - qtdEnviar;
+  });
+  calcularEstoqueGerencia();
+  await salvarComposicaoGerenciaAtual();
+
+  const detalheTexto = detalhesEnvio.map(d => d.qtd+'x '+d.nome).join(', ');
+  const descricao = 'Produtos · ' + USUARIO_LOGADO.nome + ': ' + TERMINAL_DO_DIA + ' > ' + terminalPara;
+  const obsCompleta = descricao + ' · ' + detalheTexto;
+
+  const registros = await carregarRegistros();
+  const agora = Date.now();
+
+  const registroOrigem = {
+    id: agora + '-' + Math.random().toString(36).slice(2,7),
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    registradoPor: USUARIO_LOGADO.usuario,
+    registradoPorNome: USUARIO_LOGADO.nome,
+    data: dataRef,
+    hora: horaAgora(),
+    caixa: TERMINAL_DO_DIA,
+    tipo: 'Troco',
+    atividade: 'Produtos',
+    clienteId: '',
+    clienteNome: '',
+    valor: totalEnvio,
+    obs: obsCompleta,
+    excluido: false,
+    timestamp: agora
+  };
+  const registroDestino = {
+    id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
+    usuario: funcPara.usuario,
+    nome: funcPara.nome,
+    registradoPor: USUARIO_LOGADO.usuario,
+    registradoPorNome: USUARIO_LOGADO.nome,
+    data: dataRef,
+    hora: horaAgora(),
+    caixa: terminalPara,
+    tipo: 'Troco',
+    atividade: 'Produtos',
+    clienteId: '',
+    clienteNome: '',
+    valor: totalEnvio,
+    obs: obsCompleta,
+    excluido: false,
+    timestamp: agora+1
+  };
+  registros.push(registroOrigem, registroDestino);
+  await salvarRegistros(registros);
+  enviarParaWebhook({
+    origem: 'lancamento',
+    idTransacao: registroOrigem.id,
+    idFuncionaria: registroOrigem.usuario,
+    funcionaria: registroOrigem.nome,
+    registradoPor: registroOrigem.registradoPorNome,
+    idTerminal: registroOrigem.caixa,
+    idTerminalDestino: terminalPara,
+    data: registroOrigem.data,
+    hora: registroOrigem.hora,
+    tipo: 'Entrada',
+    atividade: 'Produtos',
+    produtos: detalhesEnvio,
+    valor: registroOrigem.valor,
+    observacao: registroOrigem.obs
+  });
+  enviarParaWebhook({
+    origem: 'lancamento',
+    idTransacao: registroDestino.id,
+    idFuncionaria: registroDestino.usuario,
+    funcionaria: registroDestino.nome,
+    registradoPor: registroDestino.registradoPorNome,
+    idTerminal: registroDestino.caixa,
+    idTerminalOrigem: TERMINAL_DO_DIA,
+    data: registroDestino.data,
+    hora: registroDestino.hora,
+    tipo: 'Entrada',
+    atividade: 'Produtos',
+    produtos: detalhesEnvio,
+    valor: registroDestino.valor,
+    observacao: registroDestino.obs
+  });
+
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('envio-prod-qtd-'+p.id).value = 0; });
+  calcularEnvioProdutos();
+  limparFormularioSujo();
+  msg.innerHTML = '<div class="msg-ok">Produtos enviados e registrados como Entrada negativa em ambos os terminais ('+TERMINAL_DO_DIA+' e '+terminalPara+', funcionária: '+funcPara.nome+'). Abatido do estoque.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 4000);
+  await atualizarTudo();
+  await calcularBatimentoGerencial();
 }
 
 async function calcularCaixaGerencial(){
@@ -2946,7 +3303,7 @@ async function calcularBatimentoGerencial(){
     .filter(f => numerosTerminaisCaixa().includes(f.terminal))
     .reduce((s,f) => s + (f.f||0), 0);
 
-  const entradaProdutos = parseFloat(document.getElementById('inp-entrada-produtos').value) || 0;
+  const entradaProdutos = await calcularEntradaProdutosGerencial();
 
   const debitoGerencial = total1Gerencial + totalRelatorios + entradaProdutos;
 
@@ -3044,7 +3401,6 @@ async function carregarComposicaoGerenciaExistente(){
     });
     document.getElementById('inp-quina-especial').value = existente.quinaEspecial || 0;
     document.getElementById('inp-gaveta').value = existente.gaveta || 0;
-    document.getElementById('inp-entrada-produtos').value = existente.entradaProdutos || 0;
     calcularEstoqueGerencia();
     calcularTrocoCofre();
     status.innerHTML = `<div class="msg-ok">Composição já registrada nesta data às ${existente.hora}. Registrar novamente atualiza os valores.</div>`;
@@ -3055,7 +3411,6 @@ async function carregarComposicaoGerenciaExistente(){
     DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('cofre-qtd-'+idDenom(v)).value = 0; });
     document.getElementById('inp-quina-especial').value = 0;
     document.getElementById('inp-gaveta').value = 0;
-    document.getElementById('inp-entrada-produtos').value = 0;
     calcularEstoqueGerencia();
     calcularTrocoCofre();
     status.innerHTML = '';
@@ -3065,10 +3420,11 @@ async function carregarComposicaoGerenciaExistente(){
   await calcularCaixaGerencial();
   await atualizarFiadoTotalGerencia();
   await calcularTrocaTelesenaGerencial();
+  await calcularEntradaProdutosGerencial();
   await calcularBatimentoGerencial();
 }
 
-function montarObjetoComposicaoGerencia(idExistente){
+async function montarObjetoComposicaoGerencia(idExistente){
   const produtosEstoque = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
     const qtd = parseFloat(document.getElementById('estoque-qtd-'+p.id).value) || 0;
     return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:qtd, subtotal: qtd*p.valor};
@@ -3084,7 +3440,7 @@ function montarObjetoComposicaoGerencia(idExistente){
 
   const quinaEspecial = parseFloat(document.getElementById('inp-quina-especial').value) || 0;
   const gaveta = parseFloat(document.getElementById('inp-gaveta').value) || 0;
-  const entradaProdutos = parseFloat(document.getElementById('inp-entrada-produtos').value) || 0;
+  const entradaProdutos = await calcularEntradaProdutosGerencial();
 
   return {
     id: idExistente || (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
@@ -3103,7 +3459,7 @@ async function salvarComposicaoGerenciaAtual(){
   const lista = await carregarComposicaoGerencia();
   const dataRef = obterDataGerencial();
   const idx = lista.findIndex(c => c.usuario===USUARIO_LOGADO.usuario && c.data===dataRef);
-  const registro = montarObjetoComposicaoGerencia(idx>=0 ? lista[idx].id : null);
+  const registro = await montarObjetoComposicaoGerencia(idx>=0 ? lista[idx].id : null);
   if(idx>=0) lista[idx] = registro; else lista.push(registro);
   await salvarComposicaoGerencia(lista);
   return registro;
@@ -3134,6 +3490,7 @@ async function registrarComposicaoGerencia(){
 
   const msg = document.getElementById('composicao-gerencia-msg');
   msg.innerHTML = '<div class="msg-ok">Composição de Caixa Gerência registrada com sucesso.</div>';
+  limparFormularioSujo();
   setTimeout(()=>{msg.innerHTML='';}, 2500);
 
   await carregarComposicaoGerenciaExistente();
@@ -3269,6 +3626,7 @@ async function enviarTrocoGerencia(){
   DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('envio-qtd-'+idDenom(v)).value = 0; });
   calcularEnvioTroco();
   msg.innerHTML = '<div class="msg-ok">Troco enviado e registrado como Entrada negativa em ambos os terminais ('+TERMINAL_DO_DIA+' e '+terminalPara+', funcionária: '+funcPara.nome+'). Abatido do Troco cofre.</div>';
+  limparFormularioSujo();
   setTimeout(()=>{msg.innerHTML='';}, 4000);
   await atualizarTudo();
 }
