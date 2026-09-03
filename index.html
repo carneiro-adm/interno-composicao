@@ -3592,14 +3592,15 @@ async function enviarTrocoGerencia(){
   await salvarComposicaoGerenciaAtual();
 
   const detalheDenominacoes = detalhesEnvio.map(d => d.qtd+'x '+formatarDenominacao(d.valor)).join(', ');
-  const descricao = 'Troco cofre · ' + USUARIO_LOGADO.nome + ': ' + TERMINAL_DO_DIA + ' > ' + terminalPara;
-  const obsCompleta = descricao + ' · ' + detalheDenominacoes;
+  const descricaoOrigem = 'Troco enviado · ' + USUARIO_LOGADO.nome + ': ' + TERMINAL_DO_DIA + ' > ' + terminalPara;
+  const descricaoDestino = 'Troco recebido · ' + USUARIO_LOGADO.nome + ': ' + TERMINAL_DO_DIA + ' > ' + terminalPara;
+  const obsOrigem = descricaoOrigem + ' · ' + detalheDenominacoes;
+  const obsDestino = descricaoDestino + ' · ' + detalheDenominacoes;
 
   const registros = await carregarRegistros();
   const agora = Date.now();
 
-  // Terminal de origem (gerência): também negativo — não é uma transferência de caixa
-  // operacional, é fornecimento de troco, e ambos os lados ficam com saldo negativo.
+  // Terminal de origem (gerência): SAÍDA (+) — o troco saiu do cofre da gerência.
   const registroOrigem = {
     id: agora + '-' + Math.random().toString(36).slice(2,7),
     usuario: USUARIO_LOGADO.usuario,
@@ -3609,15 +3610,16 @@ async function enviarTrocoGerencia(){
     data: hoje,
     hora: horaAgora(),
     caixa: TERMINAL_DO_DIA,
-    tipo: 'Troco',
+    tipo: 'Saida',
     atividade: 'Troco cofre',
     clienteId: '',
     clienteNome: '',
     valor: totalEnvio,
-    obs: obsCompleta,
+    obs: obsOrigem,
     excluido: false,
     timestamp: agora
   };
+  // Terminal de destino: ENTRADA (-) — o troco chegou no terminal que recebeu.
   const registroDestino = {
     id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
     usuario: funcPara.usuario,
@@ -3632,7 +3634,7 @@ async function enviarTrocoGerencia(){
     clienteId: '',
     clienteNome: '',
     valor: totalEnvio,
-    obs: obsCompleta,
+    obs: obsDestino,
     excluido: false,
     timestamp: agora+1
   };
@@ -3648,7 +3650,7 @@ async function enviarTrocoGerencia(){
     idTerminalDestino: terminalPara,
     data: registroOrigem.data,
     hora: registroOrigem.hora,
-    tipo: 'Entrada',
+    tipo: 'Saída',
     atividade: 'Troco cofre',
     denominacoes: detalhesEnvio,
     valor: registroOrigem.valor,
@@ -3673,7 +3675,7 @@ async function enviarTrocoGerencia(){
 
   DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('envio-qtd-'+idDenom(v)).value = 0; });
   calcularEnvioTroco();
-  msg.innerHTML = '<div class="msg-ok">Troco enviado e registrado como Entrada negativa em ambos os terminais ('+TERMINAL_DO_DIA+' e '+terminalPara+', funcionária: '+funcPara.nome+'). Abatido do Troco cofre.</div>';
+  msg.innerHTML = '<div class="msg-ok">Troco enviado: Saída registrada no terminal '+TERMINAL_DO_DIA+' e Entrada registrada no terminal '+terminalPara+' (funcionária: '+funcPara.nome+'). Abatido do Troco cofre.</div>';
   limparFormularioSujo();
   setTimeout(()=>{msg.innerHTML='';}, 4000);
   await atualizarTudo();
