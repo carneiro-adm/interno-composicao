@@ -6,6 +6,7 @@
 <title>Composição de Caixa — Carneiro Ganhador Loterias</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
     --azul-caixa:#0033A0;
@@ -4696,22 +4697,136 @@ function previsualizarImagemSocio(input){
   const reader = new FileReader();
   reader.onload = function(e){
     const img = new Image();
-    img.onload = function(){
-      const maxW = 900;
+    img.onload = async function(){
+      const maxW = 1400;
       const scale = Math.min(1, maxW / img.width);
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(img.width * scale));
       canvas.height = Math.max(1, Math.round(img.height * scale));
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      SOCIO_IMAGEM_BASE64 = canvas.toDataURL('image/jpeg', 0.7);
+      SOCIO_IMAGEM_BASE64 = canvas.toDataURL('image/jpeg', 0.75);
       document.getElementById('socio-imagem-preview').innerHTML =
-        '<img src="'+SOCIO_IMAGEM_BASE64+'" style="max-width:220px;border-radius:9px;border:1.5px solid var(--cinza-borda);">';
+        '<img src="'+SOCIO_IMAGEM_BASE64+'" style="max-width:220px;border-radius:9px;border:1.5px solid var(--cinza-borda);">' +
+        '<div id="socio-ocr-status" style="margin-top:8px;font-size:12px;color:var(--azul-caixa);">Lendo valores da imagem...</div>';
       marcarFormularioSujo();
+      await executarOcrEPreencherSocio(canvas);
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+// ---------- Leitura automática dos valores da foto (OCR) ----------
+function normalizarTextoOcr(t){
+  return (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+
+function extrairValorDaLinhaOcr(linha){
+  const match = linha.match(/([\d]{1,3}(?:\.[\d]{3})*,\d{2}|\d+,\d{2})/);
+  if(!match) return null;
+  const bruto = match[1].replace(/\./g, '').replace(',', '.');
+  const valor = parseFloat(bruto);
+  return isNaN(valor) ? null : Math.abs(valor);
+}
+
+function extrairPorRotuloOcr(linhas, rotulo){
+  const alvo = normalizarTextoOcr(rotulo);
+  for(const linha of linhas){
+    if(normalizarTextoOcr(linha).includes(alvo)){
+      const v = extrairValorDaLinhaOcr(linha);
+      if(v !== null) return v;
+    }
+  }
+  return null;
+}
+
+function processarTextoOcrRelatorio(textoBruto){
+  const linhas = (textoBruto || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const resultado = {};
+
+  resultado.jogos = extrairPorRotuloOcr(linhas, 'TOTAL JOGOS');
+  resultado.contas = extrairPorRotuloOcr(linhas, 'TOTAL CONTAS');
+  resultado.cartaoCredito = extrairPorRotuloOcr(linhas, 'CARTAO DE CREDITO') || extrairPorRotuloOcr(linhas, 'CARTAO CREDITO');
+  resultado.cartaoDebito = extrairPorRotuloOcr(linhas, 'CARTAO DE DEBITO') || extrairPorRotuloOcr(linhas, 'CARTAO DEBITO');
+  resultado.deposito = extrairPorRotuloOcr(linhas, 'DEPOSITO');
+  resultado.pixPagamento = extrairPorRotuloOcr(linhas, 'PIX PAGAMENTO');
+  resultado.pixSaque = extrairPorRotuloOcr(linhas, 'PIX SAQUE');
+  resultado.pixDevolvido = extrairPorRotuloOcr(linhas, 'PIX DEVOLU') || extrairPorRotuloOcr(linhas, 'DEVOLUCAO PIX');
+  resultado.saque = extrairPorRotuloOcr(linhas, 'SAQUE');
+  resultado.pagamentos = null;
+  resultado.premios = null;
+
+  // "Prêmios pagos" e "Pagamentos" não têm rótulo próprio no total — é a linha "TOTAL"
+  // logo abaixo do cabeçalho da seção. Rastreia a seção atual para saber a qual pertence.
+  let secaoAtual = null;
+  linhas.forEach(linha => {
+    const L = normalizarTextoOcr(linha);
+    if(L.includes('PREMIOS PAGOS')){ secaoAtual = 'premios'; return; }
+    if(L.includes('PAGAMENTOS') && !L.includes('SERVICOS')){ secaoAtual = 'pagamentos'; return; }
+    if(L.includes('SERVICOS') || L.includes('RECEBIMENTOS') || L.includes('CONSULTAS')){ secaoAtual = null; return; }
+    if(secaoAtual && L.startsWith('TOTAL')){
+      const v = extrairValorDaLinhaOcr(linha);
+      if(v !== null){
+        if(secaoAtual === 'premios' && resultado.premios == null) resultado.premios = v;
+        if(secaoAtual === 'pagamentos' && resultado.pagamentos == null) resultado.pagamentos = v;
+      }
+      secaoAtual = null;
+    }
+  });
+
+  return resultado;
+}
+
+function preencherCamposComOcr(r){
+  const mapa = {
+    jogos:'socio-jogos', contas:'socio-contas', premios:'socio-premios',
+    pagamentos:'socio-pagamentos', saque:'socio-saque',
+    cartaoCredito:'socio-cartao-credito', cartaoDebito:'socio-cartao-debito',
+    deposito:'socio-deposito', pixPagamento:'socio-pix-pagamento',
+    pixSaque:'socio-pix-saque', pixDevolvido:'socio-pix-devolvido'
+  };
+  let preenchidos = 0;
+  Object.keys(mapa).forEach(campo => {
+    if(r[campo] != null){
+      document.getElementById(mapa[campo]).value = r[campo].toFixed(2);
+      preenchidos++;
+    }
+  });
+  return preenchidos;
+}
+
+async function executarOcrEPreencherSocio(canvas){
+  const statusEl = document.getElementById('socio-ocr-status');
+  try{
+    if(typeof Tesseract === 'undefined'){
+      if(statusEl) statusEl.textContent = 'Leitor de imagem ainda carregando ou indisponível — preencha os valores manualmente.';
+      return;
+    }
+    const worker = await Tesseract.createWorker('por');
+    const { data } = await worker.recognize(canvas);
+    await worker.terminate();
+
+    const extraido = processarTextoOcrRelatorio(data.text);
+    const qtd = preencherCamposComOcr(extraido);
+
+    if(statusEl){
+      if(qtd > 0){
+        statusEl.textContent = qtd + ' campo(s) preenchido(s) automaticamente a partir da foto. Confira os valores antes de registrar.';
+        statusEl.style.color = 'var(--verde-venda)';
+        marcarFormularioSujo();
+      }else{
+        statusEl.textContent = 'Não consegui identificar valores automaticamente nesta foto — preencha manualmente.';
+        statusEl.style.color = 'var(--texto-claro)';
+      }
+    }
+  }catch(e){
+    console.warn('Falha na leitura automática da imagem:', e);
+    if(statusEl){
+      statusEl.textContent = 'Não foi possível ler a imagem automaticamente — preencha manualmente.';
+      statusEl.style.color = 'var(--texto-claro)';
+    }
+  }
 }
 
 async function verImagemSocio(chave){
