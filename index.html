@@ -393,6 +393,10 @@
         <input type="checkbox" id="cad-gerencia">
         <label for="cad-gerencia">Cadastrar como Gerência (acesso de administrador + produtos de gerência)</label>
       </div>
+      <div class="checkbox-linha">
+        <input type="checkbox" id="cad-socio">
+        <label for="cad-socio">Cadastrar como Sócio (acesso exclusivo e isolado, sem visão do restante do app)</label>
+      </div>
       <button class="btn-primario" onclick="cadastrarUsuario()">Cadastrar</button>
       <button class="btn-secundario" onclick="mostrarLogin()">Voltar ao login</button>
     </div>
@@ -508,6 +512,22 @@
         <div class="campo oculto" id="campo-cliente-fiado">
           <label>Cliente (Fiado)</label>
           <select id="sel-cliente-fiado"><option value="">Selecione o cliente...</option></select>
+        </div>
+        <div class="campo oculto" id="campo-conta-loja-detalhe">
+          <label>Detalhe da conta</label>
+          <select id="sel-conta-loja-detalhe">
+            <option value="Água">Água</option>
+            <option value="Aluguel">Aluguel</option>
+            <option value="Contador">Contador</option>
+            <option value="Encargos">Encargos</option>
+            <option value="GSC">GSC</option>
+            <option value="Impostos">Impostos</option>
+            <option value="Luz">Luz</option>
+            <option value="Salário">Salário</option>
+            <option value="Telefone">Telefone</option>
+            <option value="TV">TV</option>
+            <option value="Outros">Outros</option>
+          </select>
         </div>
         <div class="campo" id="campo-terminal-normal">
           <label>Terminal</label>
@@ -1201,6 +1221,148 @@
   </nav>
 </div>
 
+<!-- ================= TELA SÓCIO (acesso exclusivo e isolado) ================= -->
+<div id="tela-socio" class="oculto">
+  <header class="topo">
+    <div class="topo-esq">
+      <div class="logo-mini">CG</div>
+      <div style="min-width:0;">
+        <h2 id="nome-socio-topo">—</h2>
+        <p>Acesso Sócio</p>
+      </div>
+    </div>
+    <button class="btn-sair" onclick="sair()">Sair</button>
+  </header>
+
+  <main>
+    <div class="painel">
+      <h3>Relatório</h3>
+      <div class="campo">
+        <label>Selecione o relatório</label>
+        <select id="sel-relatorio-socio" onchange="trocarRelatorioSocio()">
+          <option value="vendas">Vendas</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="relatorio-socio-vendas">
+      <div class="painel">
+        <h3>Upload — Resumo do dia (terminal)</h3>
+        <p class="aviso-fechamento">Envie a foto do "Resumo do dia" do terminal e preencha os valores do comprovante. Os totais combinados (Crédito financeiro, Serviços, Débitos financiados e Pix) são calculados automaticamente.</p>
+
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Data do relatório</label>
+            <input type="date" id="socio-data" onchange="carregarVendasSocioExistente()">
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Terminal</label>
+            <select id="socio-terminal" onchange="carregarVendasSocioExistente()"></select>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>Foto do comprovante</label>
+          <input type="file" id="socio-imagem" accept="image/*" onchange="previsualizarImagemSocio(this)">
+          <div id="socio-imagem-preview" style="margin-top:10px;"></div>
+        </div>
+
+        <h4 style="margin:16px 0 8px;">Recebimentos</h4>
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Jogos (Total Jogos)</label>
+            <input type="number" id="socio-jogos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Contas (Total Contas)</label>
+            <input type="number" id="socio-contas" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+        </div>
+
+        <h4 style="margin:16px 0 8px;">Prêmios pagos</h4>
+        <div class="campo">
+          <label>Total Prêmios pagos</label>
+          <input type="number" id="socio-premios" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+        </div>
+
+        <h4 style="margin:16px 0 8px;">Crédito financeiro <span style="font-weight:400;font-size:11px;color:var(--texto-claro);">(Pagamentos + Saque)</span></h4>
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Pagamentos</label>
+            <input type="number" id="socio-pagamentos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Saque</label>
+            <input type="number" id="socio-saque" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+        </div>
+
+        <h4 style="margin:16px 0 8px;">Serviços <span style="font-weight:400;font-size:11px;color:var(--texto-claro);">(Cartão de crédito + Cartão de débito)</span></h4>
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Cartão de crédito</label>
+            <input type="number" id="socio-cartao-credito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Cartão de débito</label>
+            <input type="number" id="socio-cartao-debito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+        </div>
+
+        <h4 style="margin:16px 0 8px;">Débitos financiados <span style="font-weight:400;font-size:11px;color:var(--texto-claro);">(Depósito)</span></h4>
+        <div class="campo">
+          <label>Depósito</label>
+          <input type="number" id="socio-deposito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+        </div>
+
+        <h4 style="margin:16px 0 8px;">Pix <span style="font-weight:400;font-size:11px;color:var(--texto-claro);">((Pix Pagamento + Pix Saque) − Pix Devolvido)</span></h4>
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Pix Pagamento</label>
+            <input type="number" id="socio-pix-pagamento" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Pix Saque</label>
+            <input type="number" id="socio-pix-saque" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          </div>
+        </div>
+        <div class="campo">
+          <label>Pix Devolvido</label>
+          <input type="number" id="socio-pix-devolvido" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+        </div>
+
+        <button class="btn-primario" id="btn-registrar-vendas-socio" onclick="registrarVendasSocio()">Registrar Vendas do Dia</button>
+        <div id="socio-vendas-msg"></div>
+      </div>
+
+      <div class="painel">
+        <h3>Consulta — Vendas por dia</h3>
+        <div class="historico-linha-filtro">
+          <div class="campo"><label>Data</label><input type="date" id="socio-consulta-data"></div>
+          <button class="btn-primario" style="flex:0 0 auto;width:auto;padding:12px 20px;" onclick="consultarVendasSocio()">Consultar</button>
+        </div>
+
+        <div class="subtotal-wrap" id="socio-resumo-dia" style="display:none;">
+          <div class="subtotal-card venda"><div class="rotulo">Jogos</div><div class="valor" id="socio-soma-jogos">R$ 0,00</div></div>
+          <div class="subtotal-card venda"><div class="rotulo">Contas</div><div class="valor" id="socio-soma-contas">R$ 0,00</div></div>
+          <div class="subtotal-card estorno"><div class="rotulo">Prêmios pagos</div><div class="valor" id="socio-soma-premios">R$ 0,00</div></div>
+        </div>
+        <div class="subtotal-wrap" id="socio-resumo-dia-2" style="display:none;margin-top:10px;">
+          <div class="subtotal-card venda"><div class="rotulo">Crédito financeiro</div><div class="valor" id="socio-soma-credito">R$ 0,00</div></div>
+          <div class="subtotal-card venda"><div class="rotulo">Serviços</div><div class="valor" id="socio-soma-servicos">R$ 0,00</div></div>
+          <div class="subtotal-card saldo"><div class="rotulo">Débitos financiados</div><div class="valor" id="socio-soma-debitos">R$ 0,00</div></div>
+        </div>
+        <div class="subtotal-wrap" id="socio-resumo-dia-3" style="display:none;margin-top:10px;">
+          <div class="subtotal-card saldo"><div class="rotulo">Pix</div><div class="valor" id="socio-soma-pix">R$ 0,00</div></div>
+        </div>
+
+        <h4 style="margin:18px 0 8px;">Por terminal</h4>
+        <div class="tabela-historico-dias" id="socio-tabela-terminais"><div class="vazio">Escolha uma data e clique em Consultar.</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
 <!-- ================= MODAL: DADOS NÃO REGISTRADOS ================= -->
 <div id="modal-nao-registrado" class="oculto" style="position:fixed;inset:0;background:rgba(0,32,91,0.55);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;">
   <div class="card-login" style="max-width:380px;">
@@ -1212,6 +1374,11 @@
     <button class="btn-primario" onclick="fecharModalNaoRegistrado()">Registrar</button>
     <button class="btn-secundario" onclick="sairForcado()">Sair sem salvar</button>
   </div>
+</div>
+
+<!-- ================= MODAL: VISUALIZAR IMAGEM (SÓCIO) ================= -->
+<div id="modal-imagem-socio" class="oculto" style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="fecharImagemSocio()">
+  <img id="modal-imagem-socio-img" style="max-width:100%;max-height:100%;border-radius:8px;" src="">
 </div>
 
 <script>
@@ -1666,6 +1833,7 @@ async function cadastrarUsuario(){
   const resposta = document.getElementById('cad-resposta').value.trim();
   const admin = document.getElementById('cad-admin').checked;
   const gerencia = document.getElementById('cad-gerencia').checked;
+  const socio = document.getElementById('cad-socio').checked;
   const erro = document.getElementById('login-erro');
   erro.className = 'msg-erro';
 
@@ -1680,7 +1848,7 @@ async function cadastrarUsuario(){
     erro.classList.remove('oculto');
     return;
   }
-  usuarios.push({usuario, senha, nome, admin, gerencia, pergunta, resposta});
+  usuarios.push({usuario, senha, nome, admin, gerencia, socio, pergunta, resposta});
   await salvarUsuarios(usuarios);
   erro.classList.add('oculto');
   document.getElementById('cad-nome').value='';
@@ -1689,6 +1857,7 @@ async function cadastrarUsuario(){
   document.getElementById('cad-resposta').value='';
   document.getElementById('cad-admin').checked=false;
   document.getElementById('cad-gerencia').checked=false;
+  document.getElementById('cad-socio').checked=false;
   await popularSelectUsuarios();
   mostrarLogin();
   const ok = document.getElementById('login-erro');
@@ -1718,6 +1887,12 @@ async function fazerLogin(){
   if(achado.bloqueado === true){
     erro.textContent = 'Esta conta está bloqueada. Contate um administrador.';
     erro.classList.remove('oculto');
+    return;
+  }
+
+  // Perfil Sócio: acesso exclusivo e isolado, sem terminal do dia e sem o restante do app.
+  if(achado.socio === true){
+    await entrarComoSocio(achado);
     return;
   }
 
@@ -1899,6 +2074,7 @@ function sair(){
   TERMINAL_DO_DIA = null;
   if(INTERVALO_SYNC) clearInterval(INTERVALO_SYNC);
   document.getElementById('tela-app').classList.add('oculto');
+  document.getElementById('tela-socio').classList.add('oculto');
   document.getElementById('tela-login').classList.remove('oculto');
   document.getElementById('nav-admin').classList.add('oculto');
   document.getElementById('nav-gestaofiado').classList.add('oculto');
@@ -2097,7 +2273,15 @@ async function registrarLancamento(){
     clienteNome = c ? c.nome : '';
   }
 
-  const atividadeFinal = TIPO_SELECIONADO === 'Saida' ? atividade : atividadeDebito;
+  let atividadeFinal = TIPO_SELECIONADO === 'Saida' ? atividade : atividadeDebito;
+  if(TIPO_SELECIONADO === 'Saida' && atividade === 'Conta Loja'){
+    const detalheConta = document.getElementById('sel-conta-loja-detalhe').value;
+    if(!detalheConta){
+      msg.innerHTML = '<div class="msg-erro">Selecione o detalhe da conta.</div>';
+      return;
+    }
+    atividadeFinal = 'Conta Loja - ' + detalheConta;
+  }
 
   const registros = await carregarRegistros();
   const novoRegistro = {
@@ -2187,11 +2371,17 @@ async function popularSelectClientes(){
 
 function atualizarCampoClienteFiado(){
   const campo = document.getElementById('campo-cliente-fiado');
+  const campoContaLoja = document.getElementById('campo-conta-loja-detalhe');
   const atividade = document.getElementById('sel-atividade').value;
   if(TIPO_SELECIONADO === 'Saida' && atividade === 'Fiado'){
     campo.classList.remove('oculto');
   }else{
     campo.classList.add('oculto');
+  }
+  if(TIPO_SELECIONADO === 'Saida' && atividade === 'Conta Loja'){
+    campoContaLoja.classList.remove('oculto');
+  }else{
+    campoContaLoja.classList.add('oculto');
   }
 }
 
@@ -4471,6 +4661,247 @@ async function exportarExcelPeriodoAdmin(){
   XLSX.utils.book_append_sheet(wb, wsSubtotaisFechamentos, 'Subtotais Fechamentos');
   XLSX.utils.book_append_sheet(wb, wsPagamentosFiado, 'Pagamentos Fiado');
   XLSX.writeFile(wb, 'relatorio_admin_'+dataIni+'_a_'+dataFim+'.xlsx');
+}
+
+// ---------- Perfil Sócio (acesso exclusivo e isolado) ----------
+let SOCIO_IMAGEM_BASE64 = null;
+
+async function entrarComoSocio(achado){
+  USUARIO_LOGADO = achado;
+  FORM_DIRTY = false;
+  document.getElementById('tela-login').classList.add('oculto');
+  document.getElementById('tela-app').classList.add('oculto');
+  document.getElementById('tela-socio').classList.remove('oculto');
+  document.getElementById('nome-socio-topo').textContent = achado.nome;
+
+  await recarregarTerminaisCache();
+  popularSelectTerminais('socio-terminal', {});
+
+  const hoje = hojeISO();
+  document.getElementById('socio-data').value = hoje;
+  document.getElementById('socio-consulta-data').value = hoje;
+
+  trocarRelatorioSocio();
+  await carregarVendasSocioExistente();
+}
+
+function trocarRelatorioSocio(){
+  const valor = document.getElementById('sel-relatorio-socio').value;
+  document.getElementById('relatorio-socio-vendas').classList.toggle('oculto', valor !== 'vendas');
+}
+
+function previsualizarImagemSocio(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const maxW = 900;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      SOCIO_IMAGEM_BASE64 = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('socio-imagem-preview').innerHTML =
+        '<img src="'+SOCIO_IMAGEM_BASE64+'" style="max-width:220px;border-radius:9px;border:1.5px solid var(--cinza-borda);">';
+      marcarFormularioSujo();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function verImagemSocio(chave){
+  const base64 = await carregarImagemSocio(chave);
+  if(!base64) return;
+  document.getElementById('modal-imagem-socio-img').src = base64;
+  document.getElementById('modal-imagem-socio').classList.remove('oculto');
+}
+function fecharImagemSocio(){
+  document.getElementById('modal-imagem-socio').classList.add('oculto');
+}
+
+async function carregarVendasSocio(){
+  try{
+    const r = await window.storage.get('socio_vendas_loterica', true);
+    return r ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function salvarVendasSocio(lista){
+  await window.storage.set('socio_vendas_loterica', JSON.stringify(lista), true);
+}
+async function salvarImagemSocio(chave, base64){
+  await window.storage.set(chave, JSON.stringify(base64), true);
+}
+async function carregarImagemSocio(chave){
+  try{
+    const r = await window.storage.get(chave, true);
+    return r ? JSON.parse(r.value) : null;
+  }catch(e){ return null; }
+}
+
+const SOCIO_CAMPOS_MAPA = {
+  'jogos':'jogos', 'contas':'contas', 'premios':'premiosPagos', 'pagamentos':'pagamentos', 'saque':'saque',
+  'cartao-credito':'cartaoCredito', 'cartao-debito':'cartaoDebito', 'deposito':'deposito',
+  'pix-pagamento':'pixPagamento', 'pix-saque':'pixSaque', 'pix-devolvido':'pixDevolvido'
+};
+
+async function carregarVendasSocioExistente(){
+  const data = document.getElementById('socio-data').value;
+  const terminal = document.getElementById('socio-terminal').value;
+  const btn = document.getElementById('btn-registrar-vendas-socio');
+  const msg = document.getElementById('socio-vendas-msg');
+  if(!data || !terminal) return;
+
+  const lista = await carregarVendasSocio();
+  const existente = lista.find(v => v.data===data && v.terminal===terminal);
+
+  SOCIO_IMAGEM_BASE64 = null;
+  document.getElementById('socio-imagem').value = '';
+
+  if(existente){
+    Object.keys(SOCIO_CAMPOS_MAPA).forEach(campo => {
+      document.getElementById('socio-'+campo).value = existente[SOCIO_CAMPOS_MAPA[campo]] || 0;
+    });
+    btn.textContent = 'Atualizar Vendas do Dia';
+    msg.innerHTML = `<div class="msg-ok">Já existe um registro para o terminal ${escaparHtml(terminal)} nessa data, registrado às ${existente.hora}. Registrar novamente atualiza os valores.</div>`;
+    document.getElementById('socio-imagem-preview').innerHTML = existente.imagemKey
+      ? '<span style="font-size:12px;color:var(--texto-claro);">Já há uma foto anexada a este registro. Envie outra para substituir.</span>'
+      : '';
+  }else{
+    Object.keys(SOCIO_CAMPOS_MAPA).forEach(campo => {
+      document.getElementById('socio-'+campo).value = 0;
+    });
+    btn.textContent = 'Registrar Vendas do Dia';
+    msg.innerHTML = '';
+    document.getElementById('socio-imagem-preview').innerHTML = '';
+  }
+}
+
+async function registrarVendasSocio(){
+  const msg = document.getElementById('socio-vendas-msg');
+  const data = document.getElementById('socio-data').value;
+  const terminal = document.getElementById('socio-terminal').value;
+
+  if(!data || !terminal){
+    msg.innerHTML = '<div class="msg-erro">Informe a data e o terminal.</div>';
+    return;
+  }
+
+  const jogos = parseFloat(document.getElementById('socio-jogos').value) || 0;
+  const contas = parseFloat(document.getElementById('socio-contas').value) || 0;
+  const premiosPagos = parseFloat(document.getElementById('socio-premios').value) || 0;
+  const pagamentos = parseFloat(document.getElementById('socio-pagamentos').value) || 0;
+  const saque = parseFloat(document.getElementById('socio-saque').value) || 0;
+  const cartaoCredito = parseFloat(document.getElementById('socio-cartao-credito').value) || 0;
+  const cartaoDebito = parseFloat(document.getElementById('socio-cartao-debito').value) || 0;
+  const deposito = parseFloat(document.getElementById('socio-deposito').value) || 0;
+  const pixPagamento = parseFloat(document.getElementById('socio-pix-pagamento').value) || 0;
+  const pixSaque = parseFloat(document.getElementById('socio-pix-saque').value) || 0;
+  const pixDevolvido = parseFloat(document.getElementById('socio-pix-devolvido').value) || 0;
+
+  const creditoFinanceiro = pagamentos + saque;
+  const servicos = cartaoCredito + cartaoDebito;
+  const debitosFinanciados = deposito;
+  const pix = (pixPagamento + pixSaque) - pixDevolvido;
+
+  const lista = await carregarVendasSocio();
+  const idx = lista.findIndex(v => v.data===data && v.terminal===terminal);
+  let imagemKey = idx>=0 ? lista[idx].imagemKey : null;
+
+  if(SOCIO_IMAGEM_BASE64){
+    imagemKey = imagemKey || ('socio_imagem_' + Date.now() + '-' + Math.random().toString(36).slice(2,7));
+    await salvarImagemSocio(imagemKey, SOCIO_IMAGEM_BASE64);
+  }
+
+  const registro = {
+    id: idx>=0 ? lista[idx].id : (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
+    socioUsuario: USUARIO_LOGADO.usuario,
+    socioNome: USUARIO_LOGADO.nome,
+    data: data,
+    terminal: terminal,
+    jogos, contas, premiosPagos,
+    pagamentos, saque, cartaoCredito, cartaoDebito, deposito,
+    pixPagamento, pixSaque, pixDevolvido,
+    creditoFinanceiro, servicos, debitosFinanciados, pix,
+    imagemKey: imagemKey,
+    hora: horaAgora(),
+    timestamp: Date.now()
+  };
+  if(idx>=0) lista[idx] = registro; else lista.push(registro);
+  await salvarVendasSocio(lista);
+
+  limparFormularioSujo();
+  SOCIO_IMAGEM_BASE64 = null;
+  document.getElementById('socio-imagem').value = '';
+
+  msg.innerHTML = `<div class="msg-ok">Vendas do terminal ${escaparHtml(terminal)} em ${data.split('-').reverse().join('/')} registradas com sucesso.</div>`;
+  setTimeout(()=>{msg.innerHTML='';}, 3000);
+
+  await carregarVendasSocioExistente();
+}
+
+async function consultarVendasSocio(){
+  const data = document.getElementById('socio-consulta-data').value;
+  const cont = document.getElementById('socio-tabela-terminais');
+  const resumo1 = document.getElementById('socio-resumo-dia');
+  const resumo2 = document.getElementById('socio-resumo-dia-2');
+  const resumo3 = document.getElementById('socio-resumo-dia-3');
+
+  if(!data){
+    cont.innerHTML = '<div class="vazio">Escolha uma data e clique em Consultar.</div>';
+    resumo1.style.display = 'none'; resumo2.style.display = 'none'; resumo3.style.display = 'none';
+    return;
+  }
+
+  const todas = await carregarVendasSocio();
+  const doDia = todas.filter(v => v.data === data)
+                      .sort((a,b) => a.terminal.localeCompare(b.terminal, undefined, {numeric:true}));
+
+  if(doDia.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum registro para esta data.</div>';
+    resumo1.style.display = 'none'; resumo2.style.display = 'none'; resumo3.style.display = 'none';
+    return;
+  }
+
+  const somaJogos = doDia.reduce((s,v) => s+v.jogos, 0);
+  const somaContas = doDia.reduce((s,v) => s+v.contas, 0);
+  const somaPremios = doDia.reduce((s,v) => s+v.premiosPagos, 0);
+  const somaCredito = doDia.reduce((s,v) => s+v.creditoFinanceiro, 0);
+  const somaServicos = doDia.reduce((s,v) => s+v.servicos, 0);
+  const somaDebitos = doDia.reduce((s,v) => s+v.debitosFinanciados, 0);
+  const somaPix = doDia.reduce((s,v) => s+v.pix, 0);
+
+  document.getElementById('socio-soma-jogos').textContent = formatarMoeda(somaJogos);
+  document.getElementById('socio-soma-contas').textContent = formatarMoeda(somaContas);
+  document.getElementById('socio-soma-premios').textContent = formatarMoeda(somaPremios);
+  document.getElementById('socio-soma-credito').textContent = formatarMoeda(somaCredito);
+  document.getElementById('socio-soma-servicos').textContent = formatarMoeda(somaServicos);
+  document.getElementById('socio-soma-debitos').textContent = formatarMoeda(somaDebitos);
+  document.getElementById('socio-soma-pix').textContent = formatarMoeda(somaPix);
+  resumo1.style.display = 'grid'; resumo2.style.display = 'grid'; resumo3.style.display = 'grid';
+
+  cont.innerHTML = `<table>
+    <thead><tr>
+      <th>Terminal</th><th>Jogos</th><th>Contas</th><th>Prêmios</th><th>Créd. financeiro</th><th>Serviços</th><th>Déb. financiados</th><th>Pix</th><th>Foto</th>
+    </tr></thead>
+    <tbody>
+      ${doDia.map(v => `<tr>
+        <td>${escaparHtml(v.terminal)}</td>
+        <td>${formatarMoeda(v.jogos)}</td>
+        <td>${formatarMoeda(v.contas)}</td>
+        <td>${formatarMoeda(v.premiosPagos)}</td>
+        <td>${formatarMoeda(v.creditoFinanceiro)}</td>
+        <td>${formatarMoeda(v.servicos)}</td>
+        <td>${formatarMoeda(v.debitosFinanciados)}</td>
+        <td>${formatarMoeda(v.pix)}</td>
+        <td>${v.imagemKey ? `<button class="btn-secundario" style="margin-top:0;padding:6px 10px;" onclick="verImagemSocio('${v.imagemKey}')">Ver</button>` : '—'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
 }
 
 // ---------- Início ----------
