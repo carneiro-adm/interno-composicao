@@ -4698,6 +4698,7 @@ function previsualizarImagemSocio(input){
   reader.onload = function(e){
     const img = new Image();
     img.onload = async function(){
+      // Canvas de armazenamento (comprimido, para guardar a foto)
       const maxW = 1400;
       const scale = Math.min(1, maxW / img.width);
       const canvas = document.createElement('canvas');
@@ -4708,9 +4709,17 @@ function previsualizarImagemSocio(input){
       SOCIO_IMAGEM_BASE64 = canvas.toDataURL('image/jpeg', 0.75);
       document.getElementById('socio-imagem-preview').innerHTML =
         '<img src="'+SOCIO_IMAGEM_BASE64+'" style="max-width:220px;border-radius:9px;border:1.5px solid var(--cinza-borda);">' +
-        '<div id="socio-ocr-status" style="margin-top:8px;font-size:12px;color:var(--azul-caixa);">Lendo valores da imagem...</div>';
+        '<div id="socio-ocr-status" style="margin-top:8px;font-size:12px;color:var(--azul-caixa);">Lendo valores da imagem...</div>' +
+        '<div id="socio-ocr-debug-wrap" class="oculto" style="margin-top:8px;">' +
+        '  <button type="button" class="btn-secundario" style="margin-top:0;padding:6px 10px;font-size:12px;" onclick="alternarDebugOcrSocio()">Ver texto lido pelo OCR</button>' +
+        '  <pre id="socio-ocr-debug-texto" class="oculto" style="white-space:pre-wrap;font-size:11px;background:#f4f4f8;border-radius:8px;padding:10px;margin-top:8px;max-height:220px;overflow:auto;"></pre>' +
+        '</div>';
       marcarFormularioSujo();
-      await executarOcrEPreencherSocio(canvas);
+
+      // Canvas dedicado ao OCR: resolução maior + preto-e-branco, para reduzir
+      // a interferência da marca d'água e de anotações coloridas a caneta.
+      const canvasOcr = prepararCanvasParaOcrSocio(img);
+      await executarOcrEPreencherSocio(canvasOcr);
     };
     img.src = e.target.result;
   };
@@ -4796,6 +4805,35 @@ function preencherCamposComOcr(r){
   return preenchidos;
 }
 
+// Prepara um canvas em preto-e-branco e resolução ampliada, específico para o OCR:
+// isso reduz bastante a interferência de marca d'água clara e de anotações a caneta,
+// realçando o texto impresso preto sobre fundo branco.
+function prepararCanvasParaOcrSocio(img){
+  const maxW = 1800;
+  const scale = Math.min(2.2, Math.max(1, maxW / img.width));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(img.width * scale));
+  canvas.height = Math.max(1, Math.round(img.height * scale));
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = imgData.data;
+  const limiar = 150;
+  for(let i = 0; i < d.length; i += 4){
+    const luminancia = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    const v = luminancia < limiar ? 0 : 255;
+    d[i] = d[i+1] = d[i+2] = v;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
+function alternarDebugOcrSocio(){
+  document.getElementById('socio-ocr-debug-texto').classList.toggle('oculto');
+}
+
 async function executarOcrEPreencherSocio(canvas){
   const statusEl = document.getElementById('socio-ocr-status');
   try{
@@ -4804,8 +4842,19 @@ async function executarOcrEPreencherSocio(canvas){
       return;
     }
     const worker = await Tesseract.createWorker('por');
+    await worker.setParameters({
+      tessedit_pageseg_mode: '6',
+      preserve_interword_spaces: '1'
+    });
     const { data } = await worker.recognize(canvas);
     await worker.terminate();
+
+    const debugWrap = document.getElementById('socio-ocr-debug-wrap');
+    const debugTexto = document.getElementById('socio-ocr-debug-texto');
+    if(debugWrap && debugTexto){
+      debugTexto.textContent = data.text || '(nenhum texto reconhecido)';
+      debugWrap.classList.remove('oculto');
+    }
 
     const extraido = processarTextoOcrRelatorio(data.text);
     const qtd = preencherCamposComOcr(extraido);
@@ -4816,7 +4865,7 @@ async function executarOcrEPreencherSocio(canvas){
         statusEl.style.color = 'var(--verde-venda)';
         marcarFormularioSujo();
       }else{
-        statusEl.textContent = 'Não consegui identificar valores automaticamente nesta foto — preencha manualmente.';
+        statusEl.textContent = 'Não consegui identificar valores automaticamente nesta foto — preencha manualmente. Toque em "Ver texto lido pelo OCR" para conferir o que foi reconhecido.';
         statusEl.style.color = 'var(--texto-claro)';
       }
     }
