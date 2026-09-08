@@ -1255,21 +1255,17 @@
 
     <div id="relatorio-socio-vendas">
       <div class="painel">
-        <h3>Upload — Resumo do dia (terminal)</h3>
-
-        <div class="linha-form">
-          <div class="campo" style="margin-bottom:0;">
-            <label>Data (filtro — preenchida pela foto)</label>
-            <input type="date" id="socio-data" onchange="carregarVendasSocioExistente()">
-          </div>
-          <div class="campo" style="margin-bottom:0;">
-            <label>Terminal (filtro — preenchido pela foto)</label>
-            <select id="socio-terminal" onchange="carregarVendasSocioExistente()"></select>
-          </div>
+        <h3>Verificar terminais do dia</h3>
+        <p class="aviso-fechamento">Filtro apenas para consulta — escolher uma data aqui não preenche o formulário de upload abaixo.</p>
+        <div class="campo">
+          <label>Data</label>
+          <input type="date" id="socio-filtro-data" onchange="atualizarChecklistTerminaisSocio()">
         </div>
-        <p class="aviso-fechamento" style="margin-top:-8px;">Envie a foto primeiro — data e terminal são identificados automaticamente. Só mude esses campos manualmente se quiser consultar/editar um registro já salvo.</p>
+        <div id="socio-checklist-terminais"></div>
+      </div>
 
-        <div id="socio-checklist-terminais" style="margin-bottom:16px;"></div>
+      <div class="painel">
+        <h3>Upload — Resumo do dia (terminal)</h3>
 
         <div style="background:rgba(0,51,160,0.06);border:1.5px solid var(--azul-caixa);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px;font-weight:700;color:var(--azul-caixa);">
           Faça upload do relatório RESUMO DO DIA dos terminais
@@ -1283,14 +1279,15 @@
         </div>
 
         <h4 style="margin:16px 0 8px;">Identificação do relatório</h4>
+        <p class="aviso-fechamento" style="margin-top:-8px;">Preenchido automaticamente pela leitura da foto. Se o OCR não identificar corretamente, ajuste manualmente antes de registrar.</p>
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
             <label>Data do relatório</label>
-            <div class="terminal-fixo" id="socio-data-exibicao">—</div>
+            <input type="date" id="socio-data">
           </div>
           <div class="campo" style="margin-bottom:0;">
             <label>Terminal</label>
-            <div class="terminal-fixo" id="socio-terminal-exibicao">—</div>
+            <select id="socio-terminal"></select>
           </div>
         </div>
 
@@ -4758,17 +4755,19 @@ async function entrarComoSocio(achado){
   document.getElementById('nome-socio-topo').textContent = achado.nome;
 
   await recarregarTerminaisCache();
-  // Data e Terminal ficam em branco: são preenchidos automaticamente pela leitura
-  // da foto (OCR). Só servem como filtro se a pessoa quiser consultar/editar um
-  // registro já existente manualmente.
+
+  // Filtro de consulta (checklist) — inicia em hoje, só afeta a visualização.
+  document.getElementById('socio-filtro-data').value = hojeISO();
+
+  // Identificação do relatório (usada de fato para registrar) — começa em branco,
+  // preenchida pela leitura da foto (OCR) ou manualmente, se precisar corrigir.
   popularSelectTerminais('socio-terminal', {comBranco:true, rotuloBranco:'Selecione...'});
   document.getElementById('socio-data').value = '';
 
   document.getElementById('socio-consulta-data').value = hojeISO();
 
   trocarRelatorioSocio();
-  atualizarChecklistTerminaisSocio();
-  carregarVendasSocioExistente();
+  await atualizarChecklistTerminaisSocio();
 }
 
 function trocarRelatorioSocio(){
@@ -4779,7 +4778,7 @@ function trocarRelatorioSocio(){
 async function atualizarChecklistTerminaisSocio(){
   const cont = document.getElementById('socio-checklist-terminais');
   if(!cont) return;
-  const data = document.getElementById('socio-data').value;
+  const data = document.getElementById('socio-filtro-data').value;
   if(!data){ cont.innerHTML = ''; return; }
 
   await recarregarTerminaisCache();
@@ -4787,7 +4786,7 @@ async function atualizarChecklistTerminaisSocio(){
     .sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
 
   if(terminaisCaixa.length === 0){
-    cont.innerHTML = '';
+    cont.innerHTML = '<div class="vazio">Nenhum terminal tipo Caixa cadastrado ainda.</div>';
     return;
   }
 
@@ -4885,24 +4884,42 @@ function extrairPorRotuloOcr(linhas, rotulo){
 }
 
 function extrairDataRelatorioOcr(linhas){
+  // Tentativa 1: data logo depois de "RESUMO DO DIA".
   for(const linha of linhas){
     const L = normalizarTextoOcr(linha);
     if(L.includes('RESUMO DO DIA')){
       const m = linha.match(/(\d{2})\s*[\/\.\-]\s*(\d{2})\s*[\/\.\-]\s*(\d{2,4})/);
-      if(m){
-        let ano = m[3];
-        if(ano.length === 2) ano = '20' + ano;
-        return ano + '-' + m[2] + '-' + m[1];
-      }
+      if(m) return montarDataIso(m);
     }
+  }
+  // Tentativa 2 (reserva): primeira data no formato DD/MM/AAAA em qualquer
+  // uma das primeiras linhas do comprovante (cabeçalho fica sempre no topo).
+  for(const linha of linhas.slice(0, 8)){
+    const m = linha.match(/(\d{2})\s*[\/\.\-]\s*(\d{2})\s*[\/\.\-]\s*(\d{2,4})/);
+    if(m) return montarDataIso(m);
   }
   return null;
 }
 
+function montarDataIso(m){
+  let ano = m[3];
+  if(ano.length === 2) ano = '20' + ano;
+  return ano + '-' + m[2] + '-' + m[1];
+}
+
 function extrairTerminalOcr(linhas){
+  // Tentativa 1: dígitos logo depois da palavra "TERM" (aceita "O" no lugar de "0",
+  // erro comum do OCR, e tolera alguns caracteres de ruído entre o rótulo e o número).
   for(const linha of linhas){
-    const m = linha.match(/TERM[^\d]{0,6}(\d{3,})/i);
+    const linhaAjustada = linha.replace(/TERM([^\d]{0,8})/i, (match, meio) => 'TERM' + meio.replace(/O/gi, '0'));
+    const m = linhaAjustada.match(/TERM[^\d]{0,8}(\d{3,})/i);
     if(m) return m[1].slice(-4);
+  }
+  // Tentativa 2 (reserva): um código de 5-6 dígitos começando com "00", típico
+  // do formato de terminal da Caixa (ex: "009945"), em qualquer linha do cabeçalho.
+  for(const linha of linhas.slice(0, 8)){
+    const m = linha.match(/\b00\d{3,4}\b/);
+    if(m) return m[0].slice(-4);
   }
   return null;
 }
@@ -5071,38 +5088,41 @@ async function executarOcrEPreencherSocio(img){
 
     await worker.terminate();
 
-    // Aplica Data e Terminal identificados (se houver) e verifica se já existe um
-    // registro salvo para essa combinação — sem apagar a foto que acabou de ser enviada.
+    // Aplica Data e Terminal identificados (se houver) na Identificação do relatório,
+    // e os valores lidos nos campos monetários. Não mexe em nenhum filtro.
     if(resultado.dataRelatorio){
       document.getElementById('socio-data').value = resultado.dataRelatorio;
     }
+    let terminalAplicado = false;
     if(resultado.terminal){
       const selTerminal = document.getElementById('socio-terminal');
       if(selTerminal.querySelector('option[value="'+resultado.terminal+'"]')){
         selTerminal.value = resultado.terminal;
+        terminalAplicado = true;
       }
     }
-    const jaExistiaRegistro = await carregarVendasSocioExistente(true);
 
-    // Só aplica os valores lidos da foto se ainda não havia um registro salvo
-    // para essa data/terminal (para não sobrescrever um valor já confirmado antes).
-    const preenchidos = jaExistiaRegistro ? 0 : preencherCamposMonetariosComOcr(resultado);
+    const preenchidos = preencherCamposMonetariosComOcr(resultado);
 
     const partes = [];
-    if(preenchidos > 0) partes.push(preenchidos + ' de 11 campo(s) de valor preenchido(s) automaticamente');
-    if(resultado.dataRelatorio) partes.push('data identificada');
-    if(resultado.terminal) partes.push('terminal ' + resultado.terminal + ' identificado');
+    if(preenchidos > 0) partes.push(preenchidos + ' de 11 campo(s) de valor');
+    if(resultado.dataRelatorio) partes.push('data');
+    if(terminalAplicado) partes.push('terminal ' + resultado.terminal);
 
     if(statusEl){
-      if(jaExistiaRegistro){
-        statusEl.textContent = 'Já existe um registro salvo para essa data/terminal — os valores acima são os já salvos. Confira antes de atualizar.';
-        statusEl.style.color = 'var(--azul-caixa)';
-      }else if(partes.length > 0){
-        statusEl.textContent = partes.join(', ') + ' a partir da foto. Confira os valores antes de registrar.';
+      if(partes.length > 0){
+        let aviso = partes.join(', ') + ' preenchido(s) automaticamente a partir da foto. Confira antes de registrar.';
+        if(resultado.terminal && !terminalAplicado){
+          aviso += ' Terminal "' + resultado.terminal + '" lido na foto, mas não está cadastrado — selecione manualmente.';
+        }
+        if(!resultado.terminal){
+          aviso += ' Não consegui identificar o terminal — selecione manualmente.';
+        }
+        statusEl.textContent = aviso;
         statusEl.style.color = 'var(--verde-venda)';
         marcarFormularioSujo();
       }else{
-        statusEl.textContent = 'Não consegui identificar valores automaticamente nesta foto — preencha manualmente. Toque em "Ver texto lido pelo OCR" para conferir o que foi reconhecido.';
+        statusEl.textContent = 'Não consegui identificar nada automaticamente nesta foto — preencha manualmente (incluindo Data e Terminal, abaixo). Toque em "Ver texto lido pelo OCR" para conferir o que foi reconhecido.';
         statusEl.style.color = 'var(--texto-claro)';
       }
     }
@@ -5149,55 +5169,6 @@ const SOCIO_CAMPOS_MAPA = {
   'cartao-credito':'cartaoCredito', 'cartao-debito':'cartaoDebito', 'deposito':'deposito',
   'pix-pagamento':'pixPagamento', 'pix-saque':'pixSaque', 'pix-devolvido':'pixDevolvido'
 };
-
-async function carregarVendasSocioExistente(manterImagem){
-  const data = document.getElementById('socio-data').value;
-  const terminal = document.getElementById('socio-terminal').value;
-  const btn = document.getElementById('btn-registrar-vendas-socio');
-  const msg = document.getElementById('socio-vendas-msg');
-
-  const elData = document.getElementById('socio-data-exibicao');
-  const elTerminal = document.getElementById('socio-terminal-exibicao');
-  if(elData) elData.textContent = data ? data.split('-').reverse().join('/') : '—';
-  if(elTerminal) elTerminal.textContent = terminal ? rotuloTerminal(terminal) : '—';
-
-  if(!data || !terminal) return false;
-
-  const lista = await carregarVendasSocio();
-  const existente = lista.find(v => v.data===data && v.terminal===terminal);
-
-  if(!manterImagem){
-    SOCIO_IMAGEM_BASE64 = null;
-    document.getElementById('socio-imagem').value = '';
-    const btnTrocarFoto = document.getElementById('btn-trocar-foto-socio');
-    if(btnTrocarFoto) btnTrocarFoto.classList.add('oculto');
-  }
-
-  if(existente){
-    Object.keys(SOCIO_CAMPOS_MAPA).forEach(campo => {
-      document.getElementById('socio-'+campo).value = existente[SOCIO_CAMPOS_MAPA[campo]] || 0;
-    });
-    btn.textContent = 'Após validação, registrar dados no sistema';
-    msg.innerHTML = `<div class="msg-ok">Já existe um registro para o terminal ${escaparHtml(terminal)} nessa data, registrado às ${existente.hora}. Registrar novamente atualiza os valores.</div>`;
-    if(!manterImagem){
-      document.getElementById('socio-imagem-preview').innerHTML = existente.imagemKey
-        ? '<span style="font-size:12px;color:var(--texto-claro);">Já há uma foto anexada a este registro. Envie outra para substituir.</span>'
-        : '';
-    }
-  }else{
-    if(!manterImagem){
-      Object.keys(SOCIO_CAMPOS_MAPA).forEach(campo => {
-        document.getElementById('socio-'+campo).value = 0;
-      });
-      document.getElementById('socio-imagem-preview').innerHTML = '';
-    }
-    btn.textContent = 'Após validação, registrar dados no sistema';
-    msg.innerHTML = '';
-  }
-
-  await atualizarChecklistTerminaisSocio();
-  return !!existente;
-}
 
 async function registrarVendasSocio(){
   const msg = document.getElementById('socio-vendas-msg');
@@ -5255,11 +5226,23 @@ async function registrarVendasSocio(){
   limparFormularioSujo();
   SOCIO_IMAGEM_BASE64 = null;
   document.getElementById('socio-imagem').value = '';
+  document.getElementById('socio-imagem-preview').innerHTML = '';
+  const btnTrocarFoto = document.getElementById('btn-trocar-foto-socio');
+  if(btnTrocarFoto) btnTrocarFoto.classList.add('oculto');
 
-  msg.innerHTML = `<div class="msg-ok">Vendas do terminal ${escaparHtml(terminal)} em ${data.split('-').reverse().join('/')} registradas com sucesso.</div>`;
-  setTimeout(()=>{msg.innerHTML='';}, 3000);
+  const acao = idx >= 0 ? 'atualizadas' : 'registradas';
+  msg.innerHTML = `<div class="msg-ok">Vendas do terminal ${escaparHtml(terminal)} em ${data.split('-').reverse().join('/')} ${acao} com sucesso.</div>`;
+  setTimeout(()=>{msg.innerHTML='';}, 4000);
 
-  await carregarVendasSocioExistente();
+  // Limpa o formulário para a próxima foto e atualiza o checklist para refletir
+  // esse terminal como feito na data registrada.
+  document.getElementById('socio-data').value = '';
+  document.getElementById('socio-terminal').value = '';
+  Object.keys(SOCIO_CAMPOS_MAPA).forEach(campo => {
+    document.getElementById('socio-'+campo).value = 0;
+  });
+  document.getElementById('socio-filtro-data').value = data;
+  await atualizarChecklistTerminaisSocio();
 }
 
 async function consultarVendasSocio(){
