@@ -4,9 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Composição de Caixa — Carneiro Ganhador Loterias</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
     --azul-caixa:#0033A0;
@@ -1522,40 +1520,70 @@ function trocarAba(nome){
 
 // ---------- Armazenamento ----------
 async function carregarUsuarios(){
-  try{
-    const r = await window.storage.get('usuarios_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('usuarios', 'usuarios_loterica', true);
 }
 async function salvarUsuarios(lista){
   await window.storage.set('usuarios_loterica', JSON.stringify(lista), true);
+  invalidarCache('usuarios');
 }
+// ---------- Cache leve de dados (evita buscas redundantes ao Supabase) ----------
+// Dentro de um único ciclo de atualização, várias telas pedem os mesmos dados
+// (registros, fechamentos, clientes...). Sem cache, cada pedido vira uma requisição
+// nova ao Supabase, o que deixa o app lento. O cache guarda o resultado por alguns
+// segundos; qualquer "salvar" invalida o cache na hora, então nunca fica desatualizado
+// depois de uma ação do próprio usuário.
+const CACHE_DADOS = {};
+const CACHE_TTL_MS = 4000;
+
+async function carregarComCache(chave, storageKey, shared){
+  const agora = Date.now();
+  const atual = CACHE_DADOS[chave];
+  if(atual && (agora - atual.ts) < CACHE_TTL_MS){
+    return atual.dados;
+  }
+  if(atual && atual.pendente){
+    // Já existe uma busca em andamento para essa chave: aguarda ela em vez de disparar outra.
+    return atual.pendente;
+  }
+  const promessa = (async () => {
+    try{
+      const r = await window.storage.get(storageKey, shared);
+      const dados = r ? JSON.parse(r.value) : [];
+      CACHE_DADOS[chave] = {dados, ts: Date.now()};
+      return dados;
+    }catch(e){
+      CACHE_DADOS[chave] = null;
+      return [];
+    }
+  })();
+  CACHE_DADOS[chave] = {dados: atual ? atual.dados : [], ts: atual ? atual.ts : 0, pendente: promessa};
+  return promessa;
+}
+
+function invalidarCache(chave){
+  delete CACHE_DADOS[chave];
+}
+
 async function carregarRegistros(){
-  try{
-    const r = await window.storage.get('registros_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('registros', 'registros_loterica', true);
 }
 async function salvarRegistros(lista){
   await window.storage.set('registros_loterica', JSON.stringify(lista), true);
+  invalidarCache('registros');
 }
 async function carregarFechamentos(){
-  try{
-    const r = await window.storage.get('fechamentos_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('fechamentos', 'fechamentos_loterica', true);
 }
 async function salvarFechamentos(lista){
   await window.storage.set('fechamentos_loterica', JSON.stringify(lista), true);
+  invalidarCache('fechamentos');
 }
 async function carregarTerminalDia(){
-  try{
-    const r = await window.storage.get('terminal_dia_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('terminalDia', 'terminal_dia_loterica', true);
 }
 async function salvarTerminalDia(lista){
   await window.storage.set('terminal_dia_loterica', JSON.stringify(lista), true);
+  invalidarCache('terminalDia');
 }
 async function obterFuncionarioDoTerminal(terminal, data){
   const atribuicoes = await carregarTerminalDia();
@@ -1569,13 +1597,11 @@ async function obterFuncionarioDoTerminal(terminal, data){
 let TERMINAIS_CADASTRADOS = [];
 
 async function carregarTerminais(){
-  try{
-    const r = await window.storage.get('terminais_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('terminais', 'terminais_loterica', true);
 }
 async function salvarTerminaisStorage(lista){
   await window.storage.set('terminais_loterica', JSON.stringify(lista), true);
+  invalidarCache('terminais');
 }
 async function recarregarTerminaisCache(){
   TERMINAIS_CADASTRADOS = await carregarTerminais();
@@ -1693,40 +1719,32 @@ async function atualizarTodosSelectsTerminais(){
 }
 
 async function carregarComposicaoGerencia(){
-  try{
-    const r = await window.storage.get('composicao_gerencia_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('composicaoGerencia', 'composicao_gerencia_loterica', true);
 }
 async function salvarComposicaoGerencia(lista){
   await window.storage.set('composicao_gerencia_loterica', JSON.stringify(lista), true);
+  invalidarCache('composicaoGerencia');
 }
 async function carregarEntradasProdutosGerencia(){
-  try{
-    const r = await window.storage.get('entradas_produtos_gerencia_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('entradasProdutos', 'entradas_produtos_gerencia_loterica', true);
 }
 async function salvarEntradasProdutosGerencia(lista){
   await window.storage.set('entradas_produtos_gerencia_loterica', JSON.stringify(lista), true);
+  invalidarCache('entradasProdutos');
 }
 async function carregarClientes(){
-  try{
-    const r = await window.storage.get('clientes_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('clientes', 'clientes_loterica', true);
 }
 async function salvarClientes(lista){
   await window.storage.set('clientes_loterica', JSON.stringify(lista), true);
+  invalidarCache('clientes');
 }
 async function carregarPagamentosFiado(){
-  try{
-    const r = await window.storage.get('pagamentos_fiado_loterica', true);
-    return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  return carregarComCache('pagamentosFiado', 'pagamentos_fiado_loterica', true);
 }
 async function salvarPagamentosFiado(lista){
   await window.storage.set('pagamentos_fiado_loterica', JSON.stringify(lista), true);
+  invalidarCache('pagamentosFiado');
 }
 
 // ---------- Seed inicial ----------
@@ -2065,8 +2083,18 @@ async function entrarNoApp(achado){
   }
 
   await atualizarTudo();
-  INTERVALO_SYNC = setInterval(atualizarTudo, 5000);
+  INTERVALO_SYNC = setInterval(() => {
+    if(document.visibilityState === 'visible') atualizarTudo();
+  }, 5000);
 }
+
+// Quando a aba volta a ficar visível (usuário trocou de app/aba e voltou),
+// atualiza na hora em vez de esperar até 5s, para não parecer travado.
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && USUARIO_LOGADO){
+    atualizarTudo();
+  }
+});
 
 function sair(){
   USUARIO_LOGADO = null;
@@ -4411,7 +4439,27 @@ function aplicarFormatoMoedaColunas(ws, colunasMoeda){
   }
 }
 
+let XLSX_CARREGANDO = null;
+function carregarXlsxSobDemanda(){
+  if(typeof XLSX !== 'undefined') return Promise.resolve();
+  if(XLSX_CARREGANDO) return XLSX_CARREGANDO;
+  XLSX_CARREGANDO = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Falha ao carregar a biblioteca de exportação.'));
+    document.head.appendChild(script);
+  });
+  return XLSX_CARREGANDO;
+}
+
 async function exportarExcel(){
+  try{
+    await carregarXlsxSobDemanda();
+  }catch(e){
+    alert('Não foi possível carregar a biblioteca de exportação. Verifique sua conexão e tente novamente.');
+    return;
+  }
   if(typeof XLSX === 'undefined'){
     alert('A biblioteca de exportação ainda está carregando, tente novamente em instantes.');
     return;
@@ -4573,6 +4621,12 @@ async function exportarExcel(){
 }
 
 async function exportarExcelPeriodoAdmin(){
+  try{
+    await carregarXlsxSobDemanda();
+  }catch(e){
+    alert('Não foi possível carregar a biblioteca de exportação. Verifique sua conexão e tente novamente.');
+    return;
+  }
   if(typeof XLSX === 'undefined'){
     alert('A biblioteca de exportação ainda está carregando, tente novamente em instantes.');
     return;
@@ -4716,10 +4770,9 @@ function previsualizarImagemSocio(input){
         '</div>';
       marcarFormularioSujo();
 
-      // Canvas dedicado ao OCR: resolução maior + preto-e-branco, para reduzir
-      // a interferência da marca d'água e de anotações coloridas a caneta.
-      const canvasOcr = prepararCanvasParaOcrSocio(img);
-      await executarOcrEPreencherSocio(canvasOcr);
+      // OCR: passa a imagem original — a função de leitura gera os canvases
+      // pré-processados necessários (inclusive uma segunda tentativa se precisar).
+      await executarOcrEPreencherSocio(img);
     };
     img.src = e.target.result;
   };
@@ -4756,11 +4809,11 @@ function processarTextoOcrRelatorio(textoBruto){
 
   resultado.jogos = extrairPorRotuloOcr(linhas, 'TOTAL JOGOS');
   resultado.contas = extrairPorRotuloOcr(linhas, 'TOTAL CONTAS');
-  resultado.cartaoCredito = extrairPorRotuloOcr(linhas, 'CARTAO DE CREDITO') || extrairPorRotuloOcr(linhas, 'CARTAO CREDITO');
-  resultado.cartaoDebito = extrairPorRotuloOcr(linhas, 'CARTAO DE DEBITO') || extrairPorRotuloOcr(linhas, 'CARTAO DEBITO');
-  resultado.deposito = extrairPorRotuloOcr(linhas, 'DEPOSITO');
-  resultado.pixPagamento = extrairPorRotuloOcr(linhas, 'PIX PAGAMENTO');
-  resultado.pixSaque = extrairPorRotuloOcr(linhas, 'PIX SAQUE');
+  resultado.cartaoCredito = extrairPorRotuloOcr(linhas, 'CARTAO DE CREDITO') || extrairPorRotuloOcr(linhas, 'CARTAO CREDITO') || extrairPorRotuloOcr(linhas, 'CARTAO CRED');
+  resultado.cartaoDebito = extrairPorRotuloOcr(linhas, 'CARTAO DE DEBITO') || extrairPorRotuloOcr(linhas, 'CARTAO DEBITO') || extrairPorRotuloOcr(linhas, 'CARTAO DEB');
+  resultado.deposito = extrairPorRotuloOcr(linhas, 'DEPOSITO') || extrairPorRotuloOcr(linhas, 'DEPOSIT');
+  resultado.pixPagamento = extrairPorRotuloOcr(linhas, 'PIX PAGAMENTO') || extrairPorRotuloOcr(linhas, 'PIXPAGAMENTO') || extrairPorRotuloOcr(linhas, 'PIX PAG');
+  resultado.pixSaque = extrairPorRotuloOcr(linhas, 'PIX SAQUE') || extrairPorRotuloOcr(linhas, 'PIXSAQUE');
   resultado.pixDevolvido = extrairPorRotuloOcr(linhas, 'PIX DEVOLU') || extrairPorRotuloOcr(linhas, 'DEVOLUCAO PIX');
   resultado.saque = extrairPorRotuloOcr(linhas, 'SAQUE');
   resultado.pagamentos = null;
@@ -4768,13 +4821,16 @@ function processarTextoOcrRelatorio(textoBruto){
 
   // "Prêmios pagos" e "Pagamentos" não têm rótulo próprio no total — é a linha "TOTAL"
   // logo abaixo do cabeçalho da seção. Rastreia a seção atual para saber a qual pertence.
+  // Usa "contém TOTAL perto do início" em vez de "começa com TOTAL", porque o OCR às vezes
+  // gruda um caractere de ruído (da marca d'água) antes da palavra.
   let secaoAtual = null;
   linhas.forEach(linha => {
     const L = normalizarTextoOcr(linha);
     if(L.includes('PREMIOS PAGOS')){ secaoAtual = 'premios'; return; }
     if(L.includes('PAGAMENTOS') && !L.includes('SERVICOS')){ secaoAtual = 'pagamentos'; return; }
     if(L.includes('SERVICOS') || L.includes('RECEBIMENTOS') || L.includes('CONSULTAS')){ secaoAtual = null; return; }
-    if(secaoAtual && L.startsWith('TOTAL')){
+    const pareceLinhaTotal = /^.{0,3}TOTAL(?!\s*RCTO)/.test(L);
+    if(secaoAtual && pareceLinhaTotal){
       const v = extrairValorDaLinhaOcr(linha);
       if(v !== null){
         if(secaoAtual === 'premios' && resultado.premios == null) resultado.premios = v;
@@ -4785,6 +4841,20 @@ function processarTextoOcrRelatorio(textoBruto){
   });
 
   return resultado;
+}
+
+function mesclarResultadosOcr(base, extra){
+  const mesclado = Object.assign({}, base);
+  Object.keys(extra).forEach(campo => {
+    if(mesclado[campo] == null && extra[campo] != null){
+      mesclado[campo] = extra[campo];
+    }
+  });
+  return mesclado;
+}
+
+function contarCamposPreenchidosOcr(r){
+  return Object.keys(r).filter(k => r[k] != null).length;
 }
 
 function preencherCamposComOcr(r){
@@ -4808,7 +4878,8 @@ function preencherCamposComOcr(r){
 // Prepara um canvas em preto-e-branco e resolução ampliada, específico para o OCR:
 // isso reduz bastante a interferência de marca d'água clara e de anotações a caneta,
 // realçando o texto impresso preto sobre fundo branco.
-function prepararCanvasParaOcrSocio(img){
+function prepararCanvasParaOcrSocio(img, limiar){
+  limiar = limiar || 150;
   const maxW = 1800;
   const scale = Math.min(2.2, Math.max(1, maxW / img.width));
   const canvas = document.createElement('canvas');
@@ -4820,7 +4891,6 @@ function prepararCanvasParaOcrSocio(img){
 
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const d = imgData.data;
-  const limiar = 150;
   for(let i = 0; i < d.length; i += 4){
     const luminancia = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
     const v = luminancia < limiar ? 0 : 255;
@@ -4834,11 +4904,42 @@ function alternarDebugOcrSocio(){
   document.getElementById('socio-ocr-debug-texto').classList.toggle('oculto');
 }
 
-async function executarOcrEPreencherSocio(canvas){
+let TESSERACT_CARREGANDO = null;
+function carregarTesseractSobDemanda(){
+  if(typeof Tesseract !== 'undefined') return Promise.resolve();
+  if(TESSERACT_CARREGANDO) return TESSERACT_CARREGANDO;
+  TESSERACT_CARREGANDO = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Falha ao carregar o leitor de imagem.'));
+    document.head.appendChild(script);
+  });
+  return TESSERACT_CARREGANDO;
+}
+
+async function rodarOcrEmCanvas(worker, canvas, debugWrap, debugTexto, rotuloTentativa){
+  const { data } = await worker.recognize(canvas);
+  if(debugWrap && debugTexto){
+    const textoAtual = debugTexto.textContent || '';
+    debugTexto.textContent = textoAtual
+      ? textoAtual + '\n\n----- ' + rotuloTentativa + ' -----\n' + (data.text || '(vazio)')
+      : '----- ' + rotuloTentativa + ' -----\n' + (data.text || '(vazio)');
+    debugWrap.classList.remove('oculto');
+  }
+  return processarTextoOcrRelatorio(data.text);
+}
+
+async function executarOcrEPreencherSocio(img){
   const statusEl = document.getElementById('socio-ocr-status');
+  const debugWrap = document.getElementById('socio-ocr-debug-wrap');
+  const debugTexto = document.getElementById('socio-ocr-debug-texto');
+  if(debugTexto) debugTexto.textContent = '';
+
   try{
+    await carregarTesseractSobDemanda();
     if(typeof Tesseract === 'undefined'){
-      if(statusEl) statusEl.textContent = 'Leitor de imagem ainda carregando ou indisponível — preencha os valores manualmente.';
+      if(statusEl) statusEl.textContent = 'Leitor de imagem indisponível — preencha os valores manualmente.';
       return;
     }
     const worker = await Tesseract.createWorker('por');
@@ -4846,22 +4947,27 @@ async function executarOcrEPreencherSocio(canvas){
       tessedit_pageseg_mode: '6',
       preserve_interword_spaces: '1'
     });
-    const { data } = await worker.recognize(canvas);
-    await worker.terminate();
 
-    const debugWrap = document.getElementById('socio-ocr-debug-wrap');
-    const debugTexto = document.getElementById('socio-ocr-debug-texto');
-    if(debugWrap && debugTexto){
-      debugTexto.textContent = data.text || '(nenhum texto reconhecido)';
-      debugWrap.classList.remove('oculto');
+    // Primeira tentativa: limiar padrão.
+    let resultado = await rodarOcrEmCanvas(worker, prepararCanvasParaOcrSocio(img, 150), debugWrap, debugTexto, 'Tentativa 1 (limiar 150)');
+    let qtd = contarCamposPreenchidosOcr(resultado);
+
+    // Se ficaram campos sem valor, tenta de novo com um limiar mais alto (imagem mais
+    // "aberta"), o que às vezes recupera texto que ficou escuro/apagado na 1ª tentativa.
+    if(qtd < 11){
+      if(statusEl) statusEl.textContent = 'Lendo valores da imagem (2ª tentativa)...';
+      const resultado2 = await rodarOcrEmCanvas(worker, prepararCanvasParaOcrSocio(img, 185), debugWrap, debugTexto, 'Tentativa 2 (limiar 185)');
+      resultado = mesclarResultadosOcr(resultado, resultado2);
+      qtd = contarCamposPreenchidosOcr(resultado);
     }
 
-    const extraido = processarTextoOcrRelatorio(data.text);
-    const qtd = preencherCamposComOcr(extraido);
+    await worker.terminate();
+
+    const preenchidos = preencherCamposComOcr(resultado);
 
     if(statusEl){
-      if(qtd > 0){
-        statusEl.textContent = qtd + ' campo(s) preenchido(s) automaticamente a partir da foto. Confira os valores antes de registrar.';
+      if(preenchidos > 0){
+        statusEl.textContent = preenchidos + ' de 11 campo(s) preenchido(s) automaticamente a partir da foto. Confira os valores antes de registrar.';
         statusEl.style.color = 'var(--verde-venda)';
         marcarFormularioSujo();
       }else{
