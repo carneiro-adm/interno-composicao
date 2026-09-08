@@ -1259,14 +1259,15 @@
 
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
-            <label>Data do relatório</label>
+            <label>Data (filtro — preenchida pela foto)</label>
             <input type="date" id="socio-data" onchange="carregarVendasSocioExistente()">
           </div>
           <div class="campo" style="margin-bottom:0;">
-            <label>Terminal</label>
+            <label>Terminal (filtro — preenchido pela foto)</label>
             <select id="socio-terminal" onchange="carregarVendasSocioExistente()"></select>
           </div>
         </div>
+        <p class="aviso-fechamento" style="margin-top:-8px;">Envie a foto primeiro — data e terminal são identificados automaticamente. Só mude esses campos manualmente se quiser consultar/editar um registro já salvo.</p>
 
         <div id="socio-checklist-terminais" style="margin-bottom:16px;"></div>
 
@@ -4745,14 +4746,16 @@ async function entrarComoSocio(achado){
   document.getElementById('nome-socio-topo').textContent = achado.nome;
 
   await recarregarTerminaisCache();
-  popularSelectTerminais('socio-terminal', {});
+  // Data e Terminal ficam em branco: são preenchidos automaticamente pela leitura
+  // da foto (OCR). Só servem como filtro se a pessoa quiser consultar/editar um
+  // registro já existente manualmente.
+  popularSelectTerminais('socio-terminal', {comBranco:true, rotuloBranco:'Selecione...'});
+  document.getElementById('socio-data').value = '';
 
-  const hoje = hojeISO();
-  document.getElementById('socio-data').value = hoje;
-  document.getElementById('socio-consulta-data').value = hoje;
+  document.getElementById('socio-consulta-data').value = hojeISO();
 
   trocarRelatorioSocio();
-  await carregarVendasSocioExistente();
+  atualizarChecklistTerminaisSocio();
 }
 
 function trocarRelatorioSocio(){
