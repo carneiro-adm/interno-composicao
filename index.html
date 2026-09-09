@@ -1272,10 +1272,11 @@
         </div>
 
         <div class="campo">
-          <label>Foto do comprovante</label>
-          <input type="file" id="socio-imagem" accept="image/*" onchange="previsualizarImagemSocio(this)">
+          <label>Comprovante (foto ou PDF do relatório)</label>
+          <input type="file" id="socio-imagem" accept="image/*,application/pdf" onchange="processarArquivoSocio(this)">
+          <p class="aviso-fechamento" style="margin-top:6px;">PDF é mais confiável que foto — se tiver o "Relatório Fluxo de Caixa Detalhado" em PDF, prefira ele.</p>
           <div id="socio-imagem-preview" style="margin-top:10px;"></div>
-          <button type="button" class="btn-secundario oculto" id="btn-trocar-foto-socio" style="margin-top:10px;" onclick="document.getElementById('socio-imagem').click()">Trocar foto</button>
+          <button type="button" class="btn-secundario oculto" id="btn-trocar-foto-socio" style="margin-top:10px;" onclick="document.getElementById('socio-imagem').click()">Trocar arquivo</button>
         </div>
 
         <h4 style="margin:16px 0 8px;">Identificação do relatório</h4>
@@ -4745,6 +4746,7 @@ async function exportarExcelPeriodoAdmin(){
 
 // ---------- Perfil Sócio (acesso exclusivo e isolado) ----------
 let SOCIO_IMAGEM_BASE64 = null;
+let SOCIO_IMAGEM_TIPO = 'imagem'; // 'imagem' ou 'pdf'
 
 async function entrarComoSocio(achado){
   USUARIO_LOGADO = achado;
@@ -4808,9 +4810,18 @@ async function atualizarChecklistTerminaisSocio(){
     <div style="font-size:11px;color:var(--texto-claro);margin-top:6px;">Envio não é obrigatório para todos (ex: funcionária ausente) — a marcação é só para ajudar a não esquecer nenhum terminal.</div>`;
 }
 
-function previsualizarImagemSocio(input){
+function processarArquivoSocio(input){
   const file = input.files && input.files[0];
   if(!file) return;
+
+  if(file.type === 'application/pdf'){
+    processarPdfSocio(file);
+  }else{
+    processarImagemSocio(file);
+  }
+}
+
+function processarImagemSocio(file){
   const reader = new FileReader();
   reader.onload = function(e){
     const img = new Image();
@@ -4824,6 +4835,7 @@ function previsualizarImagemSocio(input){
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       SOCIO_IMAGEM_BASE64 = canvas.toDataURL('image/jpeg', 0.75);
+      SOCIO_IMAGEM_TIPO = 'imagem';
       document.getElementById('socio-imagem-preview').innerHTML =
         '<img src="'+SOCIO_IMAGEM_BASE64+'" style="max-width:220px;border-radius:9px;border:1.5px solid var(--cinza-borda);">' +
         '<div id="socio-ocr-status" style="margin-top:8px;font-size:12px;color:var(--azul-caixa);"><span class="ampulheta-girando">⏳</span> Lendo valores da imagem...</div>' +
@@ -4841,6 +4853,88 @@ function previsualizarImagemSocio(input){
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+async function processarPdfSocio(file){
+  const preview = document.getElementById('socio-imagem-preview');
+  preview.innerHTML =
+    '<div style="font-size:13px;color:var(--azul-caixa);">📄 ' + escaparHtml(file.name) + '</div>' +
+    '<div id="socio-ocr-status" style="margin-top:8px;font-size:12px;color:var(--azul-caixa);"><span class="ampulheta-girando">⏳</span> Lendo dados do PDF...</div>' +
+    '<div id="socio-ocr-debug-wrap" class="oculto" style="margin-top:8px;">' +
+    '  <button type="button" class="btn-secundario" style="margin-top:0;padding:6px 10px;font-size:12px;" onclick="alternarDebugOcrSocio()">Ver texto lido do PDF</button>' +
+    '  <pre id="socio-ocr-debug-texto" class="oculto" style="white-space:pre-wrap;font-size:11px;background:#f4f4f8;border-radius:8px;padding:10px;margin-top:8px;max-height:220px;overflow:auto;"></pre>' +
+    '</div>';
+  marcarFormularioSujo();
+  document.getElementById('btn-trocar-foto-socio').classList.remove('oculto');
+
+  const statusEl = document.getElementById('socio-ocr-status');
+  const debugWrap = document.getElementById('socio-ocr-debug-wrap');
+  const debugTexto = document.getElementById('socio-ocr-debug-texto');
+
+  try{
+    // Guarda o PDF em base64 para consulta posterior (mesmo mecanismo da foto).
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    SOCIO_IMAGEM_BASE64 = base64;
+    SOCIO_IMAGEM_TIPO = 'pdf';
+
+    await carregarPdfJsSobDemanda();
+    const arrayBuffer = await file.arrayBuffer();
+    const linhas = await extrairLinhasPdf(arrayBuffer);
+
+    if(debugTexto){
+      debugTexto.textContent = linhas.join('\n') || '(nenhum texto encontrado)';
+      debugWrap.classList.remove('oculto');
+    }
+
+    const resultado = processarTextoPdfRelatorio(linhas);
+
+    if(resultado.dataRelatorio){
+      document.getElementById('socio-data').value = resultado.dataRelatorio;
+    }
+    let terminalAplicado = false;
+    if(resultado.terminal){
+      const selTerminal = document.getElementById('socio-terminal');
+      if(selTerminal.querySelector('option[value="'+resultado.terminal+'"]')){
+        selTerminal.value = resultado.terminal;
+        terminalAplicado = true;
+      }
+    }
+    const preenchidos = preencherCamposMonetariosComOcr(resultado);
+
+    const partes = [];
+    if(preenchidos > 0) partes.push(preenchidos + ' de 11 campo(s) de valor');
+    if(resultado.dataRelatorio) partes.push('data');
+    if(terminalAplicado) partes.push('terminal ' + resultado.terminal);
+
+    if(statusEl){
+      if(partes.length > 0){
+        let aviso = partes.join(', ') + ' preenchido(s) automaticamente a partir do PDF (leitura direta do texto, sem OCR — muito mais confiável).';
+        if(resultado.terminal && !terminalAplicado){
+          aviso += ' Terminal "' + resultado.terminal + '" lido no PDF, mas não está cadastrado — selecione manualmente.';
+        }
+        if(!resultado.terminal){
+          aviso += ' Não consegui identificar o terminal — selecione manualmente.';
+        }
+        statusEl.textContent = aviso;
+        statusEl.style.color = 'var(--verde-venda)';
+        marcarFormularioSujo();
+      }else{
+        statusEl.textContent = 'Não consegui identificar os dados neste PDF — confira se é o "Relatório Fluxo de Caixa Detalhado" da Caixa, ou preencha manualmente.';
+        statusEl.style.color = 'var(--texto-claro)';
+      }
+    }
+  }catch(e){
+    console.warn('Falha ao ler o PDF:', e);
+    if(statusEl){
+      statusEl.textContent = 'Não foi possível ler o PDF automaticamente — preencha manualmente.';
+      statusEl.style.color = 'var(--texto-claro)';
+    }
+  }
 }
 
 // ---------- Leitura automática dos valores da foto (OCR) ----------
@@ -4925,6 +5019,116 @@ function extrairTerminalOcr(linhas){
 }
 
 const CAMPOS_MONETARIOS_OCR = ['jogos','contas','cartaoCredito','cartaoDebito','deposito','pixPagamento','pixSaque','pixDevolvido','saque','pagamentos','premios'];
+
+// ---------- Leitura de PDF (Relatório Fluxo de Caixa Detalhado) — sem OCR ----------
+// PDF tem texto real embutido (não é imagem), então a extração é muito mais confiável
+// que a leitura de foto. A lógica de rótulos abaixo foi validada campo a campo contra
+// um relatório real antes de entrar no app.
+let PDFJS_CARREGANDO = null;
+function carregarPdfJsSobDemanda(){
+  if(typeof pdfjsLib !== 'undefined') return Promise.resolve();
+  if(PDFJS_CARREGANDO) return PDFJS_CARREGANDO;
+  PDFJS_CARREGANDO = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    script.onload = () => {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Falha ao carregar o leitor de PDF.'));
+    document.head.appendChild(script);
+  });
+  return PDFJS_CARREGANDO;
+}
+
+async function extrairLinhasPdf(arrayBuffer){
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  const linhas = [];
+  const totalPaginas = Math.min(pdf.numPages, 2); // os totais que precisamos ficam nas 2 primeiras páginas
+  for(let p = 1; p <= totalPaginas; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const itens = content.items
+      .filter(it => it.str && it.str.trim())
+      .map(it => ({texto: it.str, x: it.transform[4], y: it.transform[5]}));
+
+    // Agrupa itens de texto que estão na mesma linha visual (Y parecido).
+    const grupos = [];
+    itens.forEach(it => {
+      let grupo = grupos.find(g => Math.abs(g.y - it.y) < 3);
+      if(!grupo){ grupo = {y: it.y, itens: []}; grupos.push(grupo); }
+      grupo.itens.push(it);
+    });
+    grupos.sort((a,b) => b.y - a.y); // topo da página primeiro
+    grupos.forEach(g => {
+      const linha = g.itens.sort((a,b) => a.x - b.x).map(i => i.texto).join(' ').replace(/\s+/g, ' ').trim();
+      if(linha) linhas.push(linha);
+    });
+  }
+  return linhas;
+}
+
+function extrairValorPdf(linha){
+  const m = linha.match(/-?R\$\s*(-?[\d.]+,\d{2})/);
+  if(!m) return null;
+  const bruto = m[1].replace(/\./g, '').replace(',', '.');
+  const valor = parseFloat(bruto);
+  return isNaN(valor) ? null : Math.abs(valor);
+}
+
+function extrairPorRotuloPdf(linhas, rotulo){
+  const alvo = normalizarTextoOcr(rotulo);
+  for(const linha of linhas){
+    if(normalizarTextoOcr(linha).trim().startsWith(alvo)){
+      const v = extrairValorPdf(linha);
+      if(v !== null) return v;
+    }
+  }
+  return null;
+}
+
+function processarTextoPdfRelatorio(linhas){
+  const resultado = {};
+  resultado.jogos = extrairPorRotuloPdf(linhas, 'TOTAL JOGOS');
+  resultado.contas = extrairPorRotuloPdf(linhas, 'TOTAL CONTAS');
+  resultado.premios = extrairPorRotuloPdf(linhas, 'TOTAL PREMIOS PAGOS');
+
+  // "Pagamentos" mostra "NÃO HOUVE PAGAMENTOS" quando zero, em vez de uma linha de total.
+  let pagamentos = null;
+  for(const linha of linhas){
+    if(normalizarTextoOcr(linha).includes('NAO HOUVE PAGAMENTOS')){ pagamentos = 0; break; }
+  }
+  if(pagamentos === null) pagamentos = extrairPorRotuloPdf(linhas, 'TOTAL PAGAMENTOS');
+  resultado.pagamentos = pagamentos;
+
+  resultado.saque = extrairPorRotuloPdf(linhas, 'SAQUE');
+  resultado.cartaoCredito = extrairPorRotuloPdf(linhas, 'CART CRED');
+  resultado.cartaoDebito = extrairPorRotuloPdf(linhas, 'CART DEB');
+  resultado.deposito = extrairPorRotuloPdf(linhas, 'DEPOSITO');
+  resultado.pixPagamento = extrairPorRotuloPdf(linhas, 'PIX - PGTO') || extrairPorRotuloPdf(linhas, 'PIX-PGTO') || extrairPorRotuloPdf(linhas, 'PIX PGTO');
+  resultado.pixSaque = extrairPorRotuloPdf(linhas, 'PIX - SAQUE') || extrairPorRotuloPdf(linhas, 'PIX-SAQUE');
+  resultado.pixDevolvido = extrairPorRotuloPdf(linhas, 'PIX - DEVOLV') || extrairPorRotuloPdf(linhas, 'PIX-DEVOLV');
+
+  // Se as seções de Pix não aparecem no relatório (não houve nenhum), consideram-se 0.
+  if(resultado.pixSaque == null) resultado.pixSaque = 0;
+  if(resultado.pixDevolvido == null) resultado.pixDevolvido = 0;
+
+  resultado.dataRelatorio = null;
+  resultado.terminal = null;
+  for(let i = 0; i < linhas.length; i++){
+    const L = normalizarTextoOcr(linhas[i]);
+    if(L.includes('DATA DE REFERENCIA') && L.includes('TERMINAL')){
+      const candidatos = [linhas[i], linhas[i+1] || ''].join(' ');
+      const m = candidatos.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{3,6})/);
+      if(m){
+        resultado.dataRelatorio = m[3] + '-' + m[2] + '-' + m[1];
+        resultado.terminal = m[4].slice(-4);
+      }
+      break;
+    }
+  }
+  return resultado;
+}
 
 function processarTextoOcrRelatorio(textoBruto){
   const linhas = (textoBruto || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -5138,6 +5342,13 @@ async function executarOcrEPreencherSocio(img){
 async function verImagemSocio(chave){
   const base64 = await carregarImagemSocio(chave);
   if(!base64) return;
+  if(base64.startsWith('data:application/pdf')){
+    const win = window.open();
+    if(win){
+      win.document.write('<iframe src="'+base64+'" style="border:none;width:100%;height:100vh;"></iframe>');
+    }
+    return;
+  }
   document.getElementById('modal-imagem-socio-img').src = base64;
   document.getElementById('modal-imagem-socio').classList.remove('oculto');
 }
