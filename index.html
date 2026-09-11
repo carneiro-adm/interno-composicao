@@ -1270,6 +1270,38 @@
         <h4 style="margin:18px 0 8px;">Compra de produtos</h4>
         <div class="tabela-historico-dias" id="socio-produtos-compra"><div class="vazio">Escolha um mês.</div></div>
       </div>
+
+      <div class="painel">
+        <h3>Análise detalhada (racional)</h3>
+        <p class="aviso-fechamento">Saldo Inicial/Entradas/Saldo Final/Variação/# Vendas/R$ Vendas/Custo/Lucro/Estoques/Entradas(R$), por produto. A quantidade de "# Vendas" é estimada pela diferença de estoque (Saldo Inicial + Entradas − Saldo Final) — não é um registro direto de venda.</p>
+
+        <div class="linha-form">
+          <div class="campo" style="margin-bottom:0;">
+            <label>Visão</label>
+            <select id="socio-produtos-visao" onchange="atualizarOpcoesVisaoProdutosSocio()">
+              <option value="dia">Por dia</option>
+              <option value="semana">Por semana</option>
+              <option value="mes">Por mês</option>
+            </select>
+          </div>
+          <div class="campo" style="margin-bottom:0;">
+            <label>Mês de referência</label>
+            <input type="month" id="socio-produtos-detalhe-mes" onchange="atualizarOpcoesVisaoProdutosSocio()">
+          </div>
+        </div>
+        <div class="linha-form">
+          <div class="campo oculto" id="campo-produtos-detalhe-dia" style="margin-bottom:0;">
+            <label>Dia</label>
+            <select id="socio-produtos-detalhe-dia" onchange="atualizarAnaliseProdutosSocio()"></select>
+          </div>
+          <div class="campo oculto" id="campo-produtos-detalhe-semana" style="margin-bottom:0;">
+            <label>Semana</label>
+            <select id="socio-produtos-detalhe-semana" onchange="atualizarAnaliseProdutosSocio()"></select>
+          </div>
+        </div>
+
+        <div class="tabela-historico-dias" id="socio-produtos-analise"><div class="vazio">Escolha o período.</div></div>
+      </div>
     </div>
 
     <div id="relatorio-socio-vendas">
@@ -4824,6 +4856,8 @@ function trocarRelatorioSocio(){
   if(valor === 'produtos'){
     const inp = document.getElementById('socio-produtos-mes');
     if(!inp.value){ inp.value = mesAtual; atualizarFechamentoProdutosSocio(); }
+    const inpDetalhe = document.getElementById('socio-produtos-detalhe-mes');
+    if(!inpDetalhe.value){ inpDetalhe.value = mesAtual; atualizarOpcoesVisaoProdutosSocio(); }
   }else if(valor === 'vendas'){
     const inp = document.getElementById('socio-vendas-mes');
     if(!inp.value){ inp.value = mesAtual; atualizarFechamentoVendasSocio(); }
@@ -4977,6 +5011,148 @@ async function atualizarFechamentoProdutosSocio(){
 
   contCompra.innerHTML = renderizarTabelaComparativaSocio('Produto (qtd. comprada)', semanas, linhasCompra, v => String(v))
     + `<div style="margin-top:10px;font-size:12px;color:var(--texto-claro);">Custo total das compras no mês: <strong>${formatarMoeda(totalCompraCusto)}</strong></div>`;
+}
+
+// ---- PRODUTOS: Análise detalhada (racional), por dia / semana / mês ----
+function atualizarOpcoesVisaoProdutosSocio(){
+  const visao = document.getElementById('socio-produtos-visao').value;
+  const anoMes = document.getElementById('socio-produtos-detalhe-mes').value;
+
+  document.getElementById('campo-produtos-detalhe-dia').classList.toggle('oculto', visao !== 'dia');
+  document.getElementById('campo-produtos-detalhe-semana').classList.toggle('oculto', visao !== 'semana');
+
+  if(!anoMes) return;
+
+  if(visao === 'dia'){
+    const [ano, mes] = anoMes.split('-').map(Number);
+    const ultimoDia = new Date(ano, mes, 0).getDate();
+    const selDia = document.getElementById('socio-produtos-detalhe-dia');
+    const valorAtual = selDia.value || hojeISO();
+    let opcoes = '';
+    for(let d = 1; d <= ultimoDia; d++){
+      const iso = anoMes + '-' + String(d).padStart(2,'0');
+      opcoes += `<option value="${iso}">${String(d).padStart(2,'0')}</option>`;
+    }
+    selDia.innerHTML = opcoes;
+    if(selDia.querySelector('option[value="'+valorAtual+'"]')) selDia.value = valorAtual;
+  }else if(visao === 'semana'){
+    const semanas = calcularSemanasDoMes(anoMes);
+    const selSemana = document.getElementById('socio-produtos-detalhe-semana');
+    const valorAtual = selSemana.value;
+    selSemana.innerHTML = semanas.map(s => `<option value="${s.inicio}|${s.fim}">${s.numero}ª Semana (${rotuloSemana(s)})</option>`).join('');
+    if(selSemana.querySelector('option[value="'+valorAtual+'"]')) selSemana.value = valorAtual;
+  }
+
+  atualizarAnaliseProdutosSocio();
+}
+
+// Retorna a composição de produtos mais recente com data ANTERIOR (exclusiva) à informada.
+async function obterSaldoProdutosAntesDe(dataLimiteExclusiva){
+  const composicoes = await carregarComposicaoGerencia();
+  const anteriores = composicoes.filter(c => c.data < dataLimiteExclusiva).sort((a,b) => a.data.localeCompare(b.data));
+  return anteriores.length > 0 ? anteriores[anteriores.length-1] : null;
+}
+// Retorna a composição de produtos mais recente dentro do período [inicio, fim].
+async function obterSaldoProdutosNoPeriodo(dataInicio, dataFim){
+  const composicoes = await carregarComposicaoGerencia();
+  const doPeriodo = composicoes.filter(c => c.data >= dataInicio && c.data <= dataFim).sort((a,b) => a.data.localeCompare(b.data));
+  return doPeriodo.length > 0 ? doPeriodo[doPeriodo.length-1] : null;
+}
+function obterQtdProduto(composicao, produtoId){
+  if(!composicao) return 0;
+  const item = composicao.produtosEstoque.find(x => x.id === produtoId);
+  return item ? item.qtd : 0;
+}
+
+async function atualizarAnaliseProdutosSocio(){
+  const cont = document.getElementById('socio-produtos-analise');
+  const visao = document.getElementById('socio-produtos-visao').value;
+  const anoMes = document.getElementById('socio-produtos-detalhe-mes').value;
+  if(!anoMes){ cont.innerHTML = '<div class="vazio">Escolha o período.</div>'; return; }
+
+  let dataInicioPeriodo, dataFimPeriodo, rotuloPeriodo;
+  if(visao === 'dia'){
+    const dia = document.getElementById('socio-produtos-detalhe-dia').value;
+    if(!dia){ cont.innerHTML = '<div class="vazio">Escolha o dia.</div>'; return; }
+    dataInicioPeriodo = dia;
+    dataFimPeriodo = dia;
+    rotuloPeriodo = dia.split('-').reverse().join('/');
+  }else if(visao === 'semana'){
+    const valor = document.getElementById('socio-produtos-detalhe-semana').value;
+    if(!valor){ cont.innerHTML = '<div class="vazio">Escolha a semana.</div>'; return; }
+    [dataInicioPeriodo, dataFimPeriodo] = valor.split('|');
+    rotuloPeriodo = dataInicioPeriodo.split('-').reverse().join('/') + ' a ' + dataFimPeriodo.split('-').reverse().join('/');
+  }else{
+    const [ano, mes] = anoMes.split('-').map(Number);
+    const ultimoDia = new Date(ano, mes, 0).getDate();
+    dataInicioPeriodo = anoMes + '-01';
+    dataFimPeriodo = anoMes + '-' + String(ultimoDia).padStart(2,'0');
+    rotuloPeriodo = anoMes.split('-').reverse().join('/');
+  }
+
+  const composicaoAnterior = await obterSaldoProdutosAntesDe(dataInicioPeriodo);
+  const composicaoAtual = await obterSaldoProdutosNoPeriodo(dataInicioPeriodo, dataFimPeriodo);
+
+  const entradasTodas = await carregarEntradasProdutosGerencia();
+  const entradasPeriodo = entradasTodas.filter(e => e.data >= dataInicioPeriodo && e.data <= dataFimPeriodo);
+
+  const linhas = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
+    const saldoInicial = obterQtdProduto(composicaoAnterior, p.id);
+    const entradasQtd = entradasPeriodo.reduce((soma,e) => {
+      const item = e.produtos.find(x => x.id === p.id);
+      return soma + (item ? item.qtd : 0);
+    }, 0);
+    const saldoFinal = obterQtdProduto(composicaoAtual, p.id);
+    const variacao = saldoFinal - saldoInicial;
+    const qtdVendas = (saldoInicial + entradasQtd) - saldoFinal;
+    const custoUnit = PRODUTOS_CUSTO_SOCIO[p.id] || 0;
+    const rVendas = qtdVendas * p.valor;
+    const lucro = rVendas - (qtdVendas * custoUnit);
+    const estoquesCalc = custoUnit * qtdVendas;
+    const entradasRs = entradasQtd * p.valor;
+    return {
+      nome: p.nome, saldoInicial, entradasQtd, saldoFinal, variacao, qtdVendas,
+      rVendas, custoUnit, lucro, estoquesCalc, entradasRs
+    };
+  });
+
+  const somaColuna = campo => linhas.reduce((s,l) => s + l[campo], 0);
+
+  cont.innerHTML = `<div style="font-size:12px;font-weight:700;color:var(--azul-escuro);margin-bottom:8px;">Período: ${rotuloPeriodo}${!composicaoAtual ? ' — sem Estoque de produtos gerencial registrado nesse período' : ''}</div>
+  <table>
+    <thead><tr>
+      <th>Produto</th><th>Saldo Inicial</th><th>Entradas</th><th>Saldo Final</th><th>Variação</th>
+      <th># Vendas</th><th>R$ Vendas</th><th>Custo</th><th>Lucro</th><th>Estoques</th><th>Entradas (R$)</th>
+    </tr></thead>
+    <tbody>
+      ${linhas.map(l => `<tr>
+        <td>${escaparHtml(l.nome)}</td>
+        <td>${l.saldoInicial}</td>
+        <td>${l.entradasQtd}</td>
+        <td>${l.saldoFinal}</td>
+        <td style="color:${l.variacao<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${l.variacao}</td>
+        <td>${l.qtdVendas}</td>
+        <td>${formatarMoeda(l.rVendas)}</td>
+        <td>${formatarMoeda(l.custoUnit)}</td>
+        <td>${formatarMoeda(l.lucro)}</td>
+        <td>${formatarMoeda(l.estoquesCalc)}</td>
+        <td>${formatarMoeda(l.entradasRs)}</td>
+      </tr>`).join('')}
+      <tr>
+        <td style="font-weight:800;">TOTAL</td>
+        <td style="font-weight:800;">${somaColuna('saldoInicial')}</td>
+        <td style="font-weight:800;">${somaColuna('entradasQtd')}</td>
+        <td style="font-weight:800;">${somaColuna('saldoFinal')}</td>
+        <td style="font-weight:800;">${somaColuna('variacao')}</td>
+        <td style="font-weight:800;">${somaColuna('qtdVendas')}</td>
+        <td style="font-weight:800;">${formatarMoeda(somaColuna('rVendas'))}</td>
+        <td>—</td>
+        <td style="font-weight:800;">${formatarMoeda(somaColuna('lucro'))}</td>
+        <td style="font-weight:800;">${formatarMoeda(somaColuna('estoquesCalc'))}</td>
+        <td style="font-weight:800;">${formatarMoeda(somaColuna('entradasRs'))}</td>
+      </tr>
+    </tbody>
+  </table>`;
 }
 
 // ---- VENDAS (fechamento semanal/mensal) ----
