@@ -1248,8 +1248,27 @@
       <div class="campo">
         <label>Selecione o relatório</label>
         <select id="sel-relatorio-socio" onchange="trocarRelatorioSocio()">
+          <option value="produtos">Produtos</option>
           <option value="vendas">Vendas</option>
+          <option value="saidas">Saídas</option>
         </select>
+      </div>
+    </div>
+
+    <div id="relatorio-socio-produtos">
+      <div class="painel">
+        <h3>Produtos</h3>
+        <p class="aviso-fechamento">"Produtos em estoque" vem do Estoque de produtos gerencial (última composição registrada na semana). "Compra de produtos" soma as Entradas de produtos registradas no período. Semanas de segunda a sábado.</p>
+        <div class="campo">
+          <label>Mês</label>
+          <input type="month" id="socio-produtos-mes" onchange="atualizarFechamentoProdutosSocio()">
+        </div>
+
+        <h4 style="margin:18px 0 8px;">Produtos em estoque</h4>
+        <div class="tabela-historico-dias" id="socio-produtos-estoque"><div class="vazio">Escolha um mês.</div></div>
+
+        <h4 style="margin:18px 0 8px;">Compra de produtos</h4>
+        <div class="tabela-historico-dias" id="socio-produtos-compra"><div class="vazio">Escolha um mês.</div></div>
       </div>
     </div>
 
@@ -1384,7 +1403,30 @@
         <h4 style="margin:18px 0 8px;">Por terminal</h4>
         <div class="tabela-historico-dias" id="socio-tabela-terminais"><div class="vazio">Escolha uma data e clique em Consultar.</div></div>
       </div>
+
+      <div class="painel">
+        <h3>Fechamento Semanal / Mensal — Vendas</h3>
+        <p class="aviso-fechamento">Semanas de segunda a sábado. Comparativo dentro do mês escolhido.</p>
+        <div class="campo">
+          <label>Mês</label>
+          <input type="month" id="socio-vendas-mes" onchange="atualizarFechamentoVendasSocio()">
+        </div>
+        <div class="tabela-historico-dias" id="socio-fechamento-vendas"><div class="vazio">Escolha um mês.</div></div>
+      </div>
     </div>
+
+    <div id="relatorio-socio-saidas">
+      <div class="painel">
+        <h3>Saídas</h3>
+        <p class="aviso-fechamento">Mesma visão de Saídas usada no Batimento Gerencial — lançamentos de Saída dos terminais tipo Caixa, exceto Fiado, agrupados por atividade (incluindo os detalhes de Conta Loja: Água, Luz, Aluguel etc). Semanas de segunda a sábado.</p>
+        <div class="campo">
+          <label>Mês</label>
+          <input type="month" id="socio-saidas-mes" onchange="atualizarFechamentoSaidasSocio()">
+        </div>
+        <div class="tabela-historico-dias" id="socio-fechamento-saidas"><div class="vazio">Escolha um mês.</div></div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -4774,7 +4816,21 @@ async function entrarComoSocio(achado){
 
 function trocarRelatorioSocio(){
   const valor = document.getElementById('sel-relatorio-socio').value;
+  document.getElementById('relatorio-socio-produtos').classList.toggle('oculto', valor !== 'produtos');
   document.getElementById('relatorio-socio-vendas').classList.toggle('oculto', valor !== 'vendas');
+  document.getElementById('relatorio-socio-saidas').classList.toggle('oculto', valor !== 'saidas');
+
+  const mesAtual = hojeISO().slice(0,7);
+  if(valor === 'produtos'){
+    const inp = document.getElementById('socio-produtos-mes');
+    if(!inp.value){ inp.value = mesAtual; atualizarFechamentoProdutosSocio(); }
+  }else if(valor === 'vendas'){
+    const inp = document.getElementById('socio-vendas-mes');
+    if(!inp.value){ inp.value = mesAtual; atualizarFechamentoVendasSocio(); }
+  }else if(valor === 'saidas'){
+    const inp = document.getElementById('socio-saidas-mes');
+    if(!inp.value){ inp.value = mesAtual; atualizarFechamentoSaidasSocio(); }
+  }
 }
 
 async function atualizarChecklistTerminaisSocio(){
@@ -4808,6 +4864,210 @@ async function atualizarChecklistTerminaisSocio(){
       }).join('')}
     </div>
     <div style="font-size:11px;color:var(--texto-claro);margin-top:6px;">Envio não é obrigatório para todos (ex: funcionária ausente) — a marcação é só para ajudar a não esquecer nenhum terminal.</div>`;
+}
+
+// ---------- Fechamento Semanal / Mensal (Produtos, Vendas, Saídas) ----------
+// Semanas de segunda a sábado, dentro do mês escolhido. A 1ª e a última semana do
+// mês podem ficar mais curtas se o mês não começar numa segunda-feira.
+function calcularSemanasDoMes(anoMes){
+  const [ano, mes] = anoMes.split('-').map(Number);
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const semanas = [];
+  let diaAtual = 1;
+  while(diaAtual <= ultimoDia){
+    const inicioSemana = diaAtual;
+    let fimSemana = diaAtual;
+    while(fimSemana < ultimoDia){
+      const prox = new Date(ano, mes-1, fimSemana+1);
+      if(prox.getDay() === 1) break; // próxima segunda-feira encerra a semana atual
+      fimSemana++;
+    }
+    const pad = n => String(n).padStart(2,'0');
+    semanas.push({
+      numero: semanas.length+1,
+      inicio: ano+'-'+pad(mes)+'-'+pad(inicioSemana),
+      fim: ano+'-'+pad(mes)+'-'+pad(fimSemana)
+    });
+    diaAtual = fimSemana + 1;
+  }
+  return semanas;
+}
+
+function rotuloSemana(s){
+  const [,, d1] = s.inicio.split('-');
+  const [,, d2] = s.fim.split('-');
+  return d1 === d2 ? d1+'/'+s.inicio.split('-')[1] : d1+'-'+d2;
+}
+
+function renderizarTabelaComparativaSocio(titulo, semanas, linhas, formatador){
+  // linhas: [{ rotulo, valoresPorSemana: [n,n,...], total }]
+  return `<table>
+    <thead><tr>
+      <th>${escaparHtml(titulo)}</th>
+      ${semanas.map(s => `<th>${s.numero}ª Sem. (${rotuloSemana(s)})</th>`).join('')}
+      <th>TOTAL</th>
+    </tr></thead>
+    <tbody>
+      ${linhas.map(l => `<tr>
+        <td>${escaparHtml(l.rotulo)}</td>
+        ${l.valoresPorSemana.map(v => `<td>${formatador(v)}</td>`).join('')}
+        <td style="font-weight:800;">${formatador(l.total)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ---- PRODUTOS ----
+const PRODUTOS_CUSTO_SOCIO = {
+  telesena: 16.00,
+  telesena20: 20.00,
+  bilhete: 7.691,
+  bilhete_quarta: 3.071,
+  bilhete_sabado: 3.071,
+  raspadinha250: 2.00,
+  raspadinha500: 4.00,
+  raspadinha1000: 8.00,
+  raspadinha2000: 16.00
+};
+
+async function atualizarFechamentoProdutosSocio(){
+  const anoMes = document.getElementById('socio-produtos-mes').value;
+  const contEstoque = document.getElementById('socio-produtos-estoque');
+  const contCompra = document.getElementById('socio-produtos-compra');
+  if(!anoMes){ contEstoque.innerHTML = '<div class="vazio">Escolha um mês.</div>'; contCompra.innerHTML = ''; return; }
+
+  const semanas = calcularSemanasDoMes(anoMes);
+  const composicoes = await carregarComposicaoGerencia();
+  const entradas = await carregarEntradasProdutosGerencia();
+
+  // Estoque: última composição registrada dentro de cada semana (snapshot de fim de semana).
+  const linhasEstoque = PRODUTOS_ESTOQUE_GERENCIA.map(p => ({rotulo: p.nome, valoresPorSemana: [], total: 0, ultimo: 0}));
+  semanas.forEach(s => {
+    const doPeriodo = composicoes.filter(c => c.data >= s.inicio && c.data <= s.fim).sort((a,b) => a.data.localeCompare(b.data));
+    const ultima = doPeriodo.length > 0 ? doPeriodo[doPeriodo.length-1] : null;
+    PRODUTOS_ESTOQUE_GERENCIA.forEach((p, i) => {
+      const item = ultima ? ultima.produtosEstoque.find(x => x.id === p.id) : null;
+      const qtd = item ? item.qtd : (linhasEstoque[i].ultimo || 0);
+      linhasEstoque[i].valoresPorSemana.push(qtd);
+      linhasEstoque[i].ultimo = qtd;
+    });
+  });
+  linhasEstoque.forEach(l => { l.total = l.valoresPorSemana.length ? l.valoresPorSemana[l.valoresPorSemana.length-1] : 0; });
+  // Linha de valor em R$ (custo e venda), pelo estoque da última semana com dado.
+  const totalEstoqueCusto = PRODUTOS_ESTOQUE_GERENCIA.reduce((s,p,i) => s + linhasEstoque[i].total * (PRODUTOS_CUSTO_SOCIO[p.id]||0), 0);
+  const totalEstoqueVenda = PRODUTOS_ESTOQUE_GERENCIA.reduce((s,p,i) => s + linhasEstoque[i].total * p.valor, 0);
+
+  contEstoque.innerHTML = renderizarTabelaComparativaSocio('Produto (qtd. em estoque)', semanas, linhasEstoque, v => String(v))
+    + `<div style="margin-top:10px;font-size:12px;color:var(--texto-claro);">Estoque da última semana com dado — Valor a custo: <strong>${formatarMoeda(totalEstoqueCusto)}</strong> · Valor a venda: <strong>${formatarMoeda(totalEstoqueVenda)}</strong></div>`;
+
+  // Compra: soma das Entradas de produtos dentro de cada semana.
+  const linhasCompra = PRODUTOS_ESTOQUE_GERENCIA.map(p => ({rotulo: p.nome, valoresPorSemana: [], total: 0}));
+  semanas.forEach(s => {
+    const doPeriodo = entradas.filter(e => e.data >= s.inicio && e.data <= s.fim);
+    PRODUTOS_ESTOQUE_GERENCIA.forEach((p, i) => {
+      const qtd = doPeriodo.reduce((soma, e) => {
+        const item = e.produtos.find(x => x.id === p.id);
+        return soma + (item ? item.qtd : 0);
+      }, 0);
+      linhasCompra[i].valoresPorSemana.push(qtd);
+      linhasCompra[i].total += qtd;
+    });
+  });
+  const totalCompraCusto = PRODUTOS_ESTOQUE_GERENCIA.reduce((s,p,i) => s + linhasCompra[i].total * (PRODUTOS_CUSTO_SOCIO[p.id]||0), 0);
+
+  contCompra.innerHTML = renderizarTabelaComparativaSocio('Produto (qtd. comprada)', semanas, linhasCompra, v => String(v))
+    + `<div style="margin-top:10px;font-size:12px;color:var(--texto-claro);">Custo total das compras no mês: <strong>${formatarMoeda(totalCompraCusto)}</strong></div>`;
+}
+
+// ---- VENDAS (fechamento semanal/mensal) ----
+async function atualizarFechamentoVendasSocio(){
+  const anoMes = document.getElementById('socio-vendas-mes').value;
+  const cont = document.getElementById('socio-fechamento-vendas');
+  if(!anoMes){ cont.innerHTML = '<div class="vazio">Escolha um mês.</div>'; return; }
+
+  const semanas = calcularSemanasDoMes(anoMes);
+  const todasVendas = await carregarVendasSocio();
+
+  const categorias = [
+    {chave:'jogos', rotulo:'Jogos'},
+    {chave:'contas', rotulo:'Contas'},
+    {chave:'premiosPagos', rotulo:'Prêmios pagos'},
+    {chave:'creditoFinanceiro', rotulo:'Crédito financeiro'},
+    {chave:'servicos', rotulo:'Serviços (Cartão)'},
+    {chave:'debitosFinanciados', rotulo:'Débitos financiados'},
+    {chave:'pix', rotulo:'Pix'}
+  ];
+  const linhas = categorias.map(c => ({rotulo: c.rotulo, valoresPorSemana: [], total: 0}));
+
+  semanas.forEach(s => {
+    const doPeriodo = todasVendas.filter(v => v.data >= s.inicio && v.data <= s.fim);
+    categorias.forEach((c, i) => {
+      const soma = doPeriodo.reduce((acc, v) => acc + (v[c.chave] || 0), 0);
+      linhas[i].valoresPorSemana.push(soma);
+      linhas[i].total += soma;
+    });
+  });
+
+  // Linhas de total combinado, no espírito do "Total do dia" / "Total líquido".
+  const idxJogos = 0, idxContas = 1, idxPremios = 2, idxCredito = 3, idxServicos = 4, idxDebitos = 5, idxPix = 6;
+  const totalRecebimentos = {
+    rotulo: 'TOTAL RECEBIMENTOS (Jogos+Contas+Prêmios)',
+    valoresPorSemana: semanas.map((s,i) => linhas[idxJogos].valoresPorSemana[i] + linhas[idxContas].valoresPorSemana[i] + linhas[idxPremios].valoresPorSemana[i]),
+    total: linhas[idxJogos].total + linhas[idxContas].total + linhas[idxPremios].total
+  };
+  const totalFinanceiro = {
+    rotulo: 'TOTAL FINANCEIRO (Serviços+Créd.+Déb.+Pix)',
+    valoresPorSemana: semanas.map((s,i) => linhas[idxServicos].valoresPorSemana[i] + linhas[idxCredito].valoresPorSemana[i] + linhas[idxDebitos].valoresPorSemana[i] + linhas[idxPix].valoresPorSemana[i]),
+    total: linhas[idxServicos].total + linhas[idxCredito].total + linhas[idxDebitos].total + linhas[idxPix].total
+  };
+
+  const linhasFinal = [linhas[idxJogos], linhas[idxContas], linhas[idxPremios], totalRecebimentos,
+    linhas[idxCredito], linhas[idxServicos], linhas[idxDebitos], linhas[idxPix], totalFinanceiro];
+
+  cont.innerHTML = renderizarTabelaComparativaSocio('Categoria', semanas, linhasFinal, formatarMoeda);
+}
+
+// ---- SAÍDAS (mesma visão do Batimento Gerencial, por período) ----
+async function atualizarFechamentoSaidasSocio(){
+  const anoMes = document.getElementById('socio-saidas-mes').value;
+  const cont = document.getElementById('socio-fechamento-saidas');
+  if(!anoMes){ cont.innerHTML = '<div class="vazio">Escolha um mês.</div>'; return; }
+
+  const semanas = calcularSemanasDoMes(anoMes);
+  const registros = await carregarRegistros();
+
+  const somaPorSemanaEAtividade = semanas.map(() => ({}));
+  const atividadesEncontradas = new Set();
+
+  semanas.forEach((s, i) => {
+    const doPeriodo = registros.filter(r =>
+      r.data >= s.inicio && r.data <= s.fim && r.tipo === 'Saida' && !r.excluido &&
+      r.atividade !== 'Fiado' && numerosTerminaisCaixa().includes(r.caixa));
+    doPeriodo.forEach(r => {
+      const chave = r.atividade || '(sem atividade)';
+      atividadesEncontradas.add(chave);
+      somaPorSemanaEAtividade[i][chave] = (somaPorSemanaEAtividade[i][chave] || 0) + r.valor;
+    });
+  });
+
+  const atividadesOrdenadas = Array.from(atividadesEncontradas).sort((a,b) => a.localeCompare(b, 'pt-BR'));
+  const linhas = atividadesOrdenadas.map(atividade => {
+    const valoresPorSemana = somaPorSemanaEAtividade.map(mapa => mapa[atividade] || 0);
+    return {rotulo: atividade, valoresPorSemana, total: valoresPorSemana.reduce((s,v)=>s+v,0)};
+  });
+
+  if(linhas.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhuma saída neste mês.</div>';
+    return;
+  }
+
+  const linhaTotal = {
+    rotulo: 'TOTAL',
+    valoresPorSemana: semanas.map((s,i) => linhas.reduce((soma,l) => soma + l.valoresPorSemana[i], 0)),
+    total: linhas.reduce((soma,l) => soma + l.total, 0)
+  };
+
+  cont.innerHTML = renderizarTabelaComparativaSocio('Atividade', semanas, [...linhas, linhaTotal], formatarMoeda);
 }
 
 function processarArquivoSocio(input){
