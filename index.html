@@ -1182,6 +1182,41 @@
         <div id="admin-reset-msg"></div>
       </div>
 
+      <div class="painel" id="painel-backup-admin">
+        <h3>Backup e Restauração</h3>
+        <div id="lembrete-backup-admin" class="oculto" style="background:rgba(243,146,0,0.10);border:1.5px solid var(--laranja-caixa);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;font-weight:700;color:var(--laranja-caixa);">
+          ⚠ Você ainda não fez backup hoje. Recomendado fazer isso uma vez por dia.
+        </div>
+        <p class="aviso-fechamento">Baixa uma cópia protegida por senha de todos os dados do app (lançamentos, fechamentos, clientes, fiado, composição gerência, terminais, usuários). Fotos anexadas no Sócio não entram no backup, para manter o arquivo pequeno e rápido de gerar.</p>
+
+        <h4 style="margin:12px 0 8px;">Fazer backup agora</h4>
+        <div class="campo">
+          <label>Senha de proteção do backup</label>
+          <input type="password" id="backup-senha" placeholder="Crie uma senha (mín. 6 caracteres) — guarde-a, ela será necessária para restaurar">
+        </div>
+        <button class="btn-primario" onclick="fazerBackupAgora()">Baixar backup agora</button>
+        <div id="backup-msg"></div>
+
+        <h4 style="margin:18px 0 8px;">Restaurar backup</h4>
+        <p class="aviso-fechamento">⚠ Restaurar substitui TODOS os dados atuais pelos dados do arquivo de backup escolhido. Use com cuidado — essa ação não pode ser desfeita.</p>
+        <div class="campo">
+          <label>Arquivo de backup (.json)</label>
+          <input type="file" id="restore-arquivo" accept="application/json" onchange="restaurarBackupArquivo(this)">
+        </div>
+        <div id="bloco-restaurar-senha" class="oculto">
+          <div class="campo">
+            <label>Senha do backup</label>
+            <input type="password" id="restore-senha" placeholder="A mesma senha usada ao gerar esse backup">
+          </div>
+          <div class="campo">
+            <label>Para confirmar, digite: RESTAURAR BACKUP</label>
+            <input type="text" id="restore-confirmacao-texto" placeholder="RESTAURAR BACKUP">
+          </div>
+          <button class="btn-primario" style="background:var(--vermelho-estorno);" onclick="confirmarRestauracaoBackup()">Restaurar dados agora</button>
+        </div>
+        <div id="restore-msg"></div>
+      </div>
+
       <div class="painel" style="border:1.5px solid var(--vermelho-estorno);">
         <h3 style="color:var(--vermelho-estorno);">⚠ Reset de Dados de Produção</h3>
         <p class="aviso-fechamento">Apaga permanentemente todos os Lançamentos, Fechamentos, Clientes, Pagamentos de Fiado, Composições de Caixa Gerência e os vínculos de Terminal do Dia. Os usuários cadastrados e os terminais configurados <strong>não</strong> são apagados. Use isso uma única vez, antes de começar a usar o app em produção. Essa ação não pode ser desfeita.</p>
@@ -2149,6 +2184,7 @@ async function entrarNoApp(achado){
     document.getElementById('nav-gestaofiado').classList.remove('oculto');
     document.getElementById('nav-dashboard').classList.remove('oculto');
     await renderizarListaTerminais();
+    verificarLembreteBackup();
     document.getElementById('admin-data-inicio').value = hoje;
     document.getElementById('admin-data-fim').value = hoje;
     document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
@@ -2606,7 +2642,13 @@ async function consultarFichaCliente(){
       <p style="font-size:11px;color:var(--texto-claro);margin-top:6px;">Cadastrado por ${escaparHtml(cliente.cadastradoNome)} em ${cliente.cadastradoData.split('-').reverse().join('/')} às ${cliente.cadastradoHora}</p>
       ${edicoesHtml ? `<p style="font-size:11px;color:var(--texto-claro);margin-top:4px;">${edicoesHtml}</p>` : ''}
       <button class="btn-secundario" style="margin-top:10px;" onclick="mostrarEdicaoCliente('${cliente.id}')">Editar cliente</button>
-      <button class="btn-secundario" style="margin-top:10px;margin-left:8px;" onclick="exportarExtratoClienteExcel('${cliente.id}')">Exportar extrato (Excel)</button>
+      <div style="display:inline-flex;align-items:center;gap:8px;margin-top:10px;margin-left:8px;">
+        <select id="sel-periodo-extrato-cliente" style="padding:10px 8px;border:1.5px solid var(--cinza-borda);border-radius:8px;font-size:13px;">
+          <option value="12meses" selected>Últimos 12 meses</option>
+          <option value="completo">Histórico completo</option>
+        </select>
+        <button class="btn-secundario" style="margin-top:0;" onclick="exportarExtratoClienteExcel('${cliente.id}')">Exportar extrato (Excel)</button>
+      </div>
     </div>
 
     <div id="cliente-edicao-area"></div>
@@ -2660,10 +2702,21 @@ async function exportarExtratoClienteExcel(id){
   const totalPago = pagsCliente.reduce((s,p)=>s+p.valor,0);
   const saldo = totalFiado - totalPago;
 
-  const historico = [
+  const historicoCompleto = [
     ...fiados.map(r => ({tipo:'Fiado', valor:r.valor, data:r.data, hora:r.hora, usuario:r.nome, obs:r.obs, timestamp:r.timestamp})),
     ...pagsCliente.map(p => ({tipo:'Pagamento', valor:p.valor, data:p.data, hora:p.hora, usuario:p.nome, obs:p.obs, timestamp:p.timestamp}))
   ].sort((a,b) => a.timestamp - b.timestamp);
+
+  const periodoEscolhido = document.getElementById('sel-periodo-extrato-cliente').value;
+  let historico = historicoCompleto;
+  let rotuloPeriodo = 'Histórico completo';
+  if(periodoEscolhido === '12meses'){
+    const limite = new Date();
+    limite.setMonth(limite.getMonth() - 12);
+    const limiteIso = limite.getFullYear()+'-'+String(limite.getMonth()+1).padStart(2,'0')+'-'+String(limite.getDate()).padStart(2,'0');
+    historico = historicoCompleto.filter(h => h.data >= limiteIso);
+    rotuloPeriodo = 'Últimos 12 meses (a partir de ' + limiteIso.split('-').reverse().join('/') + ')';
+  }
 
   const hoje = hojeISO();
   const dataExtracaoLabel = hoje.split('-').reverse().join('/') + ' ' + horaAgora();
@@ -2672,9 +2725,10 @@ async function exportarExtratoClienteExcel(id){
     {Campo:'Cliente', Valor: cliente.nome},
     {Campo:'ID', Valor: cliente.id},
     {Campo:'Celular', Valor: cliente.celular || ''},
-    {Campo:'Total Fiado', Valor: totalFiado},
-    {Campo:'Total Pago', Valor: totalPago},
-    {Campo:'Saldo devedor', Valor: saldo},
+    {Campo:'Total Fiado (histórico completo)', Valor: totalFiado},
+    {Campo:'Total Pago (histórico completo)', Valor: totalPago},
+    {Campo:'Saldo devedor (histórico completo)', Valor: saldo},
+    {Campo:'Período do extrato abaixo', Valor: rotuloPeriodo},
     {Campo:'Data da extração', Valor: dataExtracaoLabel}
   ];
 
@@ -2695,7 +2749,8 @@ async function exportarExtratoClienteExcel(id){
   XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
   XLSX.utils.book_append_sheet(wb, wsHistorico, 'Extrato');
 
-  const nomeArquivo = 'extrato_fiado_' + cliente.nome.replace(/[^a-zA-Z0-9]+/g,'_') + '_' + hoje + '.xlsx';
+  const sufixoPeriodo = periodoEscolhido === 'completo' ? 'completo' : 'ultimos12meses';
+  const nomeArquivo = 'extrato_fiado_' + cliente.nome.replace(/[^a-zA-Z0-9]+/g,'_') + '_' + sufixoPeriodo + '_' + hoje + '.xlsx';
   XLSX.writeFile(wb, nomeArquivo);
 }
 
@@ -4505,6 +4560,171 @@ async function adminApagarUsuario(){
   document.getElementById('btn-bloquear-usuario').textContent = 'Bloquear';
   msg.innerHTML = `<div class="msg-ok">Funcionário ${alvo ? escaparHtml(alvo.nome) : ''} apagado com sucesso.</div>`;
   setTimeout(()=>{msg.innerHTML='';}, 2500);
+}
+
+// ---------- Backup e Restauração (criptografado no navegador, AES-GCM) ----------
+const CHAVES_BACKUP = [
+  'registros_loterica','fechamentos_loterica','clientes_loterica','pagamentos_fiado_loterica',
+  'composicao_gerencia_loterica','terminal_dia_loterica','terminais_loterica',
+  'entradas_produtos_gerencia_loterica','socio_vendas_loterica','usuarios_loterica'
+];
+const MAPA_CHAVE_CACHE_BACKUP = {
+  'registros_loterica':'registros',
+  'fechamentos_loterica':'fechamentos',
+  'clientes_loterica':'clientes',
+  'pagamentos_fiado_loterica':'pagamentosFiado',
+  'composicao_gerencia_loterica':'composicaoGerencia',
+  'terminal_dia_loterica':'terminalDia',
+  'terminais_loterica':'terminais',
+  'entradas_produtos_gerencia_loterica':'entradasProdutos',
+  'usuarios_loterica':'usuarios'
+};
+
+async function derivarChaveBackup(senha, salt){
+  const enc = new TextEncoder();
+  const material = await crypto.subtle.importKey('raw', enc.encode(senha), {name:'PBKDF2'}, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'},
+    material, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']
+  );
+}
+async function criptografarTextoBackup(texto, senha){
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const chave = await derivarChaveBackup(senha, salt);
+  const cifrado = await crypto.subtle.encrypt({name:'AES-GCM', iv}, chave, enc.encode(texto));
+  return {salt: Array.from(salt), iv: Array.from(iv), dados: Array.from(new Uint8Array(cifrado))};
+}
+async function descriptografarTextoBackup(envelope, senha){
+  const dec = new TextDecoder();
+  const salt = new Uint8Array(envelope.salt);
+  const iv = new Uint8Array(envelope.iv);
+  const chave = await derivarChaveBackup(senha, salt);
+  const dadosCifrados = new Uint8Array(envelope.dados);
+  const decifrado = await crypto.subtle.decrypt({name:'AES-GCM', iv}, chave, dadosCifrados);
+  return dec.decode(decifrado);
+}
+
+function verificarLembreteBackup(){
+  const el = document.getElementById('lembrete-backup-admin');
+  if(!el) return;
+  const ultimo = localStorage.getItem('ultimo_backup_data');
+  el.classList.toggle('oculto', ultimo === hojeISO());
+}
+
+async function fazerBackupAgora(){
+  const senha = document.getElementById('backup-senha').value;
+  const msg = document.getElementById('backup-msg');
+  if(!senha || senha.length < 6){
+    msg.innerHTML = '<div class="msg-erro">Defina uma senha de pelo menos 6 caracteres para proteger o backup.</div>';
+    return;
+  }
+  msg.innerHTML = '<div class="msg-ok">Gerando backup, aguarde...</div>';
+
+  const dados = {};
+  for(const chave of CHAVES_BACKUP){
+    try{
+      const r = await window.storage.get(chave, true);
+      dados[chave] = r ? JSON.parse(r.value) : [];
+    }catch(e){
+      dados[chave] = [];
+    }
+  }
+
+  const payload = {
+    versaoBackup: 1,
+    geradoEm: new Date().toISOString(),
+    geradoPor: USUARIO_LOGADO.nome,
+    dados: dados
+  };
+
+  const envelope = await criptografarTextoBackup(JSON.stringify(payload), senha);
+  const conteudoArquivo = JSON.stringify(Object.assign({tipo:'backup_composicao_caixa'}, envelope));
+
+  const blob = new Blob([conteudoArquivo], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const agora = new Date();
+  const nomeArquivo = 'backup_composicao_caixa_' + hojeISO() + '_' + String(agora.getHours()).padStart(2,'0') + 'h' + String(agora.getMinutes()).padStart(2,'0') + '.json';
+  a.href = url;
+  a.download = nomeArquivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  localStorage.setItem('ultimo_backup_data', hojeISO());
+  verificarLembreteBackup();
+
+  document.getElementById('backup-senha').value = '';
+  msg.innerHTML = '<div class="msg-ok">Backup gerado e baixado: <strong>'+nomeArquivo+'</strong>. Guarde o arquivo e a senha em local seguro — sem a senha, o backup não pode ser restaurado.</div>';
+}
+
+let BACKUP_ARQUIVO_CARREGADO = null;
+
+async function restaurarBackupArquivo(input){
+  const file = input.files && input.files[0];
+  const msg = document.getElementById('restore-msg');
+  document.getElementById('bloco-restaurar-senha').classList.add('oculto');
+  BACKUP_ARQUIVO_CARREGADO = null;
+  if(!file) return;
+
+  try{
+    const texto = await file.text();
+    const arquivo = JSON.parse(texto);
+    if(arquivo.tipo !== 'backup_composicao_caixa' || !arquivo.dados || !arquivo.salt || !arquivo.iv){
+      msg.innerHTML = '<div class="msg-erro">Este arquivo não parece ser um backup válido deste app.</div>';
+      return;
+    }
+    BACKUP_ARQUIVO_CARREGADO = arquivo;
+    document.getElementById('bloco-restaurar-senha').classList.remove('oculto');
+    msg.innerHTML = '<div class="msg-ok">Arquivo carregado. Digite a senha usada ao gerar esse backup e confirme para restaurar.</div>';
+  }catch(e){
+    msg.innerHTML = '<div class="msg-erro">Não foi possível ler este arquivo. Confirme que é um backup gerado por este app.</div>';
+  }
+}
+
+async function confirmarRestauracaoBackup(){
+  const senha = document.getElementById('restore-senha').value;
+  const confirmacao = document.getElementById('restore-confirmacao-texto').value.trim();
+  const msg = document.getElementById('restore-msg');
+
+  if(!BACKUP_ARQUIVO_CARREGADO){
+    msg.innerHTML = '<div class="msg-erro">Carregue o arquivo de backup primeiro.</div>';
+    return;
+  }
+  if(confirmacao !== 'RESTAURAR BACKUP'){
+    msg.innerHTML = '<div class="msg-erro">Digite exatamente "RESTAURAR BACKUP" no campo de confirmação. Essa ação substitui todos os dados atuais e não pode ser desfeita.</div>';
+    return;
+  }
+
+  let payload;
+  try{
+    const textoDecifrado = await descriptografarTextoBackup(BACKUP_ARQUIVO_CARREGADO, senha);
+    payload = JSON.parse(textoDecifrado);
+  }catch(e){
+    msg.innerHTML = '<div class="msg-erro">Senha incorreta ou arquivo corrompido — não foi possível decifrar o backup.</div>';
+    return;
+  }
+
+  msg.innerHTML = '<div class="msg-ok">Restaurando dados, aguarde...</div>';
+
+  for(const chave of CHAVES_BACKUP){
+    const valor = payload.dados[chave] || [];
+    await window.storage.set(chave, JSON.stringify(valor), true);
+    const chaveCache = MAPA_CHAVE_CACHE_BACKUP[chave];
+    if(chaveCache) invalidarCache(chaveCache);
+  }
+
+  document.getElementById('restore-senha').value = '';
+  document.getElementById('restore-confirmacao-texto').value = '';
+  document.getElementById('restore-arquivo').value = '';
+  document.getElementById('bloco-restaurar-senha').classList.add('oculto');
+  BACKUP_ARQUIVO_CARREGADO = null;
+
+  const dataGeracao = new Date(payload.geradoEm).toLocaleString('pt-BR');
+  msg.innerHTML = `<div class="msg-ok">Backup restaurado com sucesso! Esse backup foi gerado em ${dataGeracao} por ${escaparHtml(payload.geradoPor)}. Recarregue a página para ver os dados atualizados.</div>`;
 }
 
 async function resetarDadosProducao(){
