@@ -2485,7 +2485,7 @@ function mostrarClienteAba(qual){
 }
 
 async function popularSelectClientes(){
-  const clientes = await carregarClientes();
+  const clientes = (await carregarClientes()).slice().sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   const opcoes = '<option value="">Selecione...</option>' +
     clientes.map(c => `<option value="${c.id}">${escaparHtml(c.nome)} (${c.id})</option>`).join('');
   ['sel-cliente-fiado','sel-cliente-pagamento','sel-cliente-consulta'].forEach(elId => {
@@ -2606,6 +2606,7 @@ async function consultarFichaCliente(){
       <p style="font-size:11px;color:var(--texto-claro);margin-top:6px;">Cadastrado por ${escaparHtml(cliente.cadastradoNome)} em ${cliente.cadastradoData.split('-').reverse().join('/')} às ${cliente.cadastradoHora}</p>
       ${edicoesHtml ? `<p style="font-size:11px;color:var(--texto-claro);margin-top:4px;">${edicoesHtml}</p>` : ''}
       <button class="btn-secundario" style="margin-top:10px;" onclick="mostrarEdicaoCliente('${cliente.id}')">Editar cliente</button>
+      <button class="btn-secundario" style="margin-top:10px;margin-left:8px;" onclick="exportarExtratoClienteExcel('${cliente.id}')">Exportar extrato (Excel)</button>
     </div>
 
     <div id="cliente-edicao-area"></div>
@@ -2632,6 +2633,70 @@ async function consultarFichaCliente(){
       </tbody>
     </table></div>`}
   `;
+}
+
+async function exportarExtratoClienteExcel(id){
+  try{
+    await carregarXlsxSobDemanda();
+  }catch(e){
+    alert('Não foi possível carregar a biblioteca de exportação. Verifique sua conexão e tente novamente.');
+    return;
+  }
+  if(typeof XLSX === 'undefined'){
+    alert('A biblioteca de exportação ainda está carregando, tente novamente em instantes.');
+    return;
+  }
+
+  const clientes = await carregarClientes();
+  const cliente = clientes.find(c => c.id === id);
+  if(!cliente) return;
+
+  const registros = await carregarRegistros();
+  const fiados = registros.filter(r => r.clienteId===id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido);
+  const totalFiado = fiados.reduce((s,r)=>s+r.valor,0);
+
+  const pagamentos = await carregarPagamentosFiado();
+  const pagsCliente = pagamentos.filter(p => p.clienteId === id);
+  const totalPago = pagsCliente.reduce((s,p)=>s+p.valor,0);
+  const saldo = totalFiado - totalPago;
+
+  const historico = [
+    ...fiados.map(r => ({tipo:'Fiado', valor:r.valor, data:r.data, hora:r.hora, usuario:r.nome, obs:r.obs, timestamp:r.timestamp})),
+    ...pagsCliente.map(p => ({tipo:'Pagamento', valor:p.valor, data:p.data, hora:p.hora, usuario:p.nome, obs:p.obs, timestamp:p.timestamp}))
+  ].sort((a,b) => a.timestamp - b.timestamp);
+
+  const hoje = hojeISO();
+  const dataExtracaoLabel = hoje.split('-').reverse().join('/') + ' ' + horaAgora();
+
+  const linhasResumo = [
+    {Campo:'Cliente', Valor: cliente.nome},
+    {Campo:'ID', Valor: cliente.id},
+    {Campo:'Celular', Valor: cliente.celular || ''},
+    {Campo:'Total Fiado', Valor: totalFiado},
+    {Campo:'Total Pago', Valor: totalPago},
+    {Campo:'Saldo devedor', Valor: saldo},
+    {Campo:'Data da extração', Valor: dataExtracaoLabel}
+  ];
+
+  const linhasHistorico = historico.map(h => ({
+    'Data': h.data,
+    'Hora': h.hora,
+    'Tipo': h.tipo,
+    'Valor': h.tipo==='Pagamento' ? -h.valor : h.valor,
+    'Usuário': h.usuario,
+    'Observação': h.obs || ''
+  }));
+
+  const wsResumo = XLSX.utils.json_to_sheet(linhasResumo, {skipHeader:true});
+  const wsHistorico = XLSX.utils.json_to_sheet(linhasHistorico);
+  aplicarFormatoMoedaColunas(wsHistorico, ['Valor']);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
+  XLSX.utils.book_append_sheet(wb, wsHistorico, 'Extrato');
+
+  const nomeArquivo = 'extrato_fiado_' + cliente.nome.replace(/[^a-zA-Z0-9]+/g,'_') + '_' + hoje + '.xlsx';
+  XLSX.writeFile(wb, nomeArquivo);
 }
 
 function mostrarEdicaoCliente(id){
