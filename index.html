@@ -3696,27 +3696,33 @@ async function calcularCaixaGerencial(){
   if(!contTotal || !contDetalhe) return;
 
   const dataRef = obterDataGerencial();
-  const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === dataRef && numerosTerminaisCaixa().includes(f.terminal));
+  await recarregarTerminaisCache();
+  const terminaisCaixa = numerosTerminaisCaixa();
+
+  const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === dataRef && terminaisCaixa.includes(f.terminal));
+
   const porTerminal = {};
+  terminaisCaixa.forEach(t => { porTerminal[t] = {terminal:t, c:0, d:0, e:0, temFechamento:false}; });
   fechamentosHoje.forEach(f => {
-    if(!porTerminal[f.terminal]) porTerminal[f.terminal] = {terminal:f.terminal, c:0, d:0, e:0};
+    if(!porTerminal[f.terminal]) return;
     porTerminal[f.terminal].c += f.c || 0;
     porTerminal[f.terminal].d += (f.d != null ? f.d : (f.total || 0));
     porTerminal[f.terminal].e += f.e || 0;
+    porTerminal[f.terminal].temFechamento = true;
   });
   const linhas = Object.values(porTerminal).map(t => ({...t, total: t.c+t.d+t.e}))
-                        .sort((a,b) => a.terminal.localeCompare(b.terminal));
+                        .sort((a,b) => a.terminal.localeCompare(b.terminal, undefined, {numeric:true}));
   const totalGeral = linhas.reduce((s,t) => s+t.total, 0);
   contTotal.textContent = formatarMoeda(totalGeral);
 
   if(linhas.length === 0){
-    contDetalhe.innerHTML = '<div class="vazio">Nenhum fechamento registrado nesta data.</div>';
+    contDetalhe.innerHTML = '<div class="vazio">Nenhum terminal tipo Caixa cadastrado ainda.</div>';
   }else{
     contDetalhe.innerHTML = `<table>
       <thead><tr><th>Terminal</th><th>c) Troco</th><th>d) Composição</th><th>e) Bolão</th><th>Total</th></tr></thead>
       <tbody>
-        ${linhas.map(t => `<tr>
-          <td>${escaparHtml(t.terminal)}</td>
+        ${linhas.map(t => `<tr${!t.temFechamento ? ' style="opacity:0.55;"' : ''}>
+          <td>${escaparHtml(t.terminal)}${!t.temFechamento ? ' <span style="font-size:10px;color:var(--vermelho-estorno);font-weight:700;">(sem fechamento)</span>' : ''}</td>
           <td>${formatarMoeda(t.c)}</td>
           <td>${formatarMoeda(t.d)}</td>
           <td>${formatarMoeda(t.e)}</td>
@@ -3844,14 +3850,18 @@ async function calcularBatimentoGerencial(){
   return {debitoGerencial, creditoGerencial, diferencaGerencial};
 }
 
-async function calcularSaldosClientes(){
+async function calcularSaldosClientes(dataLimite){
   const clientes = await carregarClientes();
   const registros = await carregarRegistros();
   const pagamentos = await carregarPagamentosFiado();
 
   const todasLinhas = clientes.map(c => {
-    const totalFiado = registros.filter(r => r.clienteId===c.id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido).reduce((s,r)=>s+r.valor,0);
-    const totalPago = pagamentos.filter(p => p.clienteId===c.id).reduce((s,p)=>s+p.valor,0);
+    const totalFiado = registros
+      .filter(r => r.clienteId===c.id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && (!dataLimite || r.data <= dataLimite))
+      .reduce((s,r)=>s+r.valor,0);
+    const totalPago = pagamentos
+      .filter(p => p.clienteId===c.id && (!dataLimite || p.data <= dataLimite))
+      .reduce((s,p)=>s+p.valor,0);
     return {id:c.id, nome:c.nome, saldo: totalFiado - totalPago, totalFiado, totalPago};
   }).filter(c => c.totalFiado > 0 || c.totalPago > 0);
 
@@ -3862,7 +3872,8 @@ async function calcularSaldosClientes(){
 async function atualizarFiadoTotalGerencia(){
   const el = document.getElementById('fiado-total-gerencia');
   if(!el) return;
-  const {totalGeral} = await calcularSaldosClientes();
+  const dataRef = obterDataGerencial();
+  const {totalGeral} = await calcularSaldosClientes(dataRef);
   el.textContent = formatarMoeda(totalGeral);
   return totalGeral;
 }
