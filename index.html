@@ -487,10 +487,6 @@
 
       <div class="painel">
         <h3>Novo lançamento</h3>
-        <div class="tipo-botoes">
-          <button class="tipo-btn" id="btn-tipo-saida" onclick="selecionarTipo('Saida')">Saídas hoje<span class="sub">(a) saldo positivo</span></button>
-          <button class="tipo-btn" id="btn-tipo-troco" onclick="selecionarTipo('Troco')">Entradas<span class="sub">(b) saldo negativo</span></button>
-        </div>
         <div class="campo" id="campo-atividade">
           <label>Tipo de atividade</label>
           <select id="sel-atividade" onchange="atualizarCampoClienteFiado()">
@@ -507,14 +503,9 @@
             <option value="Prêmios">Prêmios</option>
             <option value="Raspadinha premiada">Raspadinha premiada</option>
             <option value="Rede">Rede</option>
+            <option value="Troca de caixa">Troca de caixa</option>
             <option value="Troca Telesena">Troca Telesena</option>
             <option value="Outros">Outros</option>
-          </select>
-        </div>
-        <div class="campo oculto" id="campo-atividade-debito">
-          <label>Tipo de atividade</label>
-          <select id="sel-atividade-debito" onchange="atualizarCampoTrocaTerminal()">
-            <option value="Troca de caixa">Troca de caixa</option>
           </select>
         </div>
         <div class="campo oculto" id="campo-cliente-fiado">
@@ -1727,6 +1718,26 @@ async function obterFuncionarioDoTerminal(terminal, data){
   candidatos.sort((a,b) => b.timestamp - a.timestamp);
   return candidatos[0];
 }
+// Reverso: qual terminal esse usuário estava usando numa data específica.
+// Importante para não misturar lançamentos de dois terminais diferentes usados
+// pela mesma pessoa em dias diferentes (ou por engano no mesmo dia).
+async function obterTerminalDoUsuarioNaData(usuario, data){
+  const atribuicoes = await carregarTerminalDia();
+  const candidatos = atribuicoes.filter(a => a.usuario === usuario && a.data === data);
+  if(candidatos.length === 0) return null;
+  candidatos.sort((a,b) => b.timestamp - a.timestamp);
+  return candidatos[0].terminal;
+}
+// Para um período (data início/fim): mapa { 'AAAA-MM-DD': terminal } com o terminal
+// que o usuário estava usando em cada dia daquele intervalo.
+async function obterMapaTerminalPorDataNoPeriodo(usuario, dataInicio, dataFim){
+  const atribuicoes = (await carregarTerminalDia())
+    .filter(a => a.usuario === usuario && a.data >= dataInicio && a.data <= dataFim)
+    .sort((a,b) => a.timestamp - b.timestamp);
+  const mapa = {};
+  atribuicoes.forEach(a => { mapa[a.data] = a.terminal; }); // a última atribuição do dia vence
+  return mapa;
+}
 
 // ---------- Gestão de Terminais (dinâmica, sem números fixos no código) ----------
 let TERMINAIS_CADASTRADOS = [];
@@ -2146,9 +2157,8 @@ async function entrarNoApp(achado){
   await recarregarTerminaisCache();
   document.getElementById('pill-terminal-dia').textContent = 'Terminal: ' + rotuloTerminal(TERMINAL_DO_DIA);
   trocarAba('lancamentos');
-  selecionarTipo('Saida');
+  atualizarCampoClienteFiado();
   montarComposicaoLista();
-  montarOpcoesAtividadeDebito();
   document.getElementById('exibicao-terminal-lancamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
   document.getElementById('exibicao-terminal-fechamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
   document.getElementById('inp-data-lancamento').value = hoje;
@@ -2251,53 +2261,11 @@ function sair(){
 }
 
 // ---------- Lançamentos ----------
-function selecionarTipo(tipo){
-  TIPO_SELECIONADO = tipo;
-  document.getElementById('btn-tipo-saida').classList.remove('ativo-saida');
-  document.getElementById('btn-tipo-troco').classList.remove('ativo-troco');
-  const campoAtividade = document.getElementById('campo-atividade');
-  const campoAtividadeDebito = document.getElementById('campo-atividade-debito');
-  if(tipo==='Saida'){
-    document.getElementById('btn-tipo-saida').classList.add('ativo-saida');
-    campoAtividade.classList.remove('oculto');
-    campoAtividadeDebito.classList.add('oculto');
-    document.getElementById('campo-terminal-normal').classList.remove('oculto');
-    document.getElementById('campo-troca-terminais').classList.add('oculto');
-  }
-  if(tipo==='Troco'){
-    document.getElementById('btn-tipo-troco').classList.add('ativo-troco');
-    campoAtividade.classList.add('oculto');
-    campoAtividadeDebito.classList.remove('oculto');
-    atualizarCampoTrocaTerminal();
-  }
-  atualizarCampoClienteFiado();
-}
-
-function montarOpcoesAtividadeDebito(){
-  const sel = document.getElementById('sel-atividade-debito');
-  const opcoes = '<option value="Troca de caixa">Troca de caixa</option>';
-  const valorAtual = sel.value;
-  sel.innerHTML = opcoes;
-  if(sel.querySelector('option[value="'+valorAtual+'"]')) sel.value = valorAtual;
-}
-
-function atualizarCampoTrocaTerminal(){
-  const campoTerminalNormal = document.getElementById('campo-terminal-normal');
-  const campoTrocaTerminais = document.getElementById('campo-troca-terminais');
-  if(TIPO_SELECIONADO === 'Troco'){
-    campoTerminalNormal.classList.add('oculto');
-    campoTrocaTerminais.classList.remove('oculto');
-  }else{
-    campoTerminalNormal.classList.remove('oculto');
-    campoTrocaTerminais.classList.add('oculto');
-  }
-}
 
 async function registrarLancamento(){
   const valor = parseFloat(document.getElementById('inp-valor').value);
   const obs = document.getElementById('inp-obs').value.trim();
-  const atividade = TIPO_SELECIONADO === 'Saida' ? document.getElementById('sel-atividade').value : '';
-  const atividadeDebito = TIPO_SELECIONADO === 'Troco' ? document.getElementById('sel-atividade-debito').value : '';
+  const atividade = document.getElementById('sel-atividade').value;
   const dataLancamento = document.getElementById('inp-data-lancamento').value || hojeISO();
   const msg = document.getElementById('registro-msg');
 
@@ -2306,8 +2274,8 @@ async function registrarLancamento(){
     return;
   }
 
-  // ---- Débitos (Troca de caixa / Produtos / Troco): gera 2 lançamentos (débito na origem, crédito no destino) ----
-  if(TIPO_SELECIONADO === 'Troco'){
+  // ---- Troca de caixa: gera 2 lançamentos (SAÍDA(+) na origem, ENTRADA(-) no destino) ----
+  if(atividade === 'Troca de caixa'){
     const terminalDe = TERMINAL_DO_DIA;
     const terminalPara = document.getElementById('sel-terminal-para').value;
 
@@ -2328,19 +2296,17 @@ async function registrarLancamento(){
       funcPara = {usuario: '', nome: 'Terminal ' + terminalPara + ' (sem funcionária associada)'};
     }
 
-    const descricao = atividadeDebito + ' · ' + USUARIO_LOGADO.nome + ': ' + terminalDe + ' > ' + terminalPara;
+    const descricao = atividade + ' · ' + USUARIO_LOGADO.nome + ': ' + terminalDe + ' > ' + terminalPara;
     const obsCompleta = obs ? (descricao + ' · ' + obs) : descricao;
     const registros = await carregarRegistros();
     const agora = Date.now();
+    const idDebito = agora + '-' + Math.random().toString(36).slice(2,7);
+    const idCredito = (agora+1) + '-' + Math.random().toString(36).slice(2,7);
 
-    // Terminal DE (origem): Saída (+), exceto para "Troco" — nesse caso, ambos os lados ficam negativos,
-    // pois é fornecimento de troco (não é uma transferência de caixa operacional).
-    // Terminal PARA (destino): sempre Entrada (-).
-    const tipoOrigem = atividadeDebito === 'Troco' ? 'Troco' : 'Saida';
-    const tipoDestino = 'Troco';
-
+    // Terminal DE (origem): SAÍDA (+). Terminal PARA (destino): ENTRADA (-).
     const registroDebito = {
-      id: agora + '-' + Math.random().toString(36).slice(2,7),
+      id: idDebito,
+      parId: idCredito,
       usuario: USUARIO_LOGADO.usuario,
       nome: USUARIO_LOGADO.nome,
       registradoPor: USUARIO_LOGADO.usuario,
@@ -2348,8 +2314,8 @@ async function registrarLancamento(){
       data: dataRegistro,
       hora: horaAgora(),
       caixa: terminalDe,
-      tipo: tipoOrigem,
-      atividade: atividadeDebito,
+      tipo: 'Saida',
+      atividade: atividade,
       clienteId: '',
       clienteNome: '',
       valor: valor,
@@ -2359,7 +2325,8 @@ async function registrarLancamento(){
     };
 
     const registroCredito = {
-      id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
+      id: idCredito,
+      parId: idDebito,
       usuario: funcPara.usuario,
       nome: funcPara.nome,
       registradoPor: USUARIO_LOGADO.usuario,
@@ -2367,8 +2334,8 @@ async function registrarLancamento(){
       data: dataRegistro,
       hora: horaAgora(),
       caixa: terminalPara,
-      tipo: tipoDestino,
-      atividade: atividadeDebito,
+      tipo: 'Troco',
+      atividade: atividade,
       clienteId: '',
       clienteNome: '',
       valor: valor,
@@ -2389,8 +2356,8 @@ async function registrarLancamento(){
       idTerminalDestino: terminalPara,
       data: registroDebito.data,
       hora: registroDebito.hora,
-      tipo: tipoOrigem === 'Saida' ? 'Saída' : 'Entrada',
-      atividade: atividadeDebito,
+      tipo: 'Saída',
+      atividade: atividade,
       valor: registroDebito.valor,
       observacao: registroDebito.obs
     });
@@ -2404,22 +2371,22 @@ async function registrarLancamento(){
       idTerminalOrigem: terminalDe,
       data: registroCredito.data,
       hora: registroCredito.hora,
-      tipo: 'Entrada (recebido em ' + atividadeDebito.toLowerCase() + ')',
-      atividade: atividadeDebito,
+      tipo: 'Entrada (recebido em ' + atividade.toLowerCase() + ')',
+      atividade: atividade,
       valor: registroCredito.valor,
       observacao: registroCredito.obs
     });
 
     document.getElementById('inp-valor').value='';
     document.getElementById('inp-obs').value='';
-    msg.innerHTML = '<div class="msg-ok">'+atividadeDebito+' registrado(a) com sucesso.</div>';
+    msg.innerHTML = '<div class="msg-ok">'+atividade+' registrado(a) com sucesso.</div>';
     limparFormularioSujo();
     setTimeout(()=>{msg.innerHTML='';}, 2500);
     await atualizarTudo();
     return;
   }
 
-  // ---- Fluxo normal: Saídas hoje ----
+  // ---- Fluxo normal: demais atividades de Saída ----
   const caixa = TERMINAL_DO_DIA;
   if(!caixa){
     msg.innerHTML = '<div class="msg-erro">Terminal do dia não identificado. Saia e faça login novamente.</div>';
@@ -2438,8 +2405,8 @@ async function registrarLancamento(){
     clienteNome = c ? c.nome : '';
   }
 
-  let atividadeFinal = TIPO_SELECIONADO === 'Saida' ? atividade : atividadeDebito;
-  if(TIPO_SELECIONADO === 'Saida' && atividade === 'Conta Loja'){
+  let atividadeFinal = atividade;
+  if(atividade === 'Conta Loja'){
     const detalheConta = document.getElementById('sel-conta-loja-detalhe').value;
     if(!detalheConta){
       msg.innerHTML = '<div class="msg-erro">Selecione o detalhe da conta.</div>';
@@ -2456,7 +2423,7 @@ async function registrarLancamento(){
     data: dataLancamento,
     hora: horaAgora(),
     caixa: caixa,
-    tipo: TIPO_SELECIONADO,
+    tipo: 'Saida',
     atividade: atividadeFinal,
     clienteId: clienteId,
     clienteNome: clienteNome,
@@ -2475,7 +2442,7 @@ async function registrarLancamento(){
     idTerminal: novoRegistro.caixa,
     data: novoRegistro.data,
     hora: novoRegistro.hora,
-    tipo: novoRegistro.tipo === 'Saida' ? 'Saída' : 'Entrada',
+    tipo: 'Saída',
     atividade: novoRegistro.atividade,
     idCliente: novoRegistro.clienteId,
     cliente: novoRegistro.clienteNome,
@@ -2499,7 +2466,17 @@ async function excluirLancamento(id){
   let registros = await carregarRegistros();
   const item = registros.find(r => r.id === id);
   if(!item) return;
-  item.excluido = !item.excluido;
+  const novoStatus = !item.excluido;
+  item.excluido = novoStatus;
+
+  // Se esse lançamento tem um par vinculado (troca de caixa, troco cofre, envio de
+  // produtos), o par também precisa ser excluído/restaurado junto — senão o reflexo
+  // no outro terminal fica "pendurado" e os totais ficam inconsistentes.
+  if(item.parId){
+    const par = registros.find(r => r.id === item.parId);
+    if(par) par.excluido = novoStatus;
+  }
+
   await salvarRegistros(registros);
   await atualizarTudo();
 }
@@ -2537,16 +2514,19 @@ async function popularSelectClientes(){
 function atualizarCampoClienteFiado(){
   const campo = document.getElementById('campo-cliente-fiado');
   const campoContaLoja = document.getElementById('campo-conta-loja-detalhe');
+  const campoTerminalNormal = document.getElementById('campo-terminal-normal');
+  const campoTrocaTerminais = document.getElementById('campo-troca-terminais');
   const atividade = document.getElementById('sel-atividade').value;
-  if(TIPO_SELECIONADO === 'Saida' && atividade === 'Fiado'){
-    campo.classList.remove('oculto');
+
+  campo.classList.toggle('oculto', atividade !== 'Fiado');
+  campoContaLoja.classList.toggle('oculto', atividade !== 'Conta Loja');
+
+  if(atividade === 'Troca de caixa'){
+    campoTerminalNormal.classList.add('oculto');
+    campoTrocaTerminais.classList.remove('oculto');
   }else{
-    campo.classList.add('oculto');
-  }
-  if(TIPO_SELECIONADO === 'Saida' && atividade === 'Conta Loja'){
-    campoContaLoja.classList.remove('oculto');
-  }else{
-    campoContaLoja.classList.add('oculto');
+    campoTerminalNormal.classList.remove('oculto');
+    campoTrocaTerminais.classList.add('oculto');
   }
 }
 
@@ -3609,9 +3589,12 @@ async function enviarProdutosGerencia(){
 
   const registros = await carregarRegistros();
   const agora = Date.now();
+  const idOrigem = agora + '-' + Math.random().toString(36).slice(2,7);
+  const idDestino = (agora+1) + '-' + Math.random().toString(36).slice(2,7);
 
   const registroOrigem = {
-    id: agora + '-' + Math.random().toString(36).slice(2,7),
+    id: idOrigem,
+    parId: idDestino,
     usuario: USUARIO_LOGADO.usuario,
     nome: USUARIO_LOGADO.nome,
     registradoPor: USUARIO_LOGADO.usuario,
@@ -3629,7 +3612,8 @@ async function enviarProdutosGerencia(){
     timestamp: agora
   };
   const registroDestino = {
-    id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
+    id: idDestino,
+    parId: idOrigem,
     usuario: funcPara.usuario,
     nome: funcPara.nome,
     registradoPor: USUARIO_LOGADO.usuario,
@@ -3904,14 +3888,29 @@ async function carregarComposicaoGerenciaExistente(){
     status.innerHTML = `<div class="msg-ok">Composição já registrada nesta data às ${existente.hora}. Registrar novamente atualiza os valores.</div>`;
     btn.textContent = 'Atualizar Composição de Caixa Gerência';
   }else{
-    PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('estoque-qtd-'+p.id).value = 0; });
+    const anterior = await obterSaldoProdutosAntesDe(dataRef);
+    if(anterior){
+      PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+        const item = anterior.produtosEstoque.find(x => x.id===p.id);
+        document.getElementById('estoque-qtd-'+p.id).value = item ? item.qtd : 0;
+      });
+      DENOMINACOES_TROCO_COFRE.forEach(v => {
+        const id = idDenom(v);
+        const item = anterior.trocoCofreDenominacoes ? anterior.trocoCofreDenominacoes.find(x => x.valor===v) : null;
+        document.getElementById('cofre-qtd-'+id).value = item ? item.qtd : 0;
+      });
+      const dataAnteriorLabel = anterior.data.split('-').reverse().join('/');
+      status.innerHTML = `<div class="msg-ok" style="background:rgba(243,146,0,0.10);border-color:var(--laranja-caixa);color:var(--laranja-caixa);">Estoque e Troco Cofre carregados com os valores do último dia registrado (${dataAnteriorLabel}). <strong>Revise e ajuste antes de registrar</strong> — pode haver vendas, entradas ou envios que ainda não foram contabilizados.</div>`;
+    }else{
+      PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('estoque-qtd-'+p.id).value = 0; });
+      DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('cofre-qtd-'+idDenom(v)).value = 0; });
+      status.innerHTML = '';
+    }
     document.getElementById('inp-vitrine-raspadinha').value = 0;
-    DENOMINACOES_TROCO_COFRE.forEach(v => { document.getElementById('cofre-qtd-'+idDenom(v)).value = 0; });
     document.getElementById('inp-quina-especial').value = 0;
     document.getElementById('inp-gaveta').value = 0;
     calcularEstoqueGerencia();
     calcularTrocoCofre();
-    status.innerHTML = '';
     btn.textContent = 'Registrar Composição de Caixa Gerência';
   }
 
@@ -4049,10 +4048,13 @@ async function enviarTrocoGerencia(){
 
   const registros = await carregarRegistros();
   const agora = Date.now();
+  const idOrigemTroco = agora + '-' + Math.random().toString(36).slice(2,7);
+  const idDestinoTroco = (agora+1) + '-' + Math.random().toString(36).slice(2,7);
 
   // Terminal de origem (gerência): SAÍDA (+) — o troco saiu do cofre da gerência.
   const registroOrigem = {
-    id: agora + '-' + Math.random().toString(36).slice(2,7),
+    id: idOrigemTroco,
+    parId: idDestinoTroco,
     usuario: USUARIO_LOGADO.usuario,
     nome: USUARIO_LOGADO.nome,
     registradoPor: USUARIO_LOGADO.usuario,
@@ -4071,7 +4073,8 @@ async function enviarTrocoGerencia(){
   };
   // Terminal de destino: ENTRADA (-) — o troco chegou no terminal que recebeu.
   const registroDestino = {
-    id: (agora+1) + '-' + Math.random().toString(36).slice(2,7),
+    id: idDestinoTroco,
+    parId: idOrigemTroco,
     usuario: funcPara.usuario,
     nome: funcPara.nome,
     registradoPor: USUARIO_LOGADO.usuario,
@@ -4141,7 +4144,8 @@ async function atualizarTudo(){
   if(inpSubtotalData && !inpSubtotalData.value) inpSubtotalData.value = hoje;
   const dataSubtotal = (inpSubtotalData && inpSubtotalData.value) ? inpSubtotalData.value : hoje;
 
-  const meus = registros.filter(r => r.data === dataSubtotal && (r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA))
+  const terminalNaDataSubtotal = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, dataSubtotal);
+  const meus = registros.filter(r => r.data === dataSubtotal && r.caixa === terminalNaDataSubtotal)
                          .sort((a,b) => b.timestamp - a.timestamp);
 
   const totalVendas = meus.filter(r=>r.tipo==='Saida' && !r.excluido).reduce((s,r)=>s+r.valor,0);
@@ -4163,13 +4167,15 @@ async function atualizarTudo(){
   const periodoInicio = inpInicio && inpInicio.value ? inpInicio.value : hoje;
   const periodoFim = inpFim && inpFim.value ? inpFim.value : hoje;
 
+  const mapaTerminalPeriodo = EH_ADMIN ? null : await obterMapaTerminalPorDataNoPeriodo(USUARIO_LOGADO.usuario, periodoInicio, periodoFim);
+
   const meusPeriodo = (EH_ADMIN ? (() => {
     const filtroUsuario = document.getElementById('filtro-hist-usuario')?.value || '';
     const filtroTerminal = document.getElementById('filtro-hist-terminal')?.value || '';
     return registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
       && (!filtroUsuario || r.usuario === filtroUsuario)
       && (!filtroTerminal || r.caixa === filtroTerminal));
-  })() : registros.filter(r => (r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA) && r.data >= periodoInicio && r.data <= periodoFim)
+  })() : registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim && r.caixa === mapaTerminalPeriodo[r.data])
   ).sort((a,b) => b.timestamp - a.timestamp);
 
   const lista = document.getElementById('lista-historico');
@@ -4243,8 +4249,9 @@ async function atualizarPainelGeral(){
   let fechamentosDoDia = todosFechamentos.filter(f => f.data === dataSelecionada);
 
   if(!EH_ADMIN){
-    doDia = doDia.filter(r => r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA);
-    fechamentosDoDia = fechamentosDoDia.filter(f => f.usuario === USUARIO_LOGADO.usuario || f.terminal === TERMINAL_DO_DIA);
+    const terminalNaData = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, dataSelecionada);
+    doDia = doDia.filter(r => r.caixa === terminalNaData);
+    fechamentosDoDia = fechamentosDoDia.filter(f => f.terminal === terminalNaData);
   }
 
   const porFuncionario = {};
@@ -4317,8 +4324,9 @@ async function consultarHistoricoDias(){
   let fechamentos = (await carregarFechamentos()).filter(f => f.data === data);
 
   if(!EH_ADMIN){
-    registros = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario || r.caixa === TERMINAL_DO_DIA);
-    fechamentos = fechamentos.filter(f => f.usuario === USUARIO_LOGADO.usuario || f.terminal === TERMINAL_DO_DIA);
+    const terminalNaData = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, data);
+    registros = registros.filter(r => r.caixa === terminalNaData);
+    fechamentos = fechamentos.filter(f => f.terminal === terminalNaData);
   }
 
   if(registros.length === 0 && fechamentos.length === 0){
