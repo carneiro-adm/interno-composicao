@@ -2282,9 +2282,6 @@ async function entrarNoApp(achado){
       TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
     await consultarPainelAdmin();
 
-    document.getElementById('filtro-hist-admin-extra').classList.remove('oculto');
-    document.getElementById('filtro-hist-usuario').innerHTML = opcoesUsuarios;
-
     document.getElementById('painel-fechamentos-admin').classList.remove('oculto');
     document.getElementById('fech-admin-usuario').innerHTML = opcoesUsuarios;
     document.getElementById('fech-admin-inicio').value = hoje;
@@ -2294,8 +2291,16 @@ async function entrarNoApp(achado){
     document.getElementById('nav-admin').classList.add('oculto');
     document.getElementById('nav-gestaofiado').classList.add('oculto');
     document.getElementById('nav-dashboard').classList.add('oculto');
-    document.getElementById('filtro-hist-admin-extra').classList.add('oculto');
     document.getElementById('painel-fechamentos-admin').classList.add('oculto');
+  }
+
+  // Histórico de transações: Admin e Gerência veem todos os terminais/funcionárias
+  // (com filtro por Funcionária/Terminal); demais perfis veem só o próprio terminal.
+  if(souAdmin || EH_GERENCIA){
+    document.getElementById('filtro-hist-admin-extra').classList.remove('oculto');
+    document.getElementById('filtro-hist-usuario').innerHTML = opcoesUsuarios;
+  }else{
+    document.getElementById('filtro-hist-admin-extra').classList.add('oculto');
   }
 
   if(EH_GERENCIA){
@@ -4427,7 +4432,8 @@ async function atualizarTudo(){
   const periodoInicio = inpInicio && inpInicio.value ? inpInicio.value : hoje;
   const periodoFim = inpFim && inpFim.value ? inpFim.value : hoje;
 
-  const mapaTerminalPeriodo = EH_ADMIN ? null : await obterMapaTerminalPorDataNoPeriodo(USUARIO_LOGADO.usuario, periodoInicio, periodoFim);
+  const verTudoHistorico = EH_ADMIN || EH_GERENCIA;
+  const mapaTerminalPeriodo = verTudoHistorico ? null : await obterMapaTerminalPorDataNoPeriodo(USUARIO_LOGADO.usuario, periodoInicio, periodoFim);
 
   // Popula o filtro de atividade dinamicamente com o que existir nos lançamentos
   // (inclui variações como "Conta Loja - Água", então não é uma lista fixa no código).
@@ -4441,7 +4447,7 @@ async function atualizarTudo(){
   }
   const filtroAtividadeHist = selAtividadeHist ? selAtividadeHist.value : '';
 
-  const meusPeriodo = (EH_ADMIN ? (() => {
+  const meusPeriodo = (verTudoHistorico ? (() => {
     const filtroUsuario = document.getElementById('filtro-hist-usuario')?.value || '';
     const filtroTerminal = document.getElementById('filtro-hist-terminal')?.value || '';
     return registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
@@ -4522,7 +4528,7 @@ async function atualizarPainelGeral(){
   let doDia = todosRegistros.filter(r => r.data === dataSelecionada && !r.excluido);
   let fechamentosDoDia = todosFechamentos.filter(f => f.data === dataSelecionada);
 
-  if(!EH_ADMIN){
+  if(!EH_ADMIN && !EH_GERENCIA){
     const terminalNaData = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, dataSelecionada);
     doDia = doDia.filter(r => r.caixa === terminalNaData);
     fechamentosDoDia = fechamentosDoDia.filter(f => f.terminal === terminalNaData);
@@ -4597,7 +4603,7 @@ async function consultarHistoricoDias(){
   let registros = (await carregarRegistros()).filter(r => r.data === data).sort((a,b)=>a.timestamp-b.timestamp);
   let fechamentos = (await carregarFechamentos()).filter(f => f.data === data);
 
-  if(!EH_ADMIN){
+  if(!EH_ADMIN && !EH_GERENCIA){
     const terminalNaData = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, data);
     registros = registros.filter(r => r.caixa === terminalNaData);
     fechamentos = fechamentos.filter(f => f.terminal === terminalNaData);
@@ -4656,7 +4662,7 @@ async function consultarHistoricoDias(){
   }
 
   let pagamentosFiado = (await carregarPagamentosFiado()).filter(p => p.data === data).sort((a,b)=>a.timestamp-b.timestamp);
-  if(!EH_ADMIN){
+  if(!EH_ADMIN && !EH_GERENCIA){
     pagamentosFiado = pagamentosFiado.filter(p => p.usuario === USUARIO_LOGADO.usuario);
   }
   if(pagamentosFiado.length > 0){
