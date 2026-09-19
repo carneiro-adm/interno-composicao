@@ -4506,7 +4506,7 @@ async function atualizarTudo(){
 
   const terminalNaDataSubtotal = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, dataSubtotal);
   const meus = registros.filter(r => r.data === dataSubtotal &&
-      (terminalNaDataSubtotal ? r.caixa === terminalNaDataSubtotal : r.usuario === USUARIO_LOGADO.usuario))
+      (terminalNaDataSubtotal ? r.caixa === terminalNaDataSubtotal : (r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA)))
                          .sort((a,b) => b.timestamp - a.timestamp);
 
   const totalVendas = meus.filter(r=>r.tipo==='Saida' && !r.excluido).reduce((s,r)=>s+r.valor,0);
@@ -4552,9 +4552,10 @@ async function atualizarTudo(){
       && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist));
   })() : registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
       // Se não há atribuição de terminal salva para o dia do lançamento (dados antigos,
-      // anteriores a esse controle existir), cai de volta para filtrar por usuário —
-      // senão o lançamento simplesmente some da lista.
-      && (mapaTerminalPeriodo[r.data] ? r.caixa === mapaTerminalPeriodo[r.data] : r.usuario === USUARIO_LOGADO.usuario)
+      // anteriores a esse controle existir), cai de volta para o terminal ATUAL da
+      // funcionária (nunca só o nome dela — isso poderia misturar dois terminais
+      // diferentes que ela usou, como Caixa e Bilhetes).
+      && (mapaTerminalPeriodo[r.data] ? r.caixa === mapaTerminalPeriodo[r.data] : (r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA))
       && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist))
   ).sort((a,b) => b.timestamp - a.timestamp);
 
@@ -4634,8 +4635,8 @@ async function atualizarPainelGeral(){
       doDia = doDia.filter(r => r.caixa === terminalNaData);
       fechamentosDoDia = fechamentosDoDia.filter(f => f.terminal === terminalNaData);
     }else{
-      doDia = doDia.filter(r => r.usuario === USUARIO_LOGADO.usuario);
-      fechamentosDoDia = fechamentosDoDia.filter(f => f.usuario === USUARIO_LOGADO.usuario);
+      doDia = doDia.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA);
+      fechamentosDoDia = fechamentosDoDia.filter(f => f.usuario === USUARIO_LOGADO.usuario && f.terminal === TERMINAL_DO_DIA);
     }
   }
 
@@ -4714,8 +4715,8 @@ async function consultarHistoricoDias(){
       registros = registros.filter(r => r.caixa === terminalNaData);
       fechamentos = fechamentos.filter(f => f.terminal === terminalNaData);
     }else{
-      registros = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario);
-      fechamentos = fechamentos.filter(f => f.usuario === USUARIO_LOGADO.usuario);
+      registros = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA);
+      fechamentos = fechamentos.filter(f => f.usuario === USUARIO_LOGADO.usuario && f.terminal === TERMINAL_DO_DIA);
     }
   }
 
