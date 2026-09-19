@@ -848,6 +848,10 @@
           <span class="legenda-item"><span class="ponto-legenda" style="background:var(--verde-venda);"></span> Pagamento do dia</span>
         </div>
         <div class="grafico-fiado-wrap" id="grafico-fiado-container"><div class="vazio">Selecione o período e clique em Consultar.</div></div>
+
+        <h4 style="margin:20px 0 8px;">Linha do tempo — Fiado por dia</h4>
+        <p class="aviso-fechamento">Quantidade e valor de Fiado/Pagamento por dia, com o saldo devedor acumulado até aquele dia (histórico completo, não só o período filtrado acima). Toque em "Ver detalhes" para ver as transações do dia.</p>
+        <div id="tabela-linha-tempo-fiado"><div class="vazio">Selecione o período e clique em Consultar.</div></div>
       </div>
     </div>
 
@@ -1652,6 +1656,7 @@ let EH_ADMIN = false;
 let EH_GERENCIA = false;
 let TIPO_SELECIONADO = 'Saida';
 let DETALHE_SAIDAS_BATIMENTO_POR_ATIVIDADE = {};
+let LINHA_TEMPO_FIADO_POR_DIA = {};
 let TODOS_USUARIOS = [];
 let INTERVALO_SYNC = null;
 
@@ -3037,6 +3042,88 @@ async function renderizarGraficoFiado(){
       <div class="grafico-data-label">${labelData}</div>
     </div>`;
   }).join('');
+
+  await renderizarLinhaTempoFiado(dataIni, dataFim);
+}
+
+async function renderizarLinhaTempoFiado(dataIni, dataFim){
+  const cont = document.getElementById('tabela-linha-tempo-fiado');
+  if(!cont) return;
+  if(!dataIni || !dataFim){
+    cont.innerHTML = '<div class="vazio">Selecione o período e clique em Consultar.</div>';
+    return;
+  }
+
+  const todosFiados = (await carregarRegistros()).filter(r => r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido);
+  const todosPagamentos = await carregarPagamentosFiado();
+
+  const fiadosPorDia = {};
+  todosFiados.forEach(r => { (fiadosPorDia[r.data] = fiadosPorDia[r.data] || []).push(r); });
+  const pagamentosPorDia = {};
+  todosPagamentos.forEach(p => { (pagamentosPorDia[p.data] = pagamentosPorDia[p.data] || []).push(p); });
+
+  const todosOsDias = Array.from(new Set([...Object.keys(fiadosPorDia), ...Object.keys(pagamentosPorDia)])).sort();
+
+  // Saldo acumulado corrido, calculado sobre o HISTÓRICO COMPLETO (não só o período
+  // filtrado), para que a coluna "Saldo acumulado" reflita a realidade até aquele dia.
+  let saldoCorrente = 0;
+  const porDiaComSaldo = [];
+  todosOsDias.forEach(d => {
+    const fiadosDia = fiadosPorDia[d] || [];
+    const pagamentosDia = pagamentosPorDia[d] || [];
+    const valorFiadoDia = fiadosDia.reduce((s,r)=>s+r.valor,0);
+    const valorPagamentoDia = pagamentosDia.reduce((s,p)=>s+p.valor,0);
+    saldoCorrente += valorFiadoDia - valorPagamentoDia;
+    porDiaComSaldo.push({data:d, fiadosDia, pagamentosDia, valorFiadoDia, valorPagamentoDia, saldoAcumulado: saldoCorrente});
+  });
+
+  const linhasNoIntervalo = porDiaComSaldo.filter(l => l.data >= dataIni && l.data <= dataFim);
+
+  if(linhasNoIntervalo.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum fiado ou pagamento registrado neste período.</div>';
+    LINHA_TEMPO_FIADO_POR_DIA = {};
+    return;
+  }
+
+  LINHA_TEMPO_FIADO_POR_DIA = {};
+  linhasNoIntervalo.forEach(l => { LINHA_TEMPO_FIADO_POR_DIA[l.data] = {fiados: l.fiadosDia, pagamentos: l.pagamentosDia}; });
+
+  const linhasOrdenadas = linhasNoIntervalo.slice().sort((a,b) => b.data.localeCompare(a.data));
+
+  cont.innerHTML = `<table>
+    <thead><tr>
+      <th>Data</th><th>Qtd. Fiado</th><th>Qtd. Pagamento</th><th>Valor Fiado</th><th>Valor Pagamento</th><th>Saldo acumulado</th><th></th>
+    </tr></thead>
+    <tbody>
+      ${linhasOrdenadas.map(l => `<tr>
+        <td>${l.data.split('-').reverse().join('/')}</td>
+        <td>${l.fiadosDia.length}</td>
+        <td>${l.pagamentosDia.length}</td>
+        <td style="color:var(--vermelho-estorno);">${formatarMoeda(l.valorFiadoDia)}</td>
+        <td style="color:var(--verde-venda);">${formatarMoeda(l.valorPagamentoDia)}</td>
+        <td style="font-weight:800;">${formatarMoeda(l.saldoAcumulado)}</td>
+        <td><a href="javascript:void(0)" style="color:var(--azul-caixa);font-weight:700;text-decoration:underline;" onclick="mostrarDetalheFiadoDia('${l.data}')">Ver detalhes</a></td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function mostrarDetalheFiadoDia(data){
+  const item = LINHA_TEMPO_FIADO_POR_DIA[data];
+  if(!item) return;
+  document.getElementById('modal-detalhe-saidas-titulo').textContent = 'Fiado e Pagamentos — ' + data.split('-').reverse().join('/');
+  const cont = document.getElementById('modal-detalhe-saidas-conteudo');
+  const linhas = [
+    ...item.fiados.map(r => `<tr><td>Fiado</td><td>${escaparHtml(r.clienteNome||'—')}</td><td style="font-weight:700;color:var(--vermelho-estorno);">${formatarMoeda(r.valor)}</td><td>${escaparHtml(r.nome||'—')}</td><td>${escaparHtml(r.obs||'—')}</td></tr>`),
+    ...item.pagamentos.map(p => `<tr><td>Pagamento</td><td>${escaparHtml(p.clienteNome||'—')}</td><td style="font-weight:700;color:var(--verde-venda);">${formatarMoeda(p.valor)}</td><td>${escaparHtml(p.nome||'—')}</td><td>${escaparHtml(p.obs||'—')}</td></tr>`)
+  ];
+  cont.innerHTML = linhas.length === 0
+    ? '<div class="vazio">Nenhuma transação encontrada.</div>'
+    : `<table>
+        <thead><tr><th>Tipo</th><th>Cliente</th><th>Valor</th><th>Funcionária</th><th>Observação</th></tr></thead>
+        <tbody>${linhas.join('')}</tbody>
+      </table>`;
+  document.getElementById('modal-detalhe-saidas').classList.remove('oculto');
 }
 
 // ---------- Dashboard (visão consolidada, admin/gerência) ----------
