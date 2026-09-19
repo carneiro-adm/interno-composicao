@@ -503,6 +503,7 @@
             <option value="Prêmios">Prêmios</option>
             <option value="Raspadinha premiada">Raspadinha premiada</option>
             <option value="Rede">Rede</option>
+            <option value="Bolão">Bolão</option>
             <option value="Troca de caixa">Troca de caixa</option>
             <option value="Troca Telesena">Troca Telesena</option>
             <option value="Outros">Outros</option>
@@ -584,6 +585,10 @@
         <div class="historico-linha-filtro">
           <div class="campo"><label>De</label><input type="date" id="filtro-hist-inicio" onchange="atualizarTudo()"></div>
           <div class="campo"><label>Até</label><input type="date" id="filtro-hist-fim" onchange="atualizarTudo()"></div>
+          <div class="campo">
+            <label>Tipo de atividade</label>
+            <select id="filtro-hist-atividade" onchange="atualizarTudo()"><option value="">Todas</option></select>
+          </div>
         </div>
         <div class="historico-linha-filtro oculto" id="filtro-hist-admin-extra">
           <div class="campo">
@@ -635,77 +640,114 @@
         </div>
         <div id="fechamento-status"></div>
 
-        <div class="totais-grandes">
-          <div class="total-card total1">
-            <div>
-              <div class="nome">TOTAL1 — Composição de caixa (dia anterior)</div>
-              <div class="formula">(c + d + e) do dia anterior, mesmo terminal</div>
-            </div>
-            <div class="num" id="total1-valor">R$ 0,00</div>
-          </div>
-          <div class="total-card total2">
-            <div>
-              <div class="nome">TOTAL2 — Composição de caixa (hoje)</div>
-              <div class="formula">(a-b) + c + d + e</div>
-            </div>
-            <div class="num" id="total2-valor">R$ 0,00</div>
-          </div>
-          <div class="total-card total3 neutro" id="total3-card">
-            <div>
-              <div class="nome">TOTAL3 — Batimento de caixa</div>
-              <div class="formula">(TOTAL2 − TOTAL1) − f</div>
-            </div>
-            <div class="num" id="total3-valor">R$ 0,00</div>
-          </div>
-        </div>
-
         <div class="bloco-letra">
-          <div class="titulo-bloco"><span class="letra-label">a-b</span> Registro de lançamentos hoje</div>
+          <div class="titulo-bloco"><span class="letra-label" id="rotulo-letra-ab">a-b</span> Registro de lançamentos hoje</div>
           <div class="resumo-ab">
-            <div class="resumo-ab-item"><div class="rotulo">Saídas (a)</div><div class="valor" id="resumo-a" style="color:var(--verde-venda);">R$ 0,00</div></div>
+            <div class="resumo-ab-item"><div class="rotulo" id="rotulo-resumo-a">Saídas (a)</div><div class="valor" id="resumo-a" style="color:var(--verde-venda);">R$ 0,00</div></div>
             <div class="resumo-ab-item"><div class="rotulo">Entradas (b)</div><div class="valor" id="resumo-b" style="color:var(--vermelho-estorno);">R$ 0,00</div></div>
             <div class="resumo-ab-item"><div class="rotulo">Saldo (a-b)</div><div class="valor" id="resumo-ab">R$ 0,00</div></div>
           </div>
         </div>
 
-        <div class="bloco-letra">
-          <div class="titulo-bloco"><span class="letra-label">c</span> Troco terminal fechamento</div>
-          <div class="campo" style="margin-bottom:0;">
-            <label>Valor (R$)</label>
-            <input type="number" id="inp-fechamento-c" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
-          </div>
-        </div>
-
-        <div class="bloco-letra">
-          <div class="titulo-bloco"><span class="letra-label">d</span> Composição produtos fechamento</div>
-          <div class="composicao-header">
-            <h4 style="margin:0;">Composição final</h4>
-            <div class="composicao-total">
-              <span class="rotulo">Soma (d)</span>
-              <span class="valor" id="fechamento-total">R$ 0,00</span>
+        <div id="fechamento-bloco-caixa">
+          <div class="totais-grandes">
+            <div class="total-card total1">
+              <div>
+                <div class="nome">TOTAL1 — Composição de caixa (dia anterior)</div>
+                <div class="formula">(c + d + e) do dia anterior, mesmo terminal</div>
+              </div>
+              <div class="num" id="total1-valor">R$ 0,00</div>
+            </div>
+            <div class="total-card total2">
+              <div>
+                <div class="nome">TOTAL2 — Composição de caixa (hoje)</div>
+                <div class="formula">(a-b) + c + d + e</div>
+              </div>
+              <div class="num" id="total2-valor">R$ 0,00</div>
+            </div>
+            <div class="total-card total3 neutro" id="total3-card">
+              <div>
+                <div class="nome">TOTAL3 — Batimento de caixa</div>
+                <div class="formula">(TOTAL2 − TOTAL1) − f</div>
+              </div>
+              <div class="num" id="total3-valor">R$ 0,00</div>
             </div>
           </div>
-          <div class="composicao-tabela">
-            <div class="composicao-linha composicao-cabecalho">
-              <span>Produto</span><span>Quantidade</span><span>Valor</span>
+
+          <div class="bloco-letra">
+            <div class="titulo-bloco"><span class="letra-label">c</span> Troco terminal fechamento</div>
+            <div class="campo" style="margin-bottom:0;">
+              <label>Valor (R$)</label>
+              <input type="number" id="inp-fechamento-c" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
             </div>
-            <div id="composicao-lista"></div>
+          </div>
+
+          <div class="bloco-letra">
+            <div class="titulo-bloco"><span class="letra-label">d</span> Composição produtos fechamento</div>
+            <div class="composicao-header">
+              <h4 style="margin:0;">Composição final</h4>
+              <div class="composicao-total">
+                <span class="rotulo">Soma (d)</span>
+                <span class="valor" id="fechamento-total">R$ 0,00</span>
+              </div>
+            </div>
+            <div class="composicao-tabela">
+              <div class="composicao-linha composicao-cabecalho">
+                <span>Produto</span><span>Quantidade</span><span>Valor</span>
+              </div>
+              <div id="composicao-lista"></div>
+            </div>
+          </div>
+
+          <div class="bloco-letra">
+            <div class="titulo-bloco"><span class="letra-label">e</span> Bolão fechamento</div>
+            <div class="campo" style="margin-bottom:0;">
+              <label>Valor (R$)</label>
+              <input type="number" id="inp-fechamento-e" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+            </div>
+          </div>
+
+          <div class="bloco-letra">
+            <div class="titulo-bloco"><span class="letra-label">f</span> Valor do relatório terminal do dia</div>
+            <div class="campo" style="margin-bottom:0;">
+              <label>Valor (R$)</label>
+              <input type="number" id="inp-fechamento-f" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+            </div>
           </div>
         </div>
 
-        <div class="bloco-letra">
-          <div class="titulo-bloco"><span class="letra-label">e</span> Bolão fechamento</div>
-          <div class="campo" style="margin-bottom:0;">
-            <label>Valor (R$)</label>
-            <input type="number" id="inp-fechamento-e" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+        <div id="fechamento-bloco-bilhetes" class="oculto">
+          <div class="bloco-letra">
+            <div class="titulo-bloco"><span class="letra-label">k</span> Vitrine de Bilhetes</div>
+            <div class="composicao-header">
+              <h4 style="margin:0;">Vitrine de Bilhetes</h4>
+              <div class="composicao-total">
+                <span class="rotulo">Soma (k)</span>
+                <span class="valor" id="bilhetes-vitrine-total">R$ 0,00</span>
+              </div>
+            </div>
+            <div class="composicao-tabela">
+              <div class="composicao-linha composicao-cabecalho">
+                <span>Produto</span><span>Quantidade</span><span>Valor</span>
+              </div>
+              <div id="bilhetes-vitrine-lista"></div>
+            </div>
           </div>
-        </div>
 
-        <div class="bloco-letra">
-          <div class="titulo-bloco"><span class="letra-label">f</span> Valor do relatório terminal do dia</div>
-          <div class="campo" style="margin-bottom:0;">
-            <label>Valor (R$)</label>
-            <input type="number" id="inp-fechamento-f" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+          <div class="bloco-letra">
+            <div class="titulo-bloco"><span class="letra-label">l</span> Gaveta bilhete</div>
+            <div class="campo" style="margin-bottom:0;">
+              <label>Valor (R$)</label>
+              <input type="number" id="inp-bilhetes-gaveta" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotalBilhetes()" onblur="formatarValorDecimal(this); atualizarTotalBilhetes();">
+            </div>
+          </div>
+
+          <div class="total-card total2" style="margin-bottom:16px;">
+            <div>
+              <div class="nome">Total bilhete</div>
+              <div class="formula">j + k + l</div>
+            </div>
+            <div class="num" id="bilhetes-total-final">R$ 0,00</div>
           </div>
         </div>
 
@@ -1061,7 +1103,7 @@
         <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
 
         <h4 style="margin:18px 0 8px;">Saídas</h4>
-        <p class="aviso-fechamento">Saídas hoje — terminais caixa, exceto Fiado. Ordenado por atividade (A-Z).</p>
+        <p class="aviso-fechamento">Saídas hoje — terminais caixa, exceto Fiado, Bolão e Troca de caixas. Ordenado por atividade (A-Z).</p>
         <div class="tabela-historico-dias" id="detalhe-saidas-batimento"><div class="vazio">Calculando...</div></div>
       </div>
 
@@ -1245,12 +1287,12 @@
   <nav class="bottom-nav">
     <button class="nav-btn ativo" data-aba="lancamentos" onclick="trocarAba('lancamentos')"><span class="icone">📝</span><span>Lançamentos</span></button>
     <button class="nav-btn" data-aba="fechamento" onclick="trocarAba('fechamento')"><span class="icone">🧮</span><span>Fechamento</span></button>
+    <button class="nav-btn oculto" id="nav-gerencia" data-aba="gerencia" onclick="trocarAba('gerencia')"><span class="icone">🏢</span><span>Composição</span></button>
     <button class="nav-btn" data-aba="clientes" onclick="trocarAba('clientes')"><span class="icone">👤</span><span>Clientes</span></button>
     <button class="nav-btn oculto" id="nav-gestaofiado" data-aba="gestaofiado" onclick="abrirGestaoFiado()"><span class="icone">💳</span><span>Fiado</span></button>
     <button class="nav-btn" data-aba="historico" onclick="trocarAba('historico')"><span class="icone">📅</span><span>Histórico</span></button>
     <button class="nav-btn" data-aba="geral" onclick="abrirAbaGeral()"><span class="icone">👥</span><span>Geral</span></button>
     <button class="nav-btn oculto" id="nav-dashboard" data-aba="dashboard" onclick="abrirDashboard()"><span class="icone">📊</span><span>Dashboard</span></button>
-    <button class="nav-btn oculto" id="nav-gerencia" data-aba="gerencia" onclick="trocarAba('gerencia')"><span class="icone">🏢</span><span>Gerência</span></button>
     <button class="nav-btn oculto" id="nav-admin" data-aba="admin" onclick="trocarAba('admin')"><span class="icone">⚙️</span><span>Admin</span></button>
   </nav>
 </div>
@@ -1506,6 +1548,16 @@
   <img id="modal-imagem-socio-img" style="max-width:100%;max-height:100%;border-radius:8px;" src="">
 </div>
 
+<div id="modal-detalhe-saidas" class="oculto" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this) fecharDetalheSaidasAtividade()">
+  <div style="background:#fff;border-radius:14px;max-width:720px;width:100%;max-height:85vh;overflow-y:auto;padding:20px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="margin:0;color:var(--azul-escuro);" id="modal-detalhe-saidas-titulo">Detalhamento</h3>
+      <button class="btn-secundario" style="margin:0;width:auto;padding:6px 14px;" onclick="fecharDetalheSaidasAtividade()">Fechar</button>
+    </div>
+    <div id="modal-detalhe-saidas-conteudo"></div>
+  </div>
+</div>
+
 <script>
 let FORM_DIRTY = false;
 function marcarFormularioSujo(){ FORM_DIRTY = true; }
@@ -1599,6 +1651,7 @@ let TERMINAL_DO_DIA = null;
 let EH_ADMIN = false;
 let EH_GERENCIA = false;
 let TIPO_SELECIONADO = 'Saida';
+let DETALHE_SAIDAS_BATIMENTO_POR_ATIVIDADE = {};
 let TODOS_USUARIOS = [];
 let INTERVALO_SYNC = null;
 
@@ -1765,6 +1818,32 @@ function rotuloTerminal(numero){
   if(!t) return numero;
   return t.tipo === 'Caixa' ? t.numero : (t.numero + ' - ' + t.tipo);
 }
+function tipoDoTerminal(numero){
+  const t = TERMINAIS_CADASTRADOS.find(x => x.numero === numero);
+  return t ? t.tipo : null;
+}
+function tipoDoTerminalAtual(){
+  return tipoDoTerminal(TERMINAL_DO_DIA);
+}
+
+// Atividades de Saída disponíveis dependem do tipo do terminal do dia.
+const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes'];
+const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Troca de caixa','Troca Telesena','Outros'];
+// Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
+// soma "Saídas hoje" usada no débito do Batimento Gerencial.
+const ATIVIDADES_FORA_DEBITO_GERENCIAL = ['Bolão','Troca de caixa','Devolução bilhetes'];
+// Atividades que disparam o fluxo de lançamento duplo (Terminal para).
+const ATIVIDADES_TRANSFERENCIA_TERMINAL = ['Troca de caixa','Envio dinheiro'];
+
+function montarOpcoesAtividadeSaida(){
+  const sel = document.getElementById('sel-atividade');
+  if(!sel) return;
+  const lista = tipoDoTerminalAtual() === 'Bilhetes' ? ATIVIDADES_SAIDA_BILHETES : ATIVIDADES_SAIDA_PADRAO;
+  const valorAtual = sel.value;
+  sel.innerHTML = lista.map(a => `<option value="${a}">${a}</option>`).join('');
+  if(sel.querySelector('option[value="'+valorAtual+'"]')) sel.value = valorAtual;
+}
+
 function opcoesTerminaisHTML(opts){
   opts = opts || {};
   let lista = TERMINAIS_CADASTRADOS.slice();
@@ -2157,8 +2236,10 @@ async function entrarNoApp(achado){
   await recarregarTerminaisCache();
   document.getElementById('pill-terminal-dia').textContent = 'Terminal: ' + rotuloTerminal(TERMINAL_DO_DIA);
   trocarAba('lancamentos');
+  montarOpcoesAtividadeSaida();
   atualizarCampoClienteFiado();
   montarComposicaoLista();
+  montarVitrineBilhetesLista();
   document.getElementById('exibicao-terminal-lancamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
   document.getElementById('exibicao-terminal-fechamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
   document.getElementById('inp-data-lancamento').value = hoje;
@@ -2275,7 +2356,7 @@ async function registrarLancamento(){
   }
 
   // ---- Troca de caixa: gera 2 lançamentos (SAÍDA(+) na origem, ENTRADA(-) no destino) ----
-  if(atividade === 'Troca de caixa'){
+  if(ATIVIDADES_TRANSFERENCIA_TERMINAL.includes(atividade)){
     const terminalDe = TERMINAL_DO_DIA;
     const terminalPara = document.getElementById('sel-terminal-para').value;
 
@@ -2521,7 +2602,7 @@ function atualizarCampoClienteFiado(){
   campo.classList.toggle('oculto', atividade !== 'Fiado');
   campoContaLoja.classList.toggle('oculto', atividade !== 'Conta Loja');
 
-  if(atividade === 'Troca de caixa'){
+  if(ATIVIDADES_TRANSFERENCIA_TERMINAL.includes(atividade)){
     campoTerminalNormal.classList.add('oculto');
     campoTrocaTerminais.classList.remove('oculto');
   }else{
@@ -3092,6 +3173,64 @@ const PRODUTOS_FECHAMENTO = [
   {id:'raspadinha1000', nome:'Raspadinha 10,00', valor:10.00},
   {id:'raspadinha2000', nome:'Raspadinha 20,00', valor:20.00}
 ];
+const PRODUTOS_VITRINE_BILHETES = PRODUTOS_FECHAMENTO.filter(p => ['bilhete','bilhete_quarta','bilhete_sabado'].includes(p.id));
+
+function montarVitrineBilhetesLista(){
+  const cont = document.getElementById('bilhetes-vitrine-lista');
+  if(!cont) return;
+  cont.innerHTML = PRODUTOS_VITRINE_BILHETES.map(p => `
+    <div class="composicao-linha">
+      <span class="composicao-nome">${p.nome}</span>
+      <input type="number" min="0" step="1" class="composicao-qtd" id="vit-qtd-${p.id}" value="0" oninput="onVitrineBilhetesInput()">
+      <span class="composicao-subtotal" id="vit-subtotal-${p.id}">R$ 0,00</span>
+    </div>`).join('');
+}
+
+function calcularVitrineBilhetes(){
+  let total = 0;
+  PRODUTOS_VITRINE_BILHETES.forEach(p => {
+    const qtdEl = document.getElementById('vit-qtd-'+p.id);
+    const qtd = qtdEl ? (parseFloat(qtdEl.value) || 0) : 0;
+    const subtotal = qtd * p.valor;
+    const subEl = document.getElementById('vit-subtotal-'+p.id);
+    if(subEl) subEl.textContent = formatarMoeda(subtotal);
+    total += subtotal;
+  });
+  const totalEl = document.getElementById('bilhetes-vitrine-total');
+  if(totalEl) totalEl.textContent = formatarMoeda(total);
+  return total;
+}
+
+function onVitrineBilhetesInput(){
+  calcularVitrineBilhetes();
+  atualizarTotalBilhetes();
+  marcarFormularioSujo();
+}
+
+async function atualizarTotalBilhetes(){
+  const ctx = obterContextoFechamento();
+  if(!ctx.terminal) return 0;
+  const dataRef = ctx.data;
+  const registros = await carregarRegistros();
+  const doTerminalDia = registros.filter(r => r.caixa===ctx.terminal && r.data===dataRef && !r.excluido);
+  // (j) Saídas hoje: TODAS as saídas do terminal, incluindo Devolução bilhetes — ela só fica
+  // de fora quando a Gerência soma "Saídas hoje" no Batimento Gerencial, não aqui.
+  const j = doTerminalDia.filter(r=>r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
+  const b = doTerminalDia.filter(r=>r.tipo==='Troco').reduce((s,r)=>s+r.valor,0);
+  const k = calcularVitrineBilhetes();
+  const l = parseFloat(document.getElementById('inp-bilhetes-gaveta').value) || 0;
+  const totalBilhete = j + k + l;
+
+  const elA = document.getElementById('resumo-a');
+  const elB = document.getElementById('resumo-b');
+  const elAB = document.getElementById('resumo-ab');
+  if(elA) elA.textContent = formatarMoeda(j);
+  if(elB) elB.textContent = formatarMoeda(b);
+  if(elAB) elAB.textContent = formatarMoeda(j-b);
+  const elTotal = document.getElementById('bilhetes-total-final');
+  if(elTotal) elTotal.textContent = formatarMoeda(totalBilhete);
+  return totalBilhete;
+}
 
 function montarComposicaoLista(){
   const cont = document.getElementById('composicao-lista');
@@ -3149,6 +3288,36 @@ async function carregarFechamentoExistente(){
 
   const elExibicao = document.getElementById('exibicao-terminal-fechamento');
   if(elExibicao) elExibicao.textContent = ctx.terminal;
+
+  const ehBilhetes = tipoDoTerminal(ctx.terminal) === 'Bilhetes';
+  document.getElementById('fechamento-bloco-caixa').classList.toggle('oculto', ehBilhetes);
+  document.getElementById('fechamento-bloco-bilhetes').classList.toggle('oculto', !ehBilhetes);
+  const rotuloA = document.getElementById('rotulo-resumo-a');
+  const rotuloAB = document.getElementById('rotulo-letra-ab');
+  if(rotuloA) rotuloA.textContent = ehBilhetes ? 'Saídas (j)' : 'Saídas (a)';
+  if(rotuloAB) rotuloAB.textContent = ehBilhetes ? 'j-b' : 'a-b';
+
+  if(ehBilhetes){
+    if(existente){
+      PRODUTOS_VITRINE_BILHETES.forEach(p => {
+        const item = (existente.produtosVitrine || existente.produtos || []).find(x => x.id===p.id);
+        document.getElementById('vit-qtd-'+p.id).value = item ? item.qtd : 0;
+      });
+      document.getElementById('inp-bilhetes-gaveta').value = existente.l || 0;
+      calcularVitrineBilhetes();
+      const dataLabel = ctx.data.split('-').reverse().join('/');
+      status.innerHTML = `<div class="msg-ok">Fechamento já registrado em ${dataLabel} às ${existente.hora} para o terminal ${ctx.terminal} (${escaparHtml(ctx.nome)}). Registrar novamente atualiza os valores.</div>`;
+      btn.textContent = 'Atualizar Fechamento Bilhetes';
+    }else{
+      PRODUTOS_VITRINE_BILHETES.forEach(p => { document.getElementById('vit-qtd-'+p.id).value = 0; });
+      document.getElementById('inp-bilhetes-gaveta').value = 0;
+      calcularVitrineBilhetes();
+      status.innerHTML = '';
+      btn.textContent = 'Registrar Fechamento Bilhetes';
+    }
+    await atualizarTotalBilhetes();
+    return;
+  }
 
   if(existente){
     PRODUTOS_FECHAMENTO.forEach(p => {
@@ -3213,6 +3382,63 @@ async function atualizarTotaisFechamento(){
 
 async function registrarFechamento(){
   const ctx = obterContextoFechamento();
+  const ehBilhetes = tipoDoTerminal(ctx.terminal) === 'Bilhetes';
+  const fechamentos = await carregarFechamentos();
+  const idx = fechamentos.findIndex(f2 => f2.data===ctx.data && f2.usuario===ctx.usuario && f2.terminal===ctx.terminal);
+  const msg = document.getElementById('fechamento-msg');
+
+  if(ehBilhetes){
+    const produtosVitrine = PRODUTOS_VITRINE_BILHETES.map(p => {
+      const qtd = parseFloat(document.getElementById('vit-qtd-'+p.id).value) || 0;
+      return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:qtd, subtotal: qtd*p.valor};
+    });
+    const k = produtosVitrine.reduce((s,p) => s+p.subtotal, 0);
+    const l = parseFloat(document.getElementById('inp-bilhetes-gaveta').value) || 0;
+    const j = await (async () => {
+      const registros = await carregarRegistros();
+      return registros.filter(r => r.caixa===ctx.terminal && r.data===ctx.data && !r.excluido && r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
+    })();
+    const totalBilhete = j + k + l;
+
+    const registro = {
+      id: idx>=0 ? fechamentos[idx].id : (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
+      usuario: ctx.usuario,
+      nome: ctx.nome,
+      registradoPor: USUARIO_LOGADO.usuario,
+      registradoPorNome: USUARIO_LOGADO.nome,
+      data: ctx.data,
+      terminal: ctx.terminal,
+      hora: horaAgora(),
+      produtosVitrine: produtosVitrine,
+      j: j, k: k, l: l,
+      total: totalBilhete,
+      timestamp: Date.now()
+    };
+    if(idx>=0) fechamentos[idx] = registro; else fechamentos.push(registro);
+    await salvarFechamentos(fechamentos);
+    enviarParaWebhook({
+      origem: 'fechamento_bilhetes',
+      idFechamento: registro.id,
+      idFuncionaria: registro.usuario,
+      funcionaria: registro.nome,
+      registradoPor: registro.registradoPorNome,
+      idTerminal: registro.terminal,
+      data: registro.data,
+      hora: registro.hora,
+      j_saidasHoje: registro.j,
+      k_vitrineBilhetes: registro.k,
+      l_gavetaBilhete: registro.l,
+      totalBilhete: registro.total,
+      produtosVitrine: registro.produtosVitrine
+    });
+
+    msg.innerHTML = '<div class="msg-ok">Fechamento de bilhetes registrado com sucesso.</div>';
+    limparFormularioSujo();
+    setTimeout(()=>{msg.innerHTML='';}, 2500);
+    await carregarFechamentoExistente();
+    return;
+  }
+
   const produtos = PRODUTOS_FECHAMENTO.map(p => {
     const qtd = parseFloat(document.getElementById('qtd-'+p.id).value) || 0;
     return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:qtd, subtotal: qtd*p.valor};
@@ -3221,9 +3447,6 @@ async function registrarFechamento(){
   const c = parseFloat(document.getElementById('inp-fechamento-c').value) || 0;
   const e = parseFloat(document.getElementById('inp-fechamento-e').value) || 0;
   const f = parseFloat(document.getElementById('inp-fechamento-f').value) || 0;
-
-  const fechamentos = await carregarFechamentos();
-  const idx = fechamentos.findIndex(f2 => f2.data===ctx.data && f2.usuario===ctx.usuario && f2.terminal===ctx.terminal);
 
   const registro = {
     id: idx>=0 ? fechamentos[idx].id : (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
@@ -3260,7 +3483,6 @@ async function registrarFechamento(){
     produtos: registro.produtos
   });
 
-  const msg = document.getElementById('fechamento-msg');
   msg.innerHTML = '<div class="msg-ok">Fechamento de caixa registrado com sucesso.</div>';
   limparFormularioSujo();
   setTimeout(()=>{msg.innerHTML='';}, 2500);
@@ -3730,6 +3952,38 @@ async function calcularTrocaTelesenaGerencial(){
   return total;
 }
 
+function mostrarDetalheSaidasAtividade(atividade){
+  const itens = DETALHE_SAIDAS_BATIMENTO_POR_ATIVIDADE[atividade] || [];
+  document.getElementById('modal-detalhe-saidas-titulo').textContent = 'Detalhamento — ' + atividade;
+  const total = itens.reduce((s,r) => s+r.valor, 0);
+  const cont = document.getElementById('modal-detalhe-saidas-conteudo');
+  if(itens.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhum lançamento encontrado.</div>';
+  }else{
+    cont.innerHTML = `<table>
+      <thead><tr><th>Data</th><th>Terminal</th><th>Funcionária</th><th>Valor</th><th>Detalhes</th></tr></thead>
+      <tbody>
+        ${itens.slice().sort((a,b)=>b.timestamp-a.timestamp).map(r => `<tr>
+          <td>${r.data.split('-').reverse().join('/')} ${r.hora||''}</td>
+          <td>${escaparHtml(rotuloTerminal(r.caixa))}</td>
+          <td>${escaparHtml(r.nome||'—')}</td>
+          <td style="font-weight:700;">${formatarMoeda(r.valor)}</td>
+          <td>${escaparHtml(r.obs||'—')}</td>
+        </tr>`).join('')}
+        <tr>
+          <td colspan="3" style="font-weight:800;">Total</td>
+          <td style="font-weight:800;">${formatarMoeda(total)}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+  document.getElementById('modal-detalhe-saidas').classList.remove('oculto');
+}
+function fecharDetalheSaidasAtividade(){
+  document.getElementById('modal-detalhe-saidas').classList.add('oculto');
+}
+
 async function calcularBatimentoGerencial(){
   const elDebito = document.getElementById('debito-gerencial-valor');
   if(!elDebito) return;
@@ -3763,8 +4017,9 @@ async function calcularBatimentoGerencial(){
   const total2Gerencial = totalEstoque + vitrineRaspadinha + trocoCofreTotal + caixaGerencial
                          + trocaTelesenaGerencial + boloesEspeciais + gaveta + fiadoTotal;
 
+  const ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
   const registrosHoje = (await carregarRegistros()).filter(r =>
-    r.data===hoje && r.tipo==='Saida' && !r.excluido && r.atividade !== 'Fiado' && numerosTerminaisCaixa().includes(r.caixa));
+    r.data===hoje && r.tipo==='Saida' && !r.excluido && !ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL.includes(r.atividade) && numerosTerminaisCaixa().includes(r.caixa));
   const totalSaidas = registrosHoje.reduce((s,r) => s+r.valor, 0);
 
   const creditoGerencial = total2Gerencial + totalSaidas;
@@ -3792,7 +4047,7 @@ async function calcularBatimentoGerencial(){
       <tr><td>Entrada Produtos</td><td>${formatarMoeda(entradaProdutos)}</td></tr>
       <tr><td style="font-weight:800;">Débito Gerencial</td><td style="font-weight:800;">${formatarMoeda(debitoGerencial)}</td></tr>
       <tr><td>TOTAL2 — Composição de caixa (hoje) gerencial</td><td>${formatarMoeda(total2Gerencial)}</td></tr>
-      <tr><td>Saídas hoje — terminais caixa (${rotuloTerminaisCaixa}), exceto Fiado</td><td>${formatarMoeda(totalSaidas)}</td></tr>
+      <tr><td>Saídas hoje — terminais caixa (${rotuloTerminaisCaixa}), exceto Fiado, Bolão e Troca de caixas</td><td>${formatarMoeda(totalSaidas)}</td></tr>
       <tr><td style="font-weight:800;">Crédito Gerencial</td><td style="font-weight:800;">${formatarMoeda(creditoGerencial)}</td></tr>
     </tbody>
   </table>`;
@@ -3801,12 +4056,17 @@ async function calcularBatimentoGerencial(){
   const porAtividadeSaidas = {};
   registrosHoje.forEach(r => {
     const chave = r.atividade || '(sem atividade)';
-    if(!porAtividadeSaidas[chave]) porAtividadeSaidas[chave] = {atividade:chave, total:0, qtd:0};
+    if(!porAtividadeSaidas[chave]) porAtividadeSaidas[chave] = {atividade:chave, total:0, qtd:0, itens:[]};
     porAtividadeSaidas[chave].total += r.valor;
     porAtividadeSaidas[chave].qtd++;
+    porAtividadeSaidas[chave].itens.push(r);
   });
   const linhasSaidas = Object.values(porAtividadeSaidas)
     .sort((a,b) => a.atividade.localeCompare(b.atividade, 'pt-BR'));
+
+  // Guarda os detalhes para o detalhamento clicável (por atividade).
+  DETALHE_SAIDAS_BATIMENTO_POR_ATIVIDADE = {};
+  linhasSaidas.forEach(l => { DETALHE_SAIDAS_BATIMENTO_POR_ATIVIDADE[l.atividade] = l.itens; });
 
   const contSaidas = document.getElementById('detalhe-saidas-batimento');
   if(contSaidas){
@@ -3819,7 +4079,7 @@ async function calcularBatimentoGerencial(){
           ${linhasSaidas.map(l => `<tr>
             <td>${escaparHtml(l.atividade)}</td>
             <td style="font-weight:700;">${formatarMoeda(l.total)}</td>
-            <td>${l.qtd}</td>
+            <td><a href="javascript:void(0)" style="color:var(--azul-caixa);font-weight:700;text-decoration:underline;" onclick="mostrarDetalheSaidasAtividade('${l.atividade.replace(/'/g,"\\'")}')">${l.qtd}</a></td>
           </tr>`).join('')}
           <tr>
             <td style="font-weight:800;">Total</td>
@@ -4169,13 +4429,27 @@ async function atualizarTudo(){
 
   const mapaTerminalPeriodo = EH_ADMIN ? null : await obterMapaTerminalPorDataNoPeriodo(USUARIO_LOGADO.usuario, periodoInicio, periodoFim);
 
+  // Popula o filtro de atividade dinamicamente com o que existir nos lançamentos
+  // (inclui variações como "Conta Loja - Água", então não é uma lista fixa no código).
+  const selAtividadeHist = document.getElementById('filtro-hist-atividade');
+  if(selAtividadeHist){
+    const atividadesExistentes = Array.from(new Set(registros.map(r => r.atividade).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const valorAtualFiltroAtividade = selAtividadeHist.value;
+    const opcoesAtividade = '<option value="">Todas</option>' + atividadesExistentes.map(a => `<option value="${escaparHtml(a)}">${escaparHtml(a)}</option>`).join('');
+    if(selAtividadeHist.innerHTML !== opcoesAtividade) selAtividadeHist.innerHTML = opcoesAtividade;
+    if(Array.from(selAtividadeHist.options).some(o => o.value === valorAtualFiltroAtividade)) selAtividadeHist.value = valorAtualFiltroAtividade;
+  }
+  const filtroAtividadeHist = selAtividadeHist ? selAtividadeHist.value : '';
+
   const meusPeriodo = (EH_ADMIN ? (() => {
     const filtroUsuario = document.getElementById('filtro-hist-usuario')?.value || '';
     const filtroTerminal = document.getElementById('filtro-hist-terminal')?.value || '';
     return registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
       && (!filtroUsuario || r.usuario === filtroUsuario)
-      && (!filtroTerminal || r.caixa === filtroTerminal));
-  })() : registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim && r.caixa === mapaTerminalPeriodo[r.data])
+      && (!filtroTerminal || r.caixa === filtroTerminal)
+      && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist));
+  })() : registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim && r.caixa === mapaTerminalPeriodo[r.data]
+      && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist))
   ).sort((a,b) => b.timestamp - a.timestamp);
 
   const lista = document.getElementById('lista-historico');
