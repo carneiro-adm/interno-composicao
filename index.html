@@ -1784,26 +1784,6 @@ async function obterFuncionarioDoTerminal(terminal, data){
   candidatos.sort((a,b) => b.timestamp - a.timestamp);
   return candidatos[0];
 }
-// Reverso: qual terminal esse usuário estava usando numa data específica.
-// Importante para não misturar lançamentos de dois terminais diferentes usados
-// pela mesma pessoa em dias diferentes (ou por engano no mesmo dia).
-async function obterTerminalDoUsuarioNaData(usuario, data){
-  const atribuicoes = await carregarTerminalDia();
-  const candidatos = atribuicoes.filter(a => a.usuario === usuario && a.data === data);
-  if(candidatos.length === 0) return null;
-  candidatos.sort((a,b) => b.timestamp - a.timestamp);
-  return candidatos[0].terminal;
-}
-// Para um período (data início/fim): mapa { 'AAAA-MM-DD': terminal } com o terminal
-// que o usuário estava usando em cada dia daquele intervalo.
-async function obterMapaTerminalPorDataNoPeriodo(usuario, dataInicio, dataFim){
-  const atribuicoes = (await carregarTerminalDia())
-    .filter(a => a.usuario === usuario && a.data >= dataInicio && a.data <= dataFim)
-    .sort((a,b) => a.timestamp - b.timestamp);
-  const mapa = {};
-  atribuicoes.forEach(a => { mapa[a.data] = a.terminal; }); // a última atribuição do dia vence
-  return mapa;
-}
 
 // ---------- Gestão de Terminais (dinâmica, sem números fixos no código) ----------
 let TERMINAIS_CADASTRADOS = [];
@@ -4504,9 +4484,10 @@ async function atualizarTudo(){
   if(inpSubtotalData && !inpSubtotalData.value) inpSubtotalData.value = hoje;
   const dataSubtotal = (inpSubtotalData && inpSubtotalData.value) ? inpSubtotalData.value : hoje;
 
-  const terminalNaDataSubtotal = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, dataSubtotal);
-  const meus = registros.filter(r => r.data === dataSubtotal &&
-      (terminalNaDataSubtotal ? r.caixa === terminalNaDataSubtotal : (r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA)))
+  // Regra simples e determinística: mostra só o que aconteceu no terminal ATUAL
+  // desta sessão — nunca depende de atribuições históricas (que se mostraram frágeis)
+  // e nunca mistura dois terminais diferentes.
+  const meus = registros.filter(r => r.data === dataSubtotal && r.caixa === TERMINAL_DO_DIA)
                          .sort((a,b) => b.timestamp - a.timestamp);
 
   const totalVendas = meus.filter(r=>r.tipo==='Saida' && !r.excluido).reduce((s,r)=>s+r.valor,0);
@@ -4529,7 +4510,6 @@ async function atualizarTudo(){
   const periodoFim = inpFim && inpFim.value ? inpFim.value : hoje;
 
   const verTudoHistorico = EH_ADMIN || EH_GERENCIA;
-  const mapaTerminalPeriodo = verTudoHistorico ? null : await obterMapaTerminalPorDataNoPeriodo(USUARIO_LOGADO.usuario, periodoInicio, periodoFim);
 
   // Popula o filtro de atividade dinamicamente com o que existir nos lançamentos
   // (inclui variações como "Conta Loja - Água", então não é uma lista fixa no código).
@@ -4551,11 +4531,11 @@ async function atualizarTudo(){
       && (!filtroTerminal || r.caixa === filtroTerminal)
       && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist));
   })() : registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
-      // Se não há atribuição de terminal salva para o dia do lançamento (dados antigos,
-      // anteriores a esse controle existir), cai de volta para o terminal ATUAL da
-      // funcionária (nunca só o nome dela — isso poderia misturar dois terminais
-      // diferentes que ela usou, como Caixa e Bilhetes).
-      && (mapaTerminalPeriodo[r.data] ? r.caixa === mapaTerminalPeriodo[r.data] : (r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA))
+      // Regra simples e determinística: só mostra o que aconteceu no terminal ATUAL
+      // desta sessão — nunca mistura terminais diferentes, mesmo que a mesma pessoa
+      // tenha usado mais de um. Para ver o histórico de outro terminal, é preciso
+      // estar logado nele.
+      && r.caixa === TERMINAL_DO_DIA
       && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist))
   ).sort((a,b) => b.timestamp - a.timestamp);
 
@@ -4630,14 +4610,8 @@ async function atualizarPainelGeral(){
   let fechamentosDoDia = todosFechamentos.filter(f => f.data === dataSelecionada);
 
   if(!EH_ADMIN && !EH_GERENCIA){
-    const terminalNaData = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, dataSelecionada);
-    if(terminalNaData){
-      doDia = doDia.filter(r => r.caixa === terminalNaData);
-      fechamentosDoDia = fechamentosDoDia.filter(f => f.terminal === terminalNaData);
-    }else{
-      doDia = doDia.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA);
-      fechamentosDoDia = fechamentosDoDia.filter(f => f.usuario === USUARIO_LOGADO.usuario && f.terminal === TERMINAL_DO_DIA);
-    }
+    doDia = doDia.filter(r => r.caixa === TERMINAL_DO_DIA);
+    fechamentosDoDia = fechamentosDoDia.filter(f => f.terminal === TERMINAL_DO_DIA);
   }
 
   const porFuncionario = {};
@@ -4710,14 +4684,8 @@ async function consultarHistoricoDias(){
   let fechamentos = (await carregarFechamentos()).filter(f => f.data === data);
 
   if(!EH_ADMIN && !EH_GERENCIA){
-    const terminalNaData = await obterTerminalDoUsuarioNaData(USUARIO_LOGADO.usuario, data);
-    if(terminalNaData){
-      registros = registros.filter(r => r.caixa === terminalNaData);
-      fechamentos = fechamentos.filter(f => f.terminal === terminalNaData);
-    }else{
-      registros = registros.filter(r => r.usuario === USUARIO_LOGADO.usuario && r.caixa === TERMINAL_DO_DIA);
-      fechamentos = fechamentos.filter(f => f.usuario === USUARIO_LOGADO.usuario && f.terminal === TERMINAL_DO_DIA);
-    }
+    registros = registros.filter(r => r.caixa === TERMINAL_DO_DIA);
+    fechamentos = fechamentos.filter(f => f.terminal === TERMINAL_DO_DIA);
   }
 
   if(registros.length === 0 && fechamentos.length === 0){
