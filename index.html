@@ -2226,85 +2226,85 @@ async function entrarNoApp(achado){
   document.getElementById('tela-app').classList.remove('oculto');
   document.getElementById('nome-usuario-topo').textContent = achado.nome + (achado.gerencia ? ' (Gerencial)' : '');
   document.getElementById('data-hoje-topo').textContent = formatarDataExtenso();
+
+  // Visibilidade dos ícones do menu: feita logo no início, antes de qualquer chamada
+  // que possa falhar mais abaixo — assim, mesmo que algo dê erro depois, os menus
+  // corretos para o perfil já ficaram visíveis (evita o bug de "menu sumido").
+  document.getElementById('nav-gerencia').classList.toggle('oculto', !EH_GERENCIA);
+  document.getElementById('nav-admin').classList.toggle('oculto', !souAdmin);
+  document.getElementById('nav-gestaofiado').classList.toggle('oculto', !souAdmin);
+  document.getElementById('nav-dashboard').classList.toggle('oculto', !souAdmin);
+  document.getElementById('filtro-hist-admin-extra').classList.toggle('oculto', !(souAdmin || EH_GERENCIA));
+  document.getElementById('painel-fechamentos-admin').classList.toggle('oculto', !souAdmin);
+
   await recarregarTerminaisCache();
   document.getElementById('pill-terminal-dia').textContent = 'Terminal: ' + rotuloTerminal(TERMINAL_DO_DIA);
   trocarAba('lancamentos');
-  montarOpcoesAtividadeSaida();
-  atualizarCampoClienteFiado();
-  montarComposicaoLista();
-  montarVitrineBilhetesLista();
-  document.getElementById('exibicao-terminal-lancamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
-  document.getElementById('exibicao-terminal-fechamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
-  document.getElementById('inp-data-lancamento').value = hoje;
-  document.getElementById('filtro-data-subtotal').value = hoje;
-  document.getElementById('inp-data-pagamento-fiado').value = hoje;
-  await atualizarTodosSelectsTerminais();
 
-  if(EH_GERENCIA){
-    document.getElementById('fechamento-filtro-gerencia').classList.remove('oculto');
-    document.getElementById('campo-terminal-fechamento-fixo').classList.add('oculto');
-    document.getElementById('campo-data-fechamento-normal').classList.add('oculto');
-    document.getElementById('fech-ger-terminal').value = TERMINAL_DO_DIA;
-    document.getElementById('fech-ger-usuario').innerHTML = '<option value="">'+escaparHtml(achado.nome)+' (eu)</option>' +
-      TODOS_USUARIOS.filter(u => u.usuario !== achado.usuario).map(u => `<option value="${u.usuario}">${escaparHtml(u.nome)}</option>`).join('');
-    document.getElementById('fech-ger-data').value = hoje;
-    document.getElementById('inp-data-gerencia').value = hoje;
-    document.getElementById('inp-data-batimento').value = hoje;
-  }else{
-    document.getElementById('fechamento-filtro-gerencia').classList.add('oculto');
-    document.getElementById('campo-terminal-fechamento-fixo').classList.remove('oculto');
-    document.getElementById('campo-data-fechamento-normal').classList.remove('oculto');
-    document.getElementById('fech-data-normal').value = hoje;
-  }
+  try{
+    montarOpcoesAtividadeSaida();
+    atualizarCampoClienteFiado();
+    montarComposicaoLista();
+    montarVitrineBilhetesLista();
+    document.getElementById('exibicao-terminal-lancamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
+    document.getElementById('exibicao-terminal-fechamento').textContent = rotuloTerminal(TERMINAL_DO_DIA);
+    document.getElementById('inp-data-lancamento').value = hoje;
+    document.getElementById('filtro-data-subtotal').value = hoje;
+    document.getElementById('inp-data-pagamento-fiado').value = hoje;
+    await atualizarTodosSelectsTerminais();
 
-  await carregarFechamentoExistente();
-  await carregarConfigIntegracao();
-  await popularSelectClientes();
+    if(EH_GERENCIA){
+      document.getElementById('fechamento-filtro-gerencia').classList.remove('oculto');
+      document.getElementById('campo-terminal-fechamento-fixo').classList.add('oculto');
+      document.getElementById('campo-data-fechamento-normal').classList.add('oculto');
+      document.getElementById('fech-ger-terminal').value = TERMINAL_DO_DIA;
+      document.getElementById('fech-ger-usuario').innerHTML = '<option value="">'+escaparHtml(achado.nome)+' (eu)</option>' +
+        TODOS_USUARIOS.filter(u => u.usuario !== achado.usuario).map(u => `<option value="${u.usuario}">${escaparHtml(u.nome)}</option>`).join('');
+      document.getElementById('fech-ger-data').value = hoje;
+      document.getElementById('inp-data-gerencia').value = hoje;
+      document.getElementById('inp-data-batimento').value = hoje;
+      montarEstoqueGerenciaLista();
+      montarTrocoCofreLista();
+      montarEnvioTrocoLista();
+      montarEnvioProdutosLista();
+    }else{
+      document.getElementById('fechamento-filtro-gerencia').classList.add('oculto');
+      document.getElementById('campo-terminal-fechamento-fixo').classList.remove('oculto');
+      document.getElementById('campo-data-fechamento-normal').classList.remove('oculto');
+      document.getElementById('fech-data-normal').value = hoje;
+    }
 
-  const opcoesUsuarios = '<option value="">Todas</option>' + TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
+    await carregarFechamentoExistente();
+    await carregarConfigIntegracao();
+    await popularSelectClientes();
 
-  if(souAdmin){
-    document.getElementById('nav-admin').classList.remove('oculto');
-    document.getElementById('nav-gestaofiado').classList.remove('oculto');
-    document.getElementById('nav-dashboard').classList.remove('oculto');
-    await renderizarListaTerminais();
-    verificarLembreteBackup();
-    document.getElementById('admin-data-inicio').value = hoje;
-    document.getElementById('admin-data-fim').value = hoje;
-    document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
-      TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
-    await consultarPainelAdmin();
+    const opcoesUsuarios = '<option value="">Todas</option>' + TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
 
-    document.getElementById('painel-fechamentos-admin').classList.remove('oculto');
-    document.getElementById('fech-admin-usuario').innerHTML = opcoesUsuarios;
-    document.getElementById('fech-admin-inicio').value = hoje;
-    document.getElementById('fech-admin-fim').value = hoje;
-    await consultarFechamentosAdmin();
-  }else{
-    document.getElementById('nav-admin').classList.add('oculto');
-    document.getElementById('nav-gestaofiado').classList.add('oculto');
-    document.getElementById('nav-dashboard').classList.add('oculto');
-    document.getElementById('painel-fechamentos-admin').classList.add('oculto');
-  }
+    if(souAdmin){
+      await renderizarListaTerminais();
+      verificarLembreteBackup();
+      document.getElementById('admin-data-inicio').value = hoje;
+      document.getElementById('admin-data-fim').value = hoje;
+      document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
+        TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
+      await consultarPainelAdmin();
 
-  // Histórico de transações: Admin e Gerência veem todos os terminais/funcionárias
-  // (com filtro por Funcionária/Terminal); demais perfis veem só o próprio terminal.
-  if(souAdmin || EH_GERENCIA){
-    document.getElementById('filtro-hist-admin-extra').classList.remove('oculto');
-    document.getElementById('filtro-hist-usuario').innerHTML = opcoesUsuarios;
-  }else{
-    document.getElementById('filtro-hist-admin-extra').classList.add('oculto');
-  }
+      document.getElementById('fech-admin-usuario').innerHTML = opcoesUsuarios;
+      document.getElementById('fech-admin-inicio').value = hoje;
+      document.getElementById('fech-admin-fim').value = hoje;
+      await consultarFechamentosAdmin();
+    }
+    if(souAdmin || EH_GERENCIA){
+      document.getElementById('filtro-hist-usuario').innerHTML = opcoesUsuarios;
+    }
 
-  if(EH_GERENCIA){
-    document.getElementById('nav-gerencia').classList.remove('oculto');
-    montarEstoqueGerenciaLista();
-    montarTrocoCofreLista();
-    montarEnvioTrocoLista();
-    montarEnvioProdutosLista();
-    await carregarComposicaoGerenciaExistente();
-  }else{
-    document.getElementById('nav-gerencia').classList.add('oculto');
+    if(EH_GERENCIA){
+      await carregarComposicaoGerenciaExistente();
+    }
+  }catch(e){
+    // Mesmo se algo aqui falhar, os menus (já definidos acima) continuam corretos,
+    // e o app ainda inicia a sincronização normalmente — evita a tela travar.
+    console.error('Falha ao carregar parte da inicialização (menus continuam corretos):', e);
   }
 
   await atualizarTudo();
