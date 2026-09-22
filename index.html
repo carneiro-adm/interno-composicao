@@ -1742,14 +1742,35 @@ async function carregarComCache(chave, storageKey, shared){
       const r = await window.storage.get(storageKey, shared);
       const dados = r ? JSON.parse(r.value) : [];
       CACHE_DADOS[chave] = {dados, ts: Date.now()};
+      esconderAvisoConexao();
       return dados;
     }catch(e){
       CACHE_DADOS[chave] = null;
+      console.error('Falha ao carregar "'+storageKey+'" do banco (Supabase):', e);
+      mostrarAvisoConexao(e);
       return [];
     }
   })();
   CACHE_DADOS[chave] = {dados: atual ? atual.dados : [], ts: atual ? atual.ts : 0, pendente: promessa};
   return promessa;
+}
+
+// Avisa visualmente (em vez de falhar silenciosamente) quando o app não consegue
+// ler os dados do Supabase — para não parecer que "os dados sumiram" quando na
+// verdade é uma falha de conexão temporária (internet, Supabase fora do ar, etc).
+function mostrarAvisoConexao(erro){
+  let el = document.getElementById('aviso-conexao-falha');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'aviso-conexao-falha';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#D93025;color:#fff;padding:10px 14px;font-size:13px;font-weight:700;text-align:center;';
+    document.body.prepend(el);
+  }
+  el.textContent = '⚠ Não foi possível carregar os dados do servidor. Seus dados NÃO foram apagados — verifique sua internet e recarregue a página. (' + (erro && erro.message ? erro.message : 'erro de conexão') + ')';
+}
+function esconderAvisoConexao(){
+  const el = document.getElementById('aviso-conexao-falha');
+  if(el) el.remove();
 }
 
 function invalidarCache(chave){
@@ -6482,8 +6503,13 @@ function fecharImagemSocio(){
 async function carregarVendasSocio(){
   try{
     const r = await window.storage.get('socio_vendas_loterica', true);
+    esconderAvisoConexao();
     return r ? JSON.parse(r.value) : [];
-  }catch(e){ return []; }
+  }catch(e){
+    console.error('Falha ao carregar "socio_vendas_loterica" do banco (Supabase):', e);
+    mostrarAvisoConexao(e);
+    return [];
+  }
 }
 async function salvarVendasSocio(lista){
   await window.storage.set('socio_vendas_loterica', JSON.stringify(lista), true);
