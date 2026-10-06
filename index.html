@@ -1631,7 +1631,14 @@ window.storage = {
       .maybeSingle();
     if(error){ reportarErroSupabase('leitura de "'+key+'"', error); return null; }
     if(!data) return null;
-    return { key, value: JSON.stringify(data.value), shared: !!shared };
+    // Tolerância: se algum valor tiver sido gravado como TEXTO JSON (dupla codificação,
+    // ex.: por uma ferramenta externa), desembrulha antes de devolver — assim o app
+    // nunca "perde" os dados por causa do formato.
+    let valor = data.value;
+    for(let i = 0; i < 2 && typeof valor === 'string'; i++){
+      try{ valor = JSON.parse(valor); }catch(e){ break; }
+    }
+    return { key, value: JSON.stringify(valor), shared: !!shared };
   },
 
   async set(key, value, shared){
