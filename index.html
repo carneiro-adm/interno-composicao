@@ -1604,7 +1604,8 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLI
 
 // Mostra um erro legível na própria tela (topo, fixo), além do console,
 // para não depender de abrir o DevTools para diagnosticar.
-function reportarErroSupabase(contexto, error){
+function reportarErroSupabase(contexto, error, ehLeitura){
+  window.__bannerLeitura = !!ehLeitura;
   const detalhes = error ? (error.message || error.error_description || error.hint || JSON.stringify(error)) : 'Erro desconhecido';
   const codigo = error && error.code ? ' (código: ' + error.code + ')' : '';
   console.error('Supabase ['+contexto+']:', detalhes, codigo, error);
@@ -1622,14 +1623,30 @@ function reportarErroSupabase(contexto, error){
 // Adaptador que imita a interface original de window.storage (get/set/delete/list),
 // mas lê e grava na tabela app_storage do Supabase por trás dos panos.
 // Todas as funções carregarX/salvarX do app continuam iguais, sem precisar mudar nada além daqui.
+// Chaves cuja leitura mais recente foi CONFIRMADA com sucesso. Serve de trava de segurança:
+// o app lê a lista, altera e grava de volta — se a leitura falhar (ex.: sem internet), a lista
+// viria vazia e a gravação apagaria o histórico. Por isso a gravação só é permitida depois de
+// uma leitura confirmada daquele mesmo dado.
+const LEITURA_OK = {};
+
 window.storage = {
   async get(key, shared){
-    const { data, error } = await supabaseClient
-      .from('app_storage')
-      .select('value')
-      .eq('key', key)
-      .maybeSingle();
-    if(error){ reportarErroSupabase('leitura de "'+key+'"', error); return null; }
+    let resp;
+    try{
+      resp = await supabaseClient.from('app_storage').select('value').eq('key', key).maybeSingle();
+    }catch(e){ resp = { data:null, error:e }; }
+    const { data, error } = resp;
+    if(error){
+      LEITURA_OK[key] = false;
+      reportarErroSupabase('leitura de "'+key+'"', error, true);
+      throw new Error('Falha ao ler "'+key+'": ' + (error.message || error));
+    }
+    LEITURA_OK[key] = true;
+    if(window.__bannerLeitura){
+      const b = document.getElementById('banner-erro-supabase');
+      if(b) b.remove();
+      window.__bannerLeitura = false;
+    }
     if(!data) return null;
     // Tolerância: se algum valor tiver sido gravado como TEXTO JSON (dupla codificação,
     // ex.: por uma ferramenta externa), desembrulha antes de devolver — assim o app
@@ -1641,11 +1658,24 @@ window.storage = {
     return { key, value: JSON.stringify(valor), shared: !!shared };
   },
 
-  async set(key, value, shared){
-    const { error } = await supabaseClient
-      .from('app_storage')
-      .upsert({ key, value: JSON.parse(value), updated_at: new Date().toISOString() });
-    if(error){ reportarErroSupabase('gravação de "'+key+'"', error); return null; }
+  // 4º parâmetro "forcar": só para operações deliberadas de sobrescrita (restaurar backup,
+  // gravar imagem nova) que não dependem do conteúdo atual.
+  async set(key, value, shared, forcar){
+    if(!forcar && LEITURA_OK[key] !== true){
+      const msg = 'Gravação de "'+key+'" bloqueada para proteger seus dados: não foi possível confirmar a leitura atual. Verifique a conexão e tente novamente.';
+      reportarErroSupabase('gravação protegida', { message: msg }, false);
+      throw new Error(msg);
+    }
+    let resp;
+    try{
+      resp = await supabaseClient.from('app_storage')
+        .upsert({ key, value: JSON.parse(value), updated_at: new Date().toISOString() });
+    }catch(e){ resp = { error:e }; }
+    if(resp.error){
+      reportarErroSupabase('gravação de "'+key+'"', resp.error, false);
+      throw new Error('Falha ao gravar "'+key+'": ' + (resp.error.message || resp.error));
+    }
+    LEITURA_OK[key] = true;
     return { key, value, shared: !!shared };
   },
 
@@ -1997,6 +2027,9 @@ async function salvarPagamentosFiado(lista){
 async function garantirSeed(){
   const usuarios = await carregarUsuarios();
   if(usuarios.length === 0){
+    // Só cria o admin padrão se a leitura foi CONFIRMADA e a lista realmente está vazia.
+    // (Leitura que falhou NÃO é lista vazia — senão sobrescreveria os usuários reais.)
+    if(LEITURA_OK['usuarios_loterica'] !== true) return [];
     const padrao = [
       {usuario:'admin', senha:'admin123', nome:'Administrador(a)', admin:true, pergunta:'Nome da sua mãe', resposta:'admin'}
     ];
@@ -2702,7 +2735,7 @@ async function consultarFichaCliente(){
   }
 
   const registros = await carregarRegistros();
-  const fiados = registros.filter(r => r.clienteId===id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido);
+  const fiados = registros.filter(r => r.clienteId===id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && !r.legado);
   const totalFiado = fiados.reduce((s,r)=>s+r.valor,0);
 
   const pagamentos = await carregarPagamentosFiado();
@@ -2781,7 +2814,7 @@ async function exportarExtratoClienteExcel(id){
   if(!cliente) return;
 
   const registros = await carregarRegistros();
-  const fiados = registros.filter(r => r.clienteId===id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido);
+  const fiados = registros.filter(r => r.clienteId===id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && !r.legado);
   const totalFiado = fiados.reduce((s,r)=>s+r.valor,0);
 
   const pagamentos = await carregarPagamentosFiado();
@@ -3021,7 +3054,7 @@ async function renderizarGraficoFiado(){
     return;
   }
 
-  const registros = (await carregarRegistros()).filter(r => r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && r.data >= dataIni && r.data <= dataFim);
+  const registros = (await carregarRegistros()).filter(r => r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && !r.legado && r.data >= dataIni && r.data <= dataFim);
   const pagamentos = (await carregarPagamentosFiado()).filter(p => p.data >= dataIni && p.data <= dataFim);
 
   const dias = [];
@@ -3070,7 +3103,7 @@ async function renderizarLinhaTempoFiado(dataIni, dataFim){
     return;
   }
 
-  const todosFiados = (await carregarRegistros()).filter(r => r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido);
+  const todosFiados = (await carregarRegistros()).filter(r => r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && !r.legado);
   const todosPagamentos = await carregarPagamentosFiado();
 
   const fiadosPorDia = {};
@@ -4227,7 +4260,7 @@ async function calcularSaldosClientes(dataLimite){
 
   const todasLinhas = clientes.map(c => {
     const totalFiado = registros
-      .filter(r => r.clienteId===c.id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && (!dataLimite || r.data <= dataLimite))
+      .filter(r => r.clienteId===c.id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && !r.legado && (!dataLimite || r.data <= dataLimite))
       .reduce((s,r)=>s+r.valor,0);
     const totalPago = pagamentos
       .filter(p => p.clienteId===c.id && (!dataLimite || p.data <= dataLimite))
@@ -5058,7 +5091,8 @@ async function fazerBackupAgora(){
       const r = await window.storage.get(chave, true);
       dados[chave] = r ? JSON.parse(r.value) : [];
     }catch(e){
-      dados[chave] = [];
+      msg.innerHTML = '<div class="msg-erro">Backup cancelado: não foi possível ler "'+chave+'" do banco. Nenhum arquivo foi gerado, para não salvar um backup incompleto.</div>';
+      return;
     }
   }
 
@@ -5142,7 +5176,7 @@ async function confirmarRestauracaoBackup(){
 
   for(const chave of CHAVES_BACKUP){
     const valor = payload.dados[chave] || [];
-    await window.storage.set(chave, JSON.stringify(valor), true);
+    await window.storage.set(chave, JSON.stringify(valor), true, true);
     const chaveCache = MAPA_CHAVE_CACHE_BACKUP[chave];
     if(chaveCache) invalidarCache(chaveCache);
   }
@@ -5168,6 +5202,10 @@ async function resetarDadosProducao(){
 
   msg.innerHTML = '<div class="msg-ok">Apagando dados, aguarde...</div>';
 
+  // Confirma que o banco está acessível ANTES de apagar qualquer coisa (evita reset pela metade).
+  for(const k of ['registros_loterica','fechamentos_loterica','clientes_loterica','pagamentos_fiado_loterica','composicao_gerencia_loterica','terminal_dia_loterica']){
+    await window.storage.get(k, true);
+  }
   await salvarRegistros([]);
   await salvarFechamentos([]);
   await salvarClientes([]);
@@ -6522,7 +6560,7 @@ async function salvarVendasSocio(lista){
   await window.storage.set('socio_vendas_loterica', JSON.stringify(lista), true);
 }
 async function salvarImagemSocio(chave, base64){
-  await window.storage.set(chave, JSON.stringify(base64), true);
+  await window.storage.set(chave, JSON.stringify(base64), true, true);
 }
 async function carregarImagemSocio(chave){
   try{
