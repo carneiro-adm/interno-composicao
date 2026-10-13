@@ -537,6 +537,17 @@
             <option value="Outros">Outros</option>
           </select>
         </div>
+        <div class="campo oculto" id="campo-notas-categoria">
+          <label>Categoria da nota</label>
+          <select id="sel-notas-categoria">
+            <option value="">Selecione...</option>
+            <option value="Escritório">Escritório</option>
+            <option value="Limpeza">Limpeza</option>
+            <option value="Cozinha">Cozinha</option>
+            <option value="Manutenção">Manutenção</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
         <div class="campo" id="campo-terminal-normal">
           <label>Terminal</label>
           <div class="terminal-fixo" id="exibicao-terminal-lancamento">—</div>
@@ -1878,7 +1889,8 @@ function tipoDoTerminalAtual(){
 }
 
 // Atividades de Saída disponíveis dependem do tipo do terminal do dia.
-const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes'];
+const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes','Gaveta bilhete - Reserva','Notas'];
+const CATEGORIAS_NOTAS = ['Escritório','Limpeza','Cozinha','Manutenção','Outros'];
 const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Troca de caixa','Troca Telesena','Outros'];
 // Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
 // soma "Saídas hoje" usada no débito do Batimento Gerencial.
@@ -2555,6 +2567,17 @@ async function registrarLancamento(){
     atividadeFinal = 'Conta Loja - ' + detalheConta;
   }
 
+  let categoriaNotas = '';
+  let obsFinal = obs;
+  if(atividade === 'Notas'){
+    categoriaNotas = document.getElementById('sel-notas-categoria').value;
+    if(!categoriaNotas){
+      msg.innerHTML = '<div class="msg-erro">Selecione a categoria da nota.</div>';
+      return;
+    }
+    obsFinal = '[' + categoriaNotas + ']' + (obs ? ' ' + obs : '');
+  }
+
   const registros = await carregarRegistros();
   const novoRegistro = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
@@ -2565,10 +2588,11 @@ async function registrarLancamento(){
     caixa: caixa,
     tipo: 'Saida',
     atividade: atividadeFinal,
+    categoriaNotas: categoriaNotas,
     clienteId: clienteId,
     clienteNome: clienteNome,
     valor: valor,
-    obs: obs,
+    obs: obsFinal,
     excluido: false,
     timestamp: Date.now()
   };
@@ -2593,6 +2617,8 @@ async function registrarLancamento(){
   if(clienteId){
     document.getElementById('sel-cliente-fiado').value = '';
   }
+  const selNotas = document.getElementById('sel-notas-categoria');
+  if(selNotas) selNotas.value = '';
   document.getElementById('inp-valor').value='';
   document.getElementById('inp-obs').value='';
   msg.innerHTML = '<div class="msg-ok">Lançamento registrado com sucesso.</div>';
@@ -2660,6 +2686,8 @@ function atualizarCampoClienteFiado(){
 
   campo.classList.toggle('oculto', atividade !== 'Fiado');
   campoContaLoja.classList.toggle('oculto', atividade !== 'Conta Loja');
+  const campoNotas = document.getElementById('campo-notas-categoria');
+  if(campoNotas) campoNotas.classList.toggle('oculto', atividade !== 'Notas');
 
   if(ATIVIDADES_TRANSFERENCIA_TERMINAL.includes(atividade)){
     campoTerminalNormal.classList.add('oculto');
