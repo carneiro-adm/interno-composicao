@@ -1009,6 +1009,7 @@
         </div>
 
         <div id="movimentos-produtos-registros" style="margin-top:18px;"></div>
+        <div id="movimentos-produtos-msg"></div>
       </div>
 
       <div class="painel">
@@ -3924,6 +3925,7 @@ async function calcularEntradaProdutosGerencial(){
 // ---------- Registros do dia: alterar / excluir entrada ou devolução ----------
 let EDICAO_MOVIMENTO_ID = null;
 let EDITOR_RENDERIZADO_ID = null;
+let EXCLUSAO_PENDENTE_ID = null;
 
 function renderizarMovimentosProdutos(lista){
   const cont = document.getElementById('movimentos-produtos-registros');
@@ -3949,9 +3951,13 @@ function renderizarMovimentosProdutos(lista){
       <div style="font-size:12px;color:#4B5563;margin-top:4px;">${resumo}</div>
       ${editando ? montarEditorMovimento(e) : `<div style="margin-top:8px;">
         <button class="btn-secundario" style="padding:6px 12px;margin-right:6px;" onclick="iniciarEdicaoMovimento('${e.id}')">Alterar</button>
-        <button class="btn-secundario" style="padding:6px 12px;color:var(--vermelho-estorno);border-color:var(--vermelho-estorno);" onclick="excluirMovimentoProdutos('${e.id}')">Excluir</button></div>`}
+        ${EXCLUSAO_PENDENTE_ID === e.id
+          ? `<span style="font-size:13px;margin-right:8px;color:var(--vermelho-estorno);font-weight:700;">Excluir este registro e ajustar o estoque?</span>
+             <button class="btn-secundario" style="padding:6px 12px;color:#fff;background:var(--vermelho-estorno);border-color:var(--vermelho-estorno);margin-right:6px;" onclick="excluirMovimentoProdutos('${e.id}')">Sim, excluir</button>
+             <button class="btn-secundario" style="padding:6px 12px;" onclick="cancelarExclusaoMovimento()">Cancelar</button>`
+          : `<button class="btn-secundario" style="padding:6px 12px;color:var(--vermelho-estorno);border-color:var(--vermelho-estorno);" onclick="pedirExclusaoMovimento('${e.id}')">Excluir</button>`}</div>`}
     </div>`;
-  }).join('') + '<div id="movimentos-produtos-msg"></div>';
+  }).join('');
 }
 
 function montarEditorMovimento(e){
@@ -3970,12 +3976,14 @@ function montarEditorMovimento(e){
     <button class="btn-secundario" style="margin-top:10px;" onclick="cancelarEdicaoMovimento()">Cancelar</button></div>`;
 }
 
-async function iniciarEdicaoMovimento(id){ EDICAO_MOVIMENTO_ID = id; EDITOR_RENDERIZADO_ID = null; await calcularEntradaProdutosGerencial(); }
+async function iniciarEdicaoMovimento(id){ EXCLUSAO_PENDENTE_ID = null; EDICAO_MOVIMENTO_ID = id; EDITOR_RENDERIZADO_ID = null; await calcularEntradaProdutosGerencial(); }
+async function pedirExclusaoMovimento(id){ EXCLUSAO_PENDENTE_ID = id; EDICAO_MOVIMENTO_ID = null; EDITOR_RENDERIZADO_ID = null; await calcularEntradaProdutosGerencial(); }
+async function cancelarExclusaoMovimento(){ EXCLUSAO_PENDENTE_ID = null; await calcularEntradaProdutosGerencial(); }
 async function cancelarEdicaoMovimento(){ EDICAO_MOVIMENTO_ID = null; await calcularEntradaProdutosGerencial(); }
 
 function mostrarMsgMovimento(html){
   const m = document.getElementById('movimentos-produtos-msg');
-  if(m){ m.innerHTML = html; setTimeout(()=>{ if(m) m.innerHTML=''; }, 4000); }
+  if(m){ m.innerHTML = html; setTimeout(()=>{ if(m) m.innerHTML=''; }, 8000); }
 }
 
 // Aplica diferenças de quantidade ao Estoque de produtos gerencial. Retorna false se deixaria estoque negativo.
@@ -4034,16 +4042,16 @@ async function excluirMovimentoProdutos(id){
   const entradas = await carregarEntradasProdutosGerencia();
   const e = entradas.find(x => x.id === id);
   if(!e || e.excluido) return;
-  const dev = e.tipo === 'devolucao';
-  if(!confirm('Excluir esta '+(dev?'devolução de bilhetes':'entrada de produtos')+' ('+formatarMoeda(e.total)+')? O estoque será ajustado de volta.')) return;
   const deltas = {};
   e.produtos.forEach(p => { deltas[p.id] = -p.qtd; });
   const bloqueio = aplicarDeltaEstoque(deltas);
   if(bloqueio){
-    mostrarMsgMovimento('<div class="msg-erro">Não é possível excluir: o estoque de "'+bloqueio+'" ficaria negativo.</div>');
+    EXCLUSAO_PENDENTE_ID = null; await calcularEntradaProdutosGerencial();
+    mostrarMsgMovimento('<div class="msg-erro">Não é possível excluir: o estoque de "'+bloqueio+'" ficaria negativo (parte do que entrou já foi vendida). Ajuste o estoque ou use Alterar.</div>');
     return;
   }
   await salvarComposicaoGerenciaAtual();
+  EXCLUSAO_PENDENTE_ID = null;
   e.excluido = true; e.excluidoEm = Date.now(); e.excluidoPor = USUARIO_LOGADO.usuario;
   await salvarEntradasProdutosGerencia(entradas);
   enviarParaWebhook({origem:'entrada_produtos_gerencia_exclusao', idEntrada:e.id, tipo:e.tipo||'entrada', idFuncionaria:USUARIO_LOGADO.usuario, funcionaria:USUARIO_LOGADO.nome, data:e.data, total:e.total});
