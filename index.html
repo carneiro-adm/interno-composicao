@@ -1008,26 +1008,6 @@
           <div id="entrada-produtos-msg"></div>
         </div>
 
-        <button class="btn-secundario" style="margin-top:14px;" onclick="alternarDevolucaoBilhetes()">+ Devolução de bilhetes</button>
-        <div class="oculto" id="bloco-devolucao-bilhetes" style="margin-top:14px;border-top:1.5px solid var(--cinza-borda);padding-top:14px;">
-          <p class="aviso-fechamento">Registre a devolução de bilhetes. As quantidades informadas aqui são <b>subtraídas</b> do estoque acima e entram com <b>valor negativo</b> em "Entrada Produtos - devolução".</p>
-          <div class="composicao-header">
-            <h4 style="margin:0;">Quantidade devolvida</h4>
-            <div class="composicao-total">
-              <span class="rotulo">Total da devolução</span>
-              <span class="valor" id="devolucao-bilhetes-total" style="color:var(--vermelho-estorno);">R$ 0,00</span>
-            </div>
-          </div>
-          <div class="composicao-tabela">
-            <div class="composicao-linha composicao-cabecalho">
-              <span>Produto</span><span>Quantidade</span><span>Valor</span>
-            </div>
-            <div id="devolucao-bilhetes-lista"></div>
-          </div>
-          <button class="btn-primario" style="margin-top:14px;" onclick="registrarDevolucaoBilhetes()">Registrar Devolução de bilhetes</button>
-          <div id="devolucao-bilhetes-msg"></div>
-        </div>
-
         <div id="movimentos-produtos-registros" style="margin-top:18px;"></div>
       </div>
 
@@ -1108,11 +1088,12 @@
 
       <div class="painel">
         <h3>Entrada Produtos - devolução</h3>
-        <p class="aviso-fechamento">Soma das Entradas de produtos registradas hoje menos as Devoluções de bilhetes (blocos "Entrada de produtos" e "Devolução de bilhetes", dentro de Estoque de produtos gerencial).</p>
+        <p class="aviso-fechamento">Entradas de produtos da data (bloco "Entrada de produtos") menos as Devoluções de bilhete lançadas no caixa Bilhetes (atividade "Devolução bilhetes") nessa data.</p>
         <div class="composicao-total" style="width:100%;align-items:flex-start;">
           <span class="rotulo">Entrada Produtos - devolução</span>
           <span class="valor" id="entrada-produtos-gerencial-total">R$ 0,00</span>
         </div>
+        <div id="entrada-produtos-gerencial-detalhe" style="font-size:12px;color:#6B7280;margin-top:6px;"></div>
       </div>
 
       <div class="painel">
@@ -3922,111 +3903,34 @@ async function calcularEntradaProdutosGerencial(){
   const el = document.getElementById('entrada-produtos-gerencial-total');
   const dataRef = obterDataGerencial();
   const entradas = await carregarEntradasProdutosGerencia();
-  // Entradas somam (valor positivo); devoluções de bilhete entram com valor negativo (total < 0).
   const doDia = entradas.filter(e => !e.excluido && e.usuario===USUARIO_LOGADO.usuario && e.data===dataRef);
-  const total = doDia.reduce((s,e) => s+e.total, 0);
+  const totalEntradas = doDia.reduce((s,e) => s+e.total, 0);
+  // Devolução de bilhete = lançamentos "Devolução bilhetes" do caixa Bilhetes na data, com valor negativo.
+  const terminaisBilhetes = terminaisPorTipo('Bilhetes').map(t => t.numero);
+  const devolucoes = (await carregarRegistros()).filter(r =>
+    r.data===dataRef && r.tipo==='Saida' && r.atividade==='Devolução bilhetes' && !r.excluido && terminaisBilhetes.includes(r.caixa));
+  const totalDevolucoes = devolucoes.reduce((s,r) => s+Math.abs(r.valor), 0);
+  const total = totalEntradas - totalDevolucoes;
   if(el){
     el.textContent = formatarMoeda(total);
     el.style.color = total < 0 ? 'var(--vermelho-estorno)' : '';
   }
+  const elDet = document.getElementById('entrada-produtos-gerencial-detalhe');
+  if(elDet) elDet.textContent = 'Entradas ' + formatarMoeda(totalEntradas) + ' − Devoluções de bilhete ' + formatarMoeda(totalDevolucoes);
   renderizarMovimentosProdutos(doDia);
   return total;
 }
 
-// ---------- Devolução de bilhetes (subtrai do Estoque de produtos gerencial; valor negativo) ----------
-function alternarDevolucaoBilhetes(){
-  const bloco = document.getElementById('bloco-devolucao-bilhetes');
-  if(bloco.classList.contains('oculto')){
-    montarDevolucaoBilhetesLista();
-    bloco.classList.remove('oculto');
-  }else{
-    bloco.classList.add('oculto');
-  }
-}
-
-function montarDevolucaoBilhetesLista(){
-  const cont = document.getElementById('devolucao-bilhetes-lista');
-  if(!cont) return;
-  cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
-    <div class="composicao-linha">
-      <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="devolucao-prod-qtd-${p.id}" value="0" oninput="calcularDevolucaoBilhetesForm(); marcarFormularioSujo();">
-      <span class="composicao-subtotal" id="devolucao-prod-subtotal-${p.id}" style="color:var(--vermelho-estorno);">R$ 0,00</span>
-    </div>`).join('');
-  calcularDevolucaoBilhetesForm();
-}
-
-function calcularDevolucaoBilhetesForm(){
-  let total = 0;
-  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
-    const qtd = Math.abs(parseFloat(document.getElementById('devolucao-prod-qtd-'+p.id).value) || 0);
-    const subtotal = -qtd * p.valor;
-    document.getElementById('devolucao-prod-subtotal-'+p.id).textContent = formatarMoeda(subtotal);
-    total += subtotal;
-  });
-  document.getElementById('devolucao-bilhetes-total').textContent = formatarMoeda(total);
-  return total;
-}
-
-async function registrarDevolucaoBilhetes(){
-  const msg = document.getElementById('devolucao-bilhetes-msg');
-  const produtos = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
-    const qtd = Math.abs(parseFloat(document.getElementById('devolucao-prod-qtd-'+p.id).value) || 0);
-    return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:-qtd, subtotal:-qtd*p.valor};
-  }).filter(p => p.qtd < 0);
-  if(produtos.length === 0){
-    msg.innerHTML = '<div class="msg-erro">Informe a quantidade de ao menos um produto devolvido.</div>';
-    return;
-  }
-  const excedido = produtos.find(p => (parseFloat(document.getElementById('estoque-qtd-'+p.id).value) || 0) + p.qtd < 0);
-  if(excedido){
-    msg.innerHTML = '<div class="msg-erro">A quantidade devolvida de "'+excedido.nome+'" é maior do que a disponível no estoque.</div>';
-    return;
-  }
-  const total = produtos.reduce((s,p) => s+p.subtotal, 0);
-
-  produtos.forEach(p => {
-    const elEstoque = document.getElementById('estoque-qtd-'+p.id);
-    elEstoque.value = (parseFloat(elEstoque.value) || 0) + p.qtd;
-  });
-  calcularEstoqueGerencia();
-  await salvarComposicaoGerenciaAtual();
-
-  const entradas = await carregarEntradasProdutosGerencia();
-  const nova = {
-    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
-    tipo: 'devolucao',
-    usuario: USUARIO_LOGADO.usuario,
-    nome: USUARIO_LOGADO.nome,
-    data: obterDataGerencial(),
-    hora: horaAgora(),
-    produtos: produtos,
-    total: total,
-    timestamp: Date.now()
-  };
-  entradas.push(nova);
-  await salvarEntradasProdutosGerencia(entradas);
-  enviarParaWebhook({
-    origem: 'devolucao_bilhetes_gerencia',
-    idEntrada: nova.id, idFuncionaria: nova.usuario, funcionaria: nova.nome,
-    data: nova.data, hora: nova.hora, produtos: nova.produtos, total: nova.total
-  });
-
-  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('devolucao-prod-qtd-'+p.id).value = 0; });
-  calcularDevolucaoBilhetesForm();
-  limparFormularioSujo();
-  await calcularEntradaProdutosGerencial();
-  await calcularBatimentoGerencial();
-  msg.innerHTML = '<div class="msg-ok">Devolução de bilhetes registrada e abatida do estoque.</div>';
-  setTimeout(()=>{msg.innerHTML='';}, 3000);
-}
-
 // ---------- Registros do dia: alterar / excluir entrada ou devolução ----------
 let EDICAO_MOVIMENTO_ID = null;
+let EDITOR_RENDERIZADO_ID = null;
 
 function renderizarMovimentosProdutos(lista){
   const cont = document.getElementById('movimentos-produtos-registros');
   if(!cont) return;
+  // A sincronização automática (a cada 5s) redesenha esta lista: não pode apagar o que a pessoa está digitando.
+  if(EDICAO_MOVIMENTO_ID && EDITOR_RENDERIZADO_ID === EDICAO_MOVIMENTO_ID && document.getElementById('edit-mov-qtd-'+PRODUTOS_ESTOQUE_GERENCIA[0].id)) return;
+  EDITOR_RENDERIZADO_ID = EDICAO_MOVIMENTO_ID;
   if(!lista || lista.length === 0){
     cont.innerHTML = '<p class="aviso-fechamento" style="margin:0;">Nenhuma entrada ou devolução registrada nesta data.</p>';
     return;
@@ -4066,7 +3970,7 @@ function montarEditorMovimento(e){
     <button class="btn-secundario" style="margin-top:10px;" onclick="cancelarEdicaoMovimento()">Cancelar</button></div>`;
 }
 
-async function iniciarEdicaoMovimento(id){ EDICAO_MOVIMENTO_ID = id; await calcularEntradaProdutosGerencial(); }
+async function iniciarEdicaoMovimento(id){ EDICAO_MOVIMENTO_ID = id; EDITOR_RENDERIZADO_ID = null; await calcularEntradaProdutosGerencial(); }
 async function cancelarEdicaoMovimento(){ EDICAO_MOVIMENTO_ID = null; await calcularEntradaProdutosGerencial(); }
 
 function mostrarMsgMovimento(html){
