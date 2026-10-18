@@ -1007,6 +1007,28 @@
           <button class="btn-primario" style="margin-top:14px;" onclick="registrarEntradaProdutos()">Registrar Entrada de produtos</button>
           <div id="entrada-produtos-msg"></div>
         </div>
+
+        <button class="btn-secundario" style="margin-top:14px;" onclick="alternarDevolucaoBilhetes()">+ Devolução de bilhetes</button>
+        <div class="oculto" id="bloco-devolucao-bilhetes" style="margin-top:14px;border-top:1.5px solid var(--cinza-borda);padding-top:14px;">
+          <p class="aviso-fechamento">Registre a devolução de bilhetes. As quantidades informadas aqui são <b>subtraídas</b> do estoque acima e entram com <b>valor negativo</b> em "Entrada Produtos - devolução".</p>
+          <div class="composicao-header">
+            <h4 style="margin:0;">Quantidade devolvida</h4>
+            <div class="composicao-total">
+              <span class="rotulo">Total da devolução</span>
+              <span class="valor" id="devolucao-bilhetes-total" style="color:var(--vermelho-estorno);">R$ 0,00</span>
+            </div>
+          </div>
+          <div class="composicao-tabela">
+            <div class="composicao-linha composicao-cabecalho">
+              <span>Produto</span><span>Quantidade</span><span>Valor</span>
+            </div>
+            <div id="devolucao-bilhetes-lista"></div>
+          </div>
+          <button class="btn-primario" style="margin-top:14px;" onclick="registrarDevolucaoBilhetes()">Registrar Devolução de bilhetes</button>
+          <div id="devolucao-bilhetes-msg"></div>
+        </div>
+
+        <div id="movimentos-produtos-registros" style="margin-top:18px;"></div>
       </div>
 
       <div class="painel">
@@ -1085,10 +1107,10 @@
       </div>
 
       <div class="painel">
-        <h3>Entrada Produtos</h3>
-        <p class="aviso-fechamento">Soma das Entradas de produtos registradas hoje (bloco "Entrada de produtos", dentro de Estoque de produtos gerencial).</p>
+        <h3>Entrada Produtos - devolução</h3>
+        <p class="aviso-fechamento">Soma das Entradas de produtos registradas hoje menos as Devoluções de bilhetes (blocos "Entrada de produtos" e "Devolução de bilhetes", dentro de Estoque de produtos gerencial).</p>
         <div class="composicao-total" style="width:100%;align-items:flex-start;">
-          <span class="rotulo">Entrada Produtos</span>
+          <span class="rotulo">Entrada Produtos - devolução</span>
           <span class="valor" id="entrada-produtos-gerencial-total">R$ 0,00</span>
         </div>
       </div>
@@ -1889,7 +1911,7 @@ function tipoDoTerminalAtual(){
 }
 
 // Atividades de Saída disponíveis dependem do tipo do terminal do dia.
-const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes','Gaveta bilhete - Reserva','Notas'];
+const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes','Notas'];
 const CATEGORIAS_NOTAS = ['Escritório','Limpeza','Cozinha','Manutenção','Outros'];
 const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Troca de caixa','Troca Telesena','Outros'];
 // Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
@@ -3900,11 +3922,232 @@ async function calcularEntradaProdutosGerencial(){
   const el = document.getElementById('entrada-produtos-gerencial-total');
   const dataRef = obterDataGerencial();
   const entradas = await carregarEntradasProdutosGerencia();
-  const total = entradas
-    .filter(e => e.usuario===USUARIO_LOGADO.usuario && e.data===dataRef)
-    .reduce((s,e) => s+e.total, 0);
-  if(el) el.textContent = formatarMoeda(total);
+  // Entradas somam (valor positivo); devoluções de bilhete entram com valor negativo (total < 0).
+  const doDia = entradas.filter(e => !e.excluido && e.usuario===USUARIO_LOGADO.usuario && e.data===dataRef);
+  const total = doDia.reduce((s,e) => s+e.total, 0);
+  if(el){
+    el.textContent = formatarMoeda(total);
+    el.style.color = total < 0 ? 'var(--vermelho-estorno)' : '';
+  }
+  renderizarMovimentosProdutos(doDia);
   return total;
+}
+
+// ---------- Devolução de bilhetes (subtrai do Estoque de produtos gerencial; valor negativo) ----------
+function alternarDevolucaoBilhetes(){
+  const bloco = document.getElementById('bloco-devolucao-bilhetes');
+  if(bloco.classList.contains('oculto')){
+    montarDevolucaoBilhetesLista();
+    bloco.classList.remove('oculto');
+  }else{
+    bloco.classList.add('oculto');
+  }
+}
+
+function montarDevolucaoBilhetesLista(){
+  const cont = document.getElementById('devolucao-bilhetes-lista');
+  if(!cont) return;
+  cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
+    <div class="composicao-linha">
+      <span class="composicao-nome">${p.nome}</span>
+      <input type="number" min="0" step="1" class="composicao-qtd" id="devolucao-prod-qtd-${p.id}" value="0" oninput="calcularDevolucaoBilhetesForm(); marcarFormularioSujo();">
+      <span class="composicao-subtotal" id="devolucao-prod-subtotal-${p.id}" style="color:var(--vermelho-estorno);">R$ 0,00</span>
+    </div>`).join('');
+  calcularDevolucaoBilhetesForm();
+}
+
+function calcularDevolucaoBilhetesForm(){
+  let total = 0;
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+    const qtd = Math.abs(parseFloat(document.getElementById('devolucao-prod-qtd-'+p.id).value) || 0);
+    const subtotal = -qtd * p.valor;
+    document.getElementById('devolucao-prod-subtotal-'+p.id).textContent = formatarMoeda(subtotal);
+    total += subtotal;
+  });
+  document.getElementById('devolucao-bilhetes-total').textContent = formatarMoeda(total);
+  return total;
+}
+
+async function registrarDevolucaoBilhetes(){
+  const msg = document.getElementById('devolucao-bilhetes-msg');
+  const produtos = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
+    const qtd = Math.abs(parseFloat(document.getElementById('devolucao-prod-qtd-'+p.id).value) || 0);
+    return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:-qtd, subtotal:-qtd*p.valor};
+  }).filter(p => p.qtd < 0);
+  if(produtos.length === 0){
+    msg.innerHTML = '<div class="msg-erro">Informe a quantidade de ao menos um produto devolvido.</div>';
+    return;
+  }
+  const excedido = produtos.find(p => (parseFloat(document.getElementById('estoque-qtd-'+p.id).value) || 0) + p.qtd < 0);
+  if(excedido){
+    msg.innerHTML = '<div class="msg-erro">A quantidade devolvida de "'+excedido.nome+'" é maior do que a disponível no estoque.</div>';
+    return;
+  }
+  const total = produtos.reduce((s,p) => s+p.subtotal, 0);
+
+  produtos.forEach(p => {
+    const elEstoque = document.getElementById('estoque-qtd-'+p.id);
+    elEstoque.value = (parseFloat(elEstoque.value) || 0) + p.qtd;
+  });
+  calcularEstoqueGerencia();
+  await salvarComposicaoGerenciaAtual();
+
+  const entradas = await carregarEntradasProdutosGerencia();
+  const nova = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
+    tipo: 'devolucao',
+    usuario: USUARIO_LOGADO.usuario,
+    nome: USUARIO_LOGADO.nome,
+    data: obterDataGerencial(),
+    hora: horaAgora(),
+    produtos: produtos,
+    total: total,
+    timestamp: Date.now()
+  };
+  entradas.push(nova);
+  await salvarEntradasProdutosGerencia(entradas);
+  enviarParaWebhook({
+    origem: 'devolucao_bilhetes_gerencia',
+    idEntrada: nova.id, idFuncionaria: nova.usuario, funcionaria: nova.nome,
+    data: nova.data, hora: nova.hora, produtos: nova.produtos, total: nova.total
+  });
+
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => { document.getElementById('devolucao-prod-qtd-'+p.id).value = 0; });
+  calcularDevolucaoBilhetesForm();
+  limparFormularioSujo();
+  await calcularEntradaProdutosGerencial();
+  await calcularBatimentoGerencial();
+  msg.innerHTML = '<div class="msg-ok">Devolução de bilhetes registrada e abatida do estoque.</div>';
+  setTimeout(()=>{msg.innerHTML='';}, 3000);
+}
+
+// ---------- Registros do dia: alterar / excluir entrada ou devolução ----------
+let EDICAO_MOVIMENTO_ID = null;
+
+function renderizarMovimentosProdutos(lista){
+  const cont = document.getElementById('movimentos-produtos-registros');
+  if(!cont) return;
+  if(!lista || lista.length === 0){
+    cont.innerHTML = '<p class="aviso-fechamento" style="margin:0;">Nenhuma entrada ou devolução registrada nesta data.</p>';
+    return;
+  }
+  const ordenada = lista.slice().sort((a,b) => a.timestamp - b.timestamp);
+  cont.innerHTML = '<h4 style="margin:0 0 8px;">Entradas e devoluções registradas nesta data</h4>' + ordenada.map(e => {
+    const dev = e.tipo === 'devolucao';
+    const resumo = e.produtos.map(p => p.nome+': '+p.qtd).join(' · ');
+    const editando = EDICAO_MOVIMENTO_ID === e.id;
+    return `<div style="border:1.5px solid var(--cinza-borda);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;">
+        <div><b style="color:${dev?'var(--vermelho-estorno)':'var(--azul-escuro,#00205B)'};">${dev?'Devolução de bilhetes':'Entrada de produtos'}</b>
+          <span style="font-size:12px;color:#6B7280;"> — ${e.hora||''} · ${e.nome||''}${e.editadoEm?' · alterado':''}</span></div>
+        <div style="font-weight:700;${dev?'color:var(--vermelho-estorno);':''}">${formatarMoeda(e.total)}</div>
+      </div>
+      <div style="font-size:12px;color:#4B5563;margin-top:4px;">${resumo}</div>
+      ${editando ? montarEditorMovimento(e) : `<div style="margin-top:8px;">
+        <button class="btn-secundario" style="padding:6px 12px;margin-right:6px;" onclick="iniciarEdicaoMovimento('${e.id}')">Alterar</button>
+        <button class="btn-secundario" style="padding:6px 12px;color:var(--vermelho-estorno);border-color:var(--vermelho-estorno);" onclick="excluirMovimentoProdutos('${e.id}')">Excluir</button></div>`}
+    </div>`;
+  }).join('') + '<div id="movimentos-produtos-msg"></div>';
+}
+
+function montarEditorMovimento(e){
+  const dev = e.tipo === 'devolucao';
+  const linhas = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
+    const it = e.produtos.find(x => x.id === p.id);
+    const q = it ? Math.abs(it.qtd) : 0;
+    return `<div class="composicao-linha"><span class="composicao-nome">${p.nome}</span>
+      <input type="number" min="0" step="1" class="composicao-qtd" id="edit-mov-qtd-${p.id}" value="${q}">
+      <span class="composicao-subtotal"></span></div>`;
+  }).join('');
+  return `<div style="margin-top:10px;border-top:1px dashed var(--cinza-borda);padding-top:10px;">
+    <p class="aviso-fechamento" style="margin-top:0;">Altere as quantidades ${dev?'devolvidas':'recebidas'}. O estoque é ajustado pela diferença.</p>
+    <div class="composicao-tabela"><div class="composicao-linha composicao-cabecalho"><span>Produto</span><span>Quantidade</span><span></span></div>${linhas}</div>
+    <button class="btn-primario" style="margin-top:10px;margin-right:6px;" onclick="salvarEdicaoMovimento('${e.id}')">Salvar alteração</button>
+    <button class="btn-secundario" style="margin-top:10px;" onclick="cancelarEdicaoMovimento()">Cancelar</button></div>`;
+}
+
+async function iniciarEdicaoMovimento(id){ EDICAO_MOVIMENTO_ID = id; await calcularEntradaProdutosGerencial(); }
+async function cancelarEdicaoMovimento(){ EDICAO_MOVIMENTO_ID = null; await calcularEntradaProdutosGerencial(); }
+
+function mostrarMsgMovimento(html){
+  const m = document.getElementById('movimentos-produtos-msg');
+  if(m){ m.innerHTML = html; setTimeout(()=>{ if(m) m.innerHTML=''; }, 4000); }
+}
+
+// Aplica diferenças de quantidade ao Estoque de produtos gerencial. Retorna false se deixaria estoque negativo.
+function aplicarDeltaEstoque(deltas){
+  const ficaNegativo = PRODUTOS_ESTOQUE_GERENCIA.find(p => (parseFloat(document.getElementById('estoque-qtd-'+p.id).value) || 0) + (deltas[p.id]||0) < 0);
+  if(ficaNegativo) return ficaNegativo.nome;
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+    if(deltas[p.id]){
+      const el = document.getElementById('estoque-qtd-'+p.id);
+      el.value = (parseFloat(el.value) || 0) + deltas[p.id];
+    }
+  });
+  calcularEstoqueGerencia();
+  return null;
+}
+
+async function salvarEdicaoMovimento(id){
+  const entradas = await carregarEntradasProdutosGerencia();
+  const e = entradas.find(x => x.id === id);
+  if(!e || e.excluido) return;
+  const sinal = e.tipo === 'devolucao' ? -1 : 1;
+  const novos = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
+    const q = Math.abs(parseFloat(document.getElementById('edit-mov-qtd-'+p.id).value) || 0);
+    return {id:p.id, nome:p.nome, valorUnit:p.valor, qtd:sinal*q, subtotal:sinal*q*p.valor};
+  }).filter(p => p.qtd !== 0);
+  if(novos.length === 0){
+    mostrarMsgMovimento('<div class="msg-erro">Informe ao menos um produto. Para remover o registro inteiro, use Excluir.</div>');
+    return;
+  }
+  const deltas = {};
+  PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
+    const antes = (e.produtos.find(x => x.id === p.id) || {qtd:0}).qtd;
+    const depois = (novos.find(x => x.id === p.id) || {qtd:0}).qtd;
+    deltas[p.id] = depois - antes;
+  });
+  const bloqueio = aplicarDeltaEstoque(deltas);
+  if(bloqueio){
+    mostrarMsgMovimento('<div class="msg-erro">A alteração deixaria o estoque de "'+bloqueio+'" negativo.</div>');
+    return;
+  }
+  await salvarComposicaoGerenciaAtual();
+  e.historicoEdicoes = (e.historicoEdicoes || []).concat([{em:Date.now(), por:USUARIO_LOGADO.usuario, produtosAntes:e.produtos, totalAntes:e.total}]);
+  e.produtos = novos;
+  e.total = novos.reduce((s,p) => s+p.subtotal, 0);
+  e.editadoEm = Date.now(); e.editadoPor = USUARIO_LOGADO.usuario;
+  await salvarEntradasProdutosGerencia(entradas);
+  enviarParaWebhook({origem:'entrada_produtos_gerencia_alteracao', idEntrada:e.id, tipo:e.tipo||'entrada', idFuncionaria:USUARIO_LOGADO.usuario, funcionaria:USUARIO_LOGADO.nome, data:e.data, produtos:e.produtos, total:e.total});
+  EDICAO_MOVIMENTO_ID = null;
+  limparFormularioSujo();
+  await calcularEntradaProdutosGerencial();
+  await calcularBatimentoGerencial();
+  mostrarMsgMovimento('<div class="msg-ok">Registro alterado e estoque ajustado.</div>');
+}
+
+async function excluirMovimentoProdutos(id){
+  const entradas = await carregarEntradasProdutosGerencia();
+  const e = entradas.find(x => x.id === id);
+  if(!e || e.excluido) return;
+  const dev = e.tipo === 'devolucao';
+  if(!confirm('Excluir esta '+(dev?'devolução de bilhetes':'entrada de produtos')+' ('+formatarMoeda(e.total)+')? O estoque será ajustado de volta.')) return;
+  const deltas = {};
+  e.produtos.forEach(p => { deltas[p.id] = -p.qtd; });
+  const bloqueio = aplicarDeltaEstoque(deltas);
+  if(bloqueio){
+    mostrarMsgMovimento('<div class="msg-erro">Não é possível excluir: o estoque de "'+bloqueio+'" ficaria negativo.</div>');
+    return;
+  }
+  await salvarComposicaoGerenciaAtual();
+  e.excluido = true; e.excluidoEm = Date.now(); e.excluidoPor = USUARIO_LOGADO.usuario;
+  await salvarEntradasProdutosGerencia(entradas);
+  enviarParaWebhook({origem:'entrada_produtos_gerencia_exclusao', idEntrada:e.id, tipo:e.tipo||'entrada', idFuncionaria:USUARIO_LOGADO.usuario, funcionaria:USUARIO_LOGADO.nome, data:e.data, total:e.total});
+  EDICAO_MOVIMENTO_ID = null;
+  limparFormularioSujo();
+  await calcularEntradaProdutosGerencial();
+  await calcularBatimentoGerencial();
+  mostrarMsgMovimento('<div class="msg-ok">Registro excluído e estoque ajustado.</div>');
 }
 
 // ---------- Enviar produtos para outro terminal (abate do Estoque de produtos gerencial) ----------
@@ -4231,8 +4474,8 @@ async function calcularBatimentoGerencial(){
     <tbody>
       ${linhaComFormula('TOTAL1 — Composição de caixa (dia anterior)', total1Gerencial, 'TOTAL2 do dia anterior')}
       ${linhaComFormula('Total Relatórios (f) — terminais caixa (' + rotuloTerminaisCaixa + ')', totalRelatorios, null)}
-      ${linhaComFormula('Entrada Produtos', entradaProdutos, 'Total da entrada de produtos dessa data')}
-      ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 + Total Relatórios + Entrada Produtos', true)}
+      ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
+      ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 + Total Relatórios + Entrada Produtos - devolução', true)}
       ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
       ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + '), exceto Fiado, Bolão e Troca de caixas', totalSaidas, null)}
       ${linhaComFormula('Crédito Gerencial', creditoGerencial, 'TOTAL2 + Saídas hoje', true)}
@@ -5470,7 +5713,7 @@ async function exportarExcel(){
     'Troco Cofre (total)': c.trocoCofreTotal || 0,
     'Bolões especiais': c.quinaEspecial || 0,
     'Gaveta': c.gaveta || 0,
-    'Entrada Produtos': c.entradaProdutos || 0
+    'Entrada Produtos - devolução': c.entradaProdutos || 0
   }));
 
   const wsLancamentos = XLSX.utils.json_to_sheet(linhasLancamentos);
@@ -5778,7 +6021,7 @@ async function atualizarFechamentoProdutosSocio(){
   // Compra: soma das Entradas de produtos dentro de cada semana.
   const linhasCompra = PRODUTOS_ESTOQUE_GERENCIA.map(p => ({rotulo: p.nome, valoresPorSemana: [], total: 0}));
   semanas.forEach(s => {
-    const doPeriodo = entradas.filter(e => e.data >= s.inicio && e.data <= s.fim);
+    const doPeriodo = entradas.filter(e => !e.excluido && e.data >= s.inicio && e.data <= s.fim);
     PRODUTOS_ESTOQUE_GERENCIA.forEach((p, i) => {
       const qtd = doPeriodo.reduce((soma, e) => {
         const item = e.produtos.find(x => x.id === p.id);
@@ -5875,7 +6118,7 @@ async function atualizarAnaliseProdutosSocio(){
   const composicaoAtual = await obterSaldoProdutosNoPeriodo(dataInicioPeriodo, dataFimPeriodo);
 
   const entradasTodas = await carregarEntradasProdutosGerencia();
-  const entradasPeriodo = entradasTodas.filter(e => e.data >= dataInicioPeriodo && e.data <= dataFimPeriodo);
+  const entradasPeriodo = entradasTodas.filter(e => !e.excluido && e.data >= dataInicioPeriodo && e.data <= dataFimPeriodo);
 
   const linhas = PRODUTOS_ESTOQUE_GERENCIA.map(p => {
     const saldoInicial = obterQtdProduto(composicaoAnterior, p.id);
