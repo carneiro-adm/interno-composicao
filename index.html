@@ -344,6 +344,15 @@
     50%{ transform: rotate(180deg); }
     100%{ transform: rotate(180deg); }
   }
+
+/* Tabelas com grade (aba Saídas) */
+.tabela-grade{width:100%;border-collapse:collapse;font-size:12px;}
+.tabela-grade th,.tabela-grade td{border:1px solid #CBD2DC;padding:6px 10px;text-align:left;}
+.tabela-grade th{background:#EEF1F6;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#4B5563;}
+.tabela-grade td:nth-child(2),.tabela-grade th:nth-child(2){text-align:right;white-space:nowrap;}
+.tabela-grade td:nth-child(3),.tabela-grade th:nth-child(3){text-align:center;width:90px;}
+.tabela-grade tbody tr:nth-child(even){background:#F8FAFC;}
+.tabela-grade tbody tr:last-child{background:#EEF1F6;}
 </style>
 </head>
 <body>
@@ -4340,7 +4349,7 @@ async function renderizarAbaSaidas(){
     return;
   }
   const total = registros.reduce((s,r)=>s+r.valor,0);
-  cont.innerHTML = `<table>
+  cont.innerHTML = `<table class="tabela-grade">
     <thead><tr><th>Atividade</th><th>Valor</th><th>Quantidade</th></tr></thead>
     <tbody>
       ${linhas.map(l => `<tr>
