@@ -1182,6 +1182,20 @@
     </div>
 
     <!-- ===== ABA: ADMIN ===== -->
+    <div class="aba-conteudo oculto" id="aba-saidas">
+      <div class="painel">
+        <h3>Saídas</h3>
+        <p class="aviso-fechamento">Saídas do período, exceto Fiado, Bolão, Troca de caixas e Devolução bilhetes. Ordenado por atividade (A-Z). Clique na quantidade para ver os lançamentos.</p>
+        <div class="historico-linha-filtro" style="flex-wrap:wrap;">
+          <div class="campo"><label>Data inicial</label><input type="date" id="saidas-data-inicio" onchange="renderizarAbaSaidas()"></div>
+          <div class="campo"><label>Data final</label><input type="date" id="saidas-data-fim" onchange="renderizarAbaSaidas()"></div>
+          <div class="campo"><label>Terminal</label><select id="saidas-terminal" onchange="renderizarAbaSaidas()"></select></div>
+          <div class="campo"><label>Funcionária</label><select id="saidas-funcionaria" onchange="renderizarAbaSaidas()"></select></div>
+        </div>
+        <div id="saidas-resultado" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
     <div class="aba-conteudo oculto" id="aba-admin">
       <div class="painel">
         <h3>Gestão de Terminais</h3>
@@ -1315,6 +1329,7 @@
     <button class="nav-btn ativo" data-aba="lancamentos" onclick="trocarAba('lancamentos')"><span class="icone">📝</span><span>Lançamentos</span></button>
     <button class="nav-btn" data-aba="fechamento" onclick="trocarAba('fechamento')"><span class="icone">🧮</span><span>Fechamento</span></button>
     <button class="nav-btn oculto" id="nav-gerencia" data-aba="gerencia" onclick="trocarAba('gerencia')"><span class="icone">🏢</span><span>Composição</span></button>
+    <button class="nav-btn oculto" id="nav-saidas" data-aba="saidas" onclick="abrirAbaSaidas()"><span class="icone">💸</span><span>Saídas</span></button>
     <button class="nav-btn" data-aba="clientes" onclick="trocarAba('clientes')"><span class="icone">👤</span><span>Clientes</span></button>
     <button class="nav-btn oculto" id="nav-gestaofiado" data-aba="gestaofiado" onclick="abrirGestaoFiado()"><span class="icone">💳</span><span>Fiado</span></button>
     <button class="nav-btn" data-aba="historico" onclick="trocarAba('historico')"><span class="icone">📅</span><span>Histórico</span></button>
@@ -2308,6 +2323,7 @@ async function entrarNoApp(achado){
   // que possa falhar mais abaixo — assim, mesmo que algo dê erro depois, os menus
   // corretos para o perfil já ficaram visíveis (evita o bug de "menu sumido").
   document.getElementById('nav-gerencia').classList.toggle('oculto', !EH_GERENCIA);
+  document.getElementById('nav-saidas').classList.toggle('oculto', !EH_GERENCIA);
   document.getElementById('nav-admin').classList.toggle('oculto', !souAdmin);
   document.getElementById('nav-gestaofiado').classList.toggle('oculto', !souAdmin);
   document.getElementById('nav-dashboard').classList.toggle('oculto', !souAdmin);
@@ -2411,6 +2427,7 @@ function sair(){
   document.getElementById('nav-gestaofiado').classList.add('oculto');
   document.getElementById('nav-dashboard').classList.add('oculto');
   document.getElementById('nav-gerencia').classList.add('oculto');
+  document.getElementById('nav-saidas').classList.add('oculto');
   document.getElementById('inp-senha').value='';
   document.getElementById('sel-usuario').value='';
   mostrarLogin();
@@ -4268,8 +4285,75 @@ async function calcularBilheteGerencial(){
   return total;
 }
 
-function mostrarDetalheSaidasAtividade(atividade){
-  const itens = DETALHE_SAIDAS_BATIMENTO_POR_ATIVIDADE[atividade] || [];
+// ---------- Aba Saídas (visão gerencial com filtros) ----------
+let DETALHE_SAIDAS_ABA = {};
+
+async function abrirAbaSaidas(){
+  if(!EH_GERENCIA) return;
+  trocarAba('saidas');
+  const hoje = hojeISO();
+  const ini = document.getElementById('saidas-data-inicio');
+  const fim = document.getElementById('saidas-data-fim');
+  if(!ini.value) ini.value = hoje;
+  if(!fim.value) fim.value = hoje;
+  const selT = document.getElementById('saidas-terminal');
+  const valT = selT.value;
+  selT.innerHTML = '<option value="__caixa">Terminais caixa</option><option value="__todos">Todos os terminais</option>' +
+    TERMINAIS_CADASTRADOS.map(t => `<option value="${escaparHtml(t.numero)}">${escaparHtml(rotuloTerminal(t.numero))}</option>`).join('');
+  if(valT) selT.value = valT;
+  const selF = document.getElementById('saidas-funcionaria');
+  const valF = selF.value;
+  const usuarios = await carregarUsuarios();
+  selF.innerHTML = '<option value="">Todas</option>' +
+    usuarios.slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'))
+      .map(u => `<option value="${escaparHtml(u.usuario)}">${escaparHtml(u.nome||u.usuario)}</option>`).join('');
+  if(valF) selF.value = valF;
+  await renderizarAbaSaidas();
+}
+
+async function renderizarAbaSaidas(){
+  const cont = document.getElementById('saidas-resultado');
+  if(!cont) return;
+  const hoje = hojeISO();
+  let ini = document.getElementById('saidas-data-inicio').value || hoje;
+  let fim = document.getElementById('saidas-data-fim').value || hoje;
+  if(ini > fim){ const t = ini; ini = fim; fim = t; }
+  const termSel = document.getElementById('saidas-terminal').value || '__caixa';
+  const funcSel = document.getElementById('saidas-funcionaria').value;
+  const EXCLUIDAS = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
+  const caixas = numerosTerminaisCaixa();
+  const registros = (await carregarRegistros()).filter(r =>
+    r.tipo==='Saida' && !r.excluido && r.data>=ini && r.data<=fim && !EXCLUIDAS.includes(r.atividade) &&
+    (termSel==='__todos' ? true : termSel==='__caixa' ? caixas.includes(r.caixa) : r.caixa===termSel) &&
+    (!funcSel || r.usuario===funcSel));
+  const porAtiv = {};
+  registros.forEach(r => {
+    const k = r.atividade || '(sem atividade)';
+    if(!porAtiv[k]) porAtiv[k] = {atividade:k, total:0, qtd:0, itens:[]};
+    porAtiv[k].total += r.valor; porAtiv[k].qtd++; porAtiv[k].itens.push(r);
+  });
+  const linhas = Object.values(porAtiv).sort((a,b) => a.atividade.localeCompare(b.atividade,'pt-BR'));
+  DETALHE_SAIDAS_ABA = {};
+  linhas.forEach(l => { DETALHE_SAIDAS_ABA[l.atividade] = l.itens; });
+  if(linhas.length === 0){
+    cont.innerHTML = '<div class="vazio">Nenhuma saída para os filtros selecionados.</div>';
+    return;
+  }
+  const total = registros.reduce((s,r)=>s+r.valor,0);
+  cont.innerHTML = `<table>
+    <thead><tr><th>Atividade</th><th>Valor</th><th>Quantidade</th></tr></thead>
+    <tbody>
+      ${linhas.map(l => `<tr>
+        <td>${escaparHtml(l.atividade)}</td>
+        <td style="font-weight:700;">${formatarMoeda(l.total)}</td>
+        <td><a href="javascript:void(0)" style="color:var(--azul-caixa);font-weight:700;text-decoration:underline;" onclick="mostrarDetalheSaidasAtividade('${l.atividade.replace(/'/g,"\\'")}', DETALHE_SAIDAS_ABA)">${l.qtd}</a></td>
+      </tr>`).join('')}
+      <tr><td style="font-weight:800;">Total</td><td style="font-weight:800;">${formatarMoeda(total)}</td><td style="font-weight:800;">${registros.length}</td></tr>
+    </tbody></table>`;
+}
+
+function mostrarDetalheSaidasAtividade(atividade, mapa){
+  const itens = (mapa || DETALHE_SAIDAS_BATIMENTO_POR_ATIVIDADE)[atividade] || [];
   document.getElementById('modal-detalhe-saidas-titulo').textContent = 'Detalhamento — ' + atividade;
   const total = itens.reduce((s,r) => s+r.valor, 0);
   const cont = document.getElementById('modal-detalhe-saidas-conteudo');
