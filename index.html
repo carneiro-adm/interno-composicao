@@ -3986,18 +3986,20 @@ function mostrarMsgMovimento(html){
   if(m){ m.innerHTML = html; setTimeout(()=>{ if(m) m.innerHTML=''; }, 8000); }
 }
 
-// Aplica diferenças de quantidade ao Estoque de produtos gerencial. Retorna false se deixaria estoque negativo.
+// Aplica diferenças de quantidade ao Estoque de produtos gerencial. Nunca bloqueia: devolve os nomes dos
+// produtos que ficaram com estoque negativo (para avisar a pessoa conferir a contagem).
 function aplicarDeltaEstoque(deltas){
-  const ficaNegativo = PRODUTOS_ESTOQUE_GERENCIA.find(p => (parseFloat(document.getElementById('estoque-qtd-'+p.id).value) || 0) + (deltas[p.id]||0) < 0);
-  if(ficaNegativo) return ficaNegativo.nome;
+  const negativos = [];
   PRODUTOS_ESTOQUE_GERENCIA.forEach(p => {
     if(deltas[p.id]){
       const el = document.getElementById('estoque-qtd-'+p.id);
-      el.value = (parseFloat(el.value) || 0) + deltas[p.id];
+      const novo = (parseFloat(el.value) || 0) + deltas[p.id];
+      el.value = novo;
+      if(novo < 0) negativos.push(p.nome);
     }
   });
   calcularEstoqueGerencia();
-  return null;
+  return negativos;
 }
 
 async function salvarEdicaoMovimento(id){
@@ -4019,11 +4021,7 @@ async function salvarEdicaoMovimento(id){
     const depois = (novos.find(x => x.id === p.id) || {qtd:0}).qtd;
     deltas[p.id] = depois - antes;
   });
-  const bloqueio = aplicarDeltaEstoque(deltas);
-  if(bloqueio){
-    mostrarMsgMovimento('<div class="msg-erro">A alteração deixaria o estoque de "'+bloqueio+'" negativo.</div>');
-    return;
-  }
+  const negativos = aplicarDeltaEstoque(deltas);
   await salvarComposicaoGerenciaAtual();
   e.historicoEdicoes = (e.historicoEdicoes || []).concat([{em:Date.now(), por:USUARIO_LOGADO.usuario, produtosAntes:e.produtos, totalAntes:e.total}]);
   e.produtos = novos;
@@ -4035,7 +4033,7 @@ async function salvarEdicaoMovimento(id){
   limparFormularioSujo();
   await calcularEntradaProdutosGerencial();
   await calcularBatimentoGerencial();
-  mostrarMsgMovimento('<div class="msg-ok">Registro alterado e estoque ajustado.</div>');
+  mostrarMsgMovimento(negativos.length ? '<div class="msg-erro">Registro alterado, mas o estoque de '+negativos.join(', ')+' ficou negativo. Confira a contagem do estoque.</div>' : '<div class="msg-ok">Registro alterado e estoque ajustado.</div>');
 }
 
 async function excluirMovimentoProdutos(id){
@@ -4044,12 +4042,7 @@ async function excluirMovimentoProdutos(id){
   if(!e || e.excluido) return;
   const deltas = {};
   e.produtos.forEach(p => { deltas[p.id] = -p.qtd; });
-  const bloqueio = aplicarDeltaEstoque(deltas);
-  if(bloqueio){
-    EXCLUSAO_PENDENTE_ID = null; await calcularEntradaProdutosGerencial();
-    mostrarMsgMovimento('<div class="msg-erro">Não é possível excluir: o estoque de "'+bloqueio+'" ficaria negativo (parte do que entrou já foi vendida). Ajuste o estoque ou use Alterar.</div>');
-    return;
-  }
+  const negativos = aplicarDeltaEstoque(deltas);
   await salvarComposicaoGerenciaAtual();
   EXCLUSAO_PENDENTE_ID = null;
   e.excluido = true; e.excluidoEm = Date.now(); e.excluidoPor = USUARIO_LOGADO.usuario;
@@ -4059,7 +4052,7 @@ async function excluirMovimentoProdutos(id){
   limparFormularioSujo();
   await calcularEntradaProdutosGerencial();
   await calcularBatimentoGerencial();
-  mostrarMsgMovimento('<div class="msg-ok">Registro excluído e estoque ajustado.</div>');
+  mostrarMsgMovimento(negativos.length ? '<div class="msg-erro">Registro excluído, mas o estoque de '+negativos.join(', ')+' ficou negativo. Confira a contagem do estoque.</div>' : '<div class="msg-ok">Registro excluído e estoque ajustado.</div>');
 }
 
 // ---------- Enviar produtos para outro terminal (abate do Estoque de produtos gerencial) ----------
