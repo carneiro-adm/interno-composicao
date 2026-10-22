@@ -681,8 +681,8 @@
           <div class="totais-grandes">
             <div class="total-card total1">
               <div>
-                <div class="nome">TOTAL1 — Composição de caixa (dia anterior)</div>
-                <div class="formula">(c + d + e) do dia anterior, mesmo terminal</div>
+                <div class="nome">TOTAL1 — Composição de caixa (último dia contábil)</div>
+                <div class="formula" id="total1-formula">(c + d + e) do último dia contábil com dados, mesmo terminal</div>
               </div>
               <div class="num" id="total1-valor">R$ 0,00</div>
             </div>
@@ -1116,7 +1116,7 @@
           <div class="total-card total1">
             <div>
               <div class="nome">DÉBITO GERENCIAL</div>
-              <div class="formula">TOTAL1 (dia anterior) + Total Relatórios + Entrada Produtos</div>
+              <div class="formula" id="formula-debito-gerencial">TOTAL1 (último dia contábil com dados) + Total Relatórios + Entrada Produtos - devolução</div>
             </div>
             <div class="num" id="debito-gerencial-valor">R$ 0,00</div>
           </div>
@@ -1239,7 +1239,7 @@
         </div>
         <div class="subtotal-wrap">
           <div class="subtotal-card venda"><div class="rotulo">Total2 (período)</div><div class="valor" id="admin-total-total2">R$ 0,00</div></div>
-          <div class="subtotal-card estorno"><div class="rotulo">Total1 (dia anterior)</div><div class="valor" id="admin-total-total1">R$ 0,00</div></div>
+          <div class="subtotal-card estorno"><div class="rotulo">Total1 (último dia contábil com dados)</div><div class="valor" id="admin-total-total1">R$ 0,00</div></div>
           <div class="subtotal-card saldo"><div class="rotulo">Total3 Batimento</div><div class="valor" id="admin-total-total3">R$ 0,00</div></div>
         </div>
         <div class="tabela-historico-dias" id="admin-tabela-detalhe"><div class="vazio">Escolha o período e clique em Consultar.</div></div>
@@ -1754,6 +1754,17 @@ function diaAnteriorISO(refISO){
   dt.setDate(dt.getDate()-1);
   return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
 }
+// Último dia contábil ANTERIOR a dataRef que tenha fechamento registrado (para os terminais informados;
+// terminais = null considera qualquer terminal). Evita usar "ontem" literal quando a loja não abriu
+// (domingos, feriados). Retorna null se não houver nenhum.
+function ultimaDataComFechamento(fechamentos, terminais, dataRef){
+  let max = null;
+  fechamentos.forEach(f => {
+    if(f.data < dataRef && (!terminais || terminais.includes(f.terminal)) && (!max || f.data > max)) max = f.data;
+  });
+  return max;
+}
+function dataBR(iso){ return iso ? iso.split('-').reverse().join('/') : '—'; }
 function horaAgora(){
   const d = new Date();
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
@@ -3547,7 +3558,6 @@ async function atualizarTotaisFechamento(){
   const ctx = obterContextoFechamento();
   if(!ctx.terminal) return;
   const dataRef = ctx.data;
-  const ontem = diaAnteriorISO(dataRef);
 
   const registros = await carregarRegistros();
   const doTerminalDia = registros.filter(r => r.caixa===ctx.terminal && r.data===dataRef && !r.excluido);
@@ -3555,7 +3565,8 @@ async function atualizarTotaisFechamento(){
   const b = doTerminalDia.filter(r=>r.tipo==='Troco').reduce((s,r)=>s+r.valor,0);
 
   const fechamentos = await carregarFechamentos();
-  const doTerminalOntem = fechamentos.filter(f => f.terminal===ctx.terminal && f.data===ontem);
+  const dataTotal1 = ultimaDataComFechamento(fechamentos, [ctx.terminal], dataRef);
+  const doTerminalOntem = fechamentos.filter(f => f.terminal===ctx.terminal && f.data===dataTotal1);
   const total1 = doTerminalOntem.reduce((s,f)=> s + (f.c||0) + (f.d!=null ? f.d : (f.total||0)) + (f.e||0), 0);
 
   const d = calcularComposicao();
@@ -3570,6 +3581,8 @@ async function atualizarTotaisFechamento(){
   document.getElementById('resumo-b').textContent = formatarMoeda(b);
   document.getElementById('resumo-ab').textContent = formatarMoeda(a-b);
   document.getElementById('total1-valor').textContent = formatarMoeda(total1);
+  const elF1 = document.getElementById('total1-formula');
+  if(elF1) elF1.textContent = dataTotal1 ? '(c + d + e) de ' + dataBR(dataTotal1) + ' (último dia contábil com dados), mesmo terminal' : 'Sem dia anterior com dados registrados para este terminal';
   document.getElementById('total2-valor').textContent = formatarMoeda(total2);
   document.getElementById('total3-valor').textContent = formatarMoeda(total3);
 
@@ -4398,12 +4411,16 @@ async function calcularBatimentoGerencial(){
   if(!elDebito) return;
 
   const hoje = obterDataBatimento();
-  const ontem = diaAnteriorISO(hoje);
 
   // ---- DÉBITO GERENCIAL ----
-  // TOTAL1 = TOTAL2 do dia anterior (o fechamento de ontem vira o ponto de partida de hoje).
+  // TOTAL1 = TOTAL2 do último dia contábil com dados anterior à data (a loja não abre aos domingos e
+  // em alguns feriados, então "ontem" literal pode não ter registro).
   const composicoes = await carregarComposicaoGerencia();
-  const composicaoOntem = composicoes.find(c => c.data === ontem);
+  const todosFech = await carregarFechamentos();
+  const datasCandidatas = composicoes.filter(c => c.data < hoje && c.total2Gerencial != null).map(c => c.data)
+    .concat(todosFech.filter(f => f.data < hoje && numerosTerminaisCaixa().includes(f.terminal)).map(f => f.data));
+  const ontem = datasCandidatas.length ? datasCandidatas.reduce((a,b) => a > b ? a : b) : null;
+  const composicaoOntem = ontem ? composicoes.find(c => c.data === ontem) : null;
   let total1Gerencial;
   if(composicaoOntem && composicaoOntem.total2Gerencial != null){
     total1Gerencial = composicaoOntem.total2Gerencial;
@@ -4411,8 +4428,12 @@ async function calcularBatimentoGerencial(){
     // Sem Composição Gerência registrada ontem (ex: dias anteriores a esse controle
     // existir) — usa como reserva a soma de (c+d+e) dos fechamentos de ontem.
     const fechamentosOntem = (await carregarFechamentos()).filter(f => f.data === ontem && numerosTerminaisCaixa().includes(f.terminal));
-    total1Gerencial = fechamentosOntem.reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
+    total1Gerencial = !ontem ? 0 : fechamentosOntem.reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
   }
+
+  const rotuloTotal1 = ontem ? dataBR(ontem) : 'sem dia anterior com dados';
+  const elF = document.getElementById('formula-debito-gerencial');
+  if(elF) elF.textContent = 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução';
 
   const fechamentosHoje = (await carregarFechamentos()).filter(f => f.data === hoje);
   const totalRelatorios = fechamentosHoje
@@ -4470,10 +4491,10 @@ async function calcularBatimentoGerencial(){
   cont.innerHTML = `<table>
     <thead><tr><th>Componente</th><th>Valor</th></tr></thead>
     <tbody>
-      ${linhaComFormula('TOTAL1 — Composição de caixa (dia anterior)', total1Gerencial, 'TOTAL2 do dia anterior')}
+      ${linhaComFormula('TOTAL1 — Composição de caixa (último dia contábil com dados: ' + rotuloTotal1 + ')', total1Gerencial, 'TOTAL2 de ' + rotuloTotal1)}
       ${linhaComFormula('Total Relatórios (f) — terminais caixa (' + rotuloTerminaisCaixa + ')', totalRelatorios, null)}
       ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
-      ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 + Total Relatórios + Entrada Produtos - devolução', true)}
+      ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução', true)}
       ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
       ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + '), exceto Fiado, Bolão e Troca de caixas', totalSaidas, null)}
       ${linhaComFormula('Crédito Gerencial', creditoGerencial, 'TOTAL2 + Saídas hoje', true)}
@@ -4958,7 +4979,6 @@ async function atualizarPainelGeral(){
 
   const todosRegistros = await carregarRegistros();
   const todosFechamentos = await carregarFechamentos();
-  const ontem = diaAnteriorISO(dataSelecionada);
 
   let doDia = todosRegistros.filter(r => r.data === dataSelecionada && !r.excluido);
   let fechamentosDoDia = todosFechamentos.filter(f => f.data === dataSelecionada);
@@ -4991,8 +5011,11 @@ async function atualizarPainelGeral(){
   const linhas = Object.values(porFuncionario).map(g => {
     g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e;
     g.total1 = 0;
+    g.datasTotal1 = new Set();
     g.terminais.forEach(term => {
-      g.total1 += todosFechamentos.filter(f => f.terminal===term && f.data===ontem)
+      const dRef = ultimaDataComFechamento(todosFechamentos, [term], dataSelecionada);
+      if(dRef) g.datasTotal1.add(dRef);
+      g.total1 += todosFechamentos.filter(f => f.terminal===term && f.data===dRef)
         .reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
     });
     g.total3 = (g.total2 - g.total1) - g.f;
@@ -5019,11 +5042,12 @@ async function atualizarPainelGeral(){
         <td>${formatarMoeda(g.e)}</td>
         <td>${formatarMoeda(g.f)}</td>
         <td style="font-weight:700;">${formatarMoeda(g.total2)}</td>
-        <td style="font-weight:700;">${formatarMoeda(g.total1)}</td>
+        <td style="font-weight:700;">${formatarMoeda(g.total1)}<div style="font-size:10px;font-weight:400;color:var(--texto-claro);">ref. ${[...g.datasTotal1].sort().map(dataBR).join(' / ') || 'sem dia anterior'}</div></td>
         <td style="font-weight:800;color:${g.total3<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${formatarMoeda(g.total3)}</td>
       </tr>`).join('')}
     </tbody>
-  </table></div>`;
+  </table></div>
+  <p class="aviso-fechamento" style="margin-top:8px;">Total1 considera o último dia contábil com dados registrados antes de ${dataBR(dataSelecionada)} (a data usada aparece em "ref." em cada linha).</p>`;
 }
 
 // ---------- Histórico de dias anteriores ----------
@@ -5158,7 +5182,8 @@ async function consultarPainelAdmin(){
 
   const linhas = Object.values(grupos).map(g => {
     g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e;
-    const ontemG = diaAnteriorISO(g.data);
+    const ontemG = ultimaDataComFechamento(todosFechamentos, [g.terminal], g.data);
+    g.dataTotal1 = ontemG;
     g.total1 = todosFechamentos.filter(f => f.terminal===g.terminal && f.data===ontemG)
                  .reduce((s,f)=> s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
     g.total3 = (g.total2 - g.total1) - g.f;
@@ -5206,7 +5231,7 @@ async function consultarPainelAdmin(){
             <td>${formatarMoeda(g.e)}</td>
             <td>${formatarMoeda(g.f)}</td>
             <td style="font-weight:700;">${formatarMoeda(g.total2)}</td>
-            <td style="font-weight:700;">${formatarMoeda(g.total1)}</td>
+            <td style="font-weight:700;">${formatarMoeda(g.total1)}<div style="font-size:10px;font-weight:400;color:var(--texto-claro);">ref. ${g.dataTotal1 ? dataBR(g.dataTotal1) : 'sem dia anterior'}</div></td>
             <td style="font-weight:800;color:${g.total3<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${formatarMoeda(g.total3)}</td>
           </tr>`).join('')}
         </tbody>
