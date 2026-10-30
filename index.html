@@ -980,7 +980,8 @@
         <p class="aviso-fechamento">Deve ser registrado uma vez por dia. Preencha a quantidade de cada produto — o valor é calculado automaticamente.</p>
         <div class="campo">
           <label>Data da composição</label>
-          <input type="date" id="inp-data-gerencia" onchange="carregarComposicaoGerenciaExistente()">
+          <input type="date" id="inp-data-gerencia" onchange="mudarDataGerencia(this.value)">
+          <div class="aviso-data-gerencia" style="font-size:12px;margin-top:4px;"></div>
         </div>
         <div id="composicao-gerencia-status"></div>
         <div class="composicao-header">
@@ -999,7 +1000,12 @@
 
         <button class="btn-secundario" style="margin-top:14px;" onclick="alternarEntradaProdutos()">+ Entrada de produtos</button>
         <div class="oculto" id="bloco-entrada-produtos" style="margin-top:14px;border-top:1.5px solid var(--cinza-borda);padding-top:14px;">
-          <p class="aviso-fechamento">Registre a chegada de novos produtos. As quantidades informadas aqui são somadas ao estoque acima.</p>
+          <p class="aviso-fechamento">Registre a chegada de novos produtos. As quantidades informadas aqui são somadas ao estoque acima, na data escolhida (padrão: hoje).</p>
+          <div class="campo">
+            <label>Data da transação</label>
+            <input type="date" class="inp-data-gerencia-espelho" onchange="mudarDataGerencia(this.value)">
+            <div class="aviso-data-gerencia" style="font-size:12px;margin-top:4px;"></div>
+        </div>
           <div class="composicao-header">
             <h4 style="margin:0;">Quantidade recebida</h4>
             <div class="composicao-total">
@@ -1145,7 +1151,12 @@
 
       <div class="painel">
         <h3>Enviar troco do cofre para outro terminal</h3>
-        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Troco cofre.</p>
+        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Troco cofre <b>da data escolhida</b> (padrão: hoje).</p>
+        <div class="campo">
+          <label>Data da transação</label>
+          <input type="date" class="inp-data-gerencia-espelho" onchange="mudarDataGerencia(this.value)">
+          <div class="aviso-data-gerencia" style="font-size:12px;margin-top:4px;"></div>
+        </div>
         <div class="campo">
           <label>Terminal para</label>
           <select id="sel-terminal-envio-troco">
@@ -1168,7 +1179,12 @@
 
       <div class="painel">
         <h3>Enviar produtos para outro terminal</h3>
-        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Estoque de produtos gerencial.</p>
+        <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Estoque de produtos gerencial <b>da data escolhida</b> (padrão: hoje).</p>
+        <div class="campo">
+          <label>Data da transação</label>
+          <input type="date" class="inp-data-gerencia-espelho" onchange="mudarDataGerencia(this.value)">
+          <div class="aviso-data-gerencia" style="font-size:12px;margin-top:4px;"></div>
+        </div>
         <div class="campo">
           <label>Terminal para</label>
           <select id="sel-terminal-envio-produtos">
@@ -2375,6 +2391,9 @@ async function entrarNoApp(achado){
         TODOS_USUARIOS.filter(u => u.usuario !== achado.usuario).map(u => `<option value="${u.usuario}">${escaparHtml(u.nome)}</option>`).join('');
       document.getElementById('fech-ger-data').value = hoje;
       document.getElementById('inp-data-gerencia').value = hoje;
+      document.querySelectorAll('.inp-data-gerencia-espelho').forEach(el => { el.value = hoje; el.max = hoje; });
+      document.getElementById('inp-data-gerencia').max = hoje;
+      atualizarAvisoDataGerencia();
       document.getElementById('inp-data-batimento').value = hoje;
       montarEstoqueGerenciaLista();
       montarTrocoCofreLista();
@@ -3832,6 +3851,24 @@ function calcularEnvioTroco(){
   });
   document.getElementById('total-envio-troco').textContent = formatarMoeda(total);
   return total;
+}
+
+// A data da transação das opções da Gerência (Composição, Entrada de produtos, Envio de troco e Envio de
+// produtos) é uma só: qualquer campo de data que for alterado atualiza os demais e recarrega a composição
+// DAQUELE dia — assim o abatimento de estoque/troco e os lançamentos caem sempre na data escolhida.
+function atualizarAvisoDataGerencia(){
+  const d = obterDataGerencial();
+  const passado = d !== hojeISO();
+  document.querySelectorAll('.aviso-data-gerencia').forEach(el => {
+    el.innerHTML = passado ? '<span style="color:var(--laranja-caixa);font-weight:700;">⚠ Lançando em dia anterior: ' + dataBR(d) + '</span>' : '';
+  });
+}
+async function mudarDataGerencia(valor){
+  if(!valor) valor = hojeISO();
+  document.getElementById('inp-data-gerencia').value = valor;
+  document.querySelectorAll('.inp-data-gerencia-espelho').forEach(el => { el.value = valor; });
+  atualizarAvisoDataGerencia();
+  await carregarComposicaoGerenciaExistente();
 }
 
 function obterDataGerencial(){
