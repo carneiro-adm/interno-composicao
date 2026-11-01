@@ -345,6 +345,7 @@
     100%{ transform: rotate(180deg); }
   }
 
+#aba-envios .composicao-linha{grid-template-columns:1.6fr 1fr .9fr 1fr;}
 /* Tabelas com grade (aba Saídas) */
 .tabela-grade{width:100%;border-collapse:collapse;font-size:12px;}
 .tabela-grade th,.tabela-grade td{border:1px solid #CBD2DC;padding:6px 10px;text-align:left;}
@@ -1145,12 +1146,15 @@
         <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
 
         <h4 style="margin:18px 0 8px;">Saídas</h4>
-        <p class="aviso-fechamento">Saídas hoje — terminais caixa, exceto Fiado, Bolão e Troca de caixas. Ordenado por atividade (A-Z).</p>
+        <p class="aviso-fechamento">Saídas hoje — terminais caixa e gerência, exceto Fiado, Bolão, Troca de caixas, Devolução bilhetes e Troco cofre. Ordenado por atividade (A-Z).</p>
         <div class="tabela-historico-dias" id="detalhe-saidas-batimento"><div class="vazio">Calculando...</div></div>
       </div>
+    </div>
 
+    <!-- ===== ABA: ENVIOS (Gerência) ===== -->
+    <div class="aba-conteudo oculto" id="aba-envios">
       <div class="painel">
-        <h3>Enviar troco do cofre para outro terminal</h3>
+        <h3>Envio de troco do cofre</h3>
         <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Troco cofre <b>da data escolhida</b> (padrão: hoje).</p>
         <div class="campo">
           <label>Data da transação</label>
@@ -1165,7 +1169,7 @@
         </div>
         <div class="composicao-tabela">
           <div class="composicao-linha composicao-cabecalho">
-            <span>Denominação</span><span>Qtd a enviar</span><span>Valor</span>
+            <span>Denominação</span><span>Qtd a enviar</span><span>Disponível</span><span>Valor</span>
           </div>
           <div id="envio-troco-lista"></div>
         </div>
@@ -1178,7 +1182,7 @@
       </div>
 
       <div class="painel">
-        <h3>Enviar produtos para outro terminal</h3>
+        <h3>Envio de produtos</h3>
         <p class="aviso-fechamento">Do seu terminal de gerência para o terminal informado. O envio é registrado como Entrada negativa em ambos os terminais e abatido do Estoque de produtos gerencial <b>da data escolhida</b> (padrão: hoje).</p>
         <div class="campo">
           <label>Data da transação</label>
@@ -1193,7 +1197,7 @@
         </div>
         <div class="composicao-tabela">
           <div class="composicao-linha composicao-cabecalho">
-            <span>Produto</span><span>Qtd a enviar</span><span>Valor</span>
+            <span>Produto</span><span>Qtd a enviar</span><span>Disponível</span><span>Valor</span>
           </div>
           <div id="envio-produtos-lista"></div>
         </div>
@@ -1354,6 +1358,7 @@
     <button class="nav-btn ativo" data-aba="lancamentos" onclick="trocarAba('lancamentos')"><span class="icone">📝</span><span>Lançamentos</span></button>
     <button class="nav-btn" data-aba="fechamento" onclick="trocarAba('fechamento')"><span class="icone">🧮</span><span>Fechamento</span></button>
     <button class="nav-btn oculto" id="nav-gerencia" data-aba="gerencia" onclick="trocarAba('gerencia')"><span class="icone">🏢</span><span>Composição</span></button>
+    <button class="nav-btn oculto" id="nav-envios" data-aba="envios" onclick="abrirAbaEnvios()"><span class="icone">📦</span><span>Envios</span></button>
     <button class="nav-btn oculto" id="nav-saidas" data-aba="saidas" onclick="abrirAbaSaidas()"><span class="icone">💸</span><span>Saídas</span></button>
     <button class="nav-btn" data-aba="clientes" onclick="trocarAba('clientes')"><span class="icone">👤</span><span>Clientes</span></button>
     <button class="nav-btn oculto" id="nav-gestaofiado" data-aba="gestaofiado" onclick="abrirGestaoFiado()"><span class="icone">💳</span><span>Fiado</span></button>
@@ -1926,6 +1931,10 @@ async function recarregarTerminaisCache(){
 function terminaisPorTipo(tipo){
   return TERMINAIS_CADASTRADOS.filter(t => t.tipo === tipo);
 }
+// Terminais que entram nas Saídas/composição gerencial: caixas + gerência (tudo o que acontece na loja).
+function numerosTerminaisContabeis(){
+  return terminaisPorTipo('Caixa').concat(terminaisPorTipo('Gerência')).map(t => t.numero);
+}
 function numerosTerminaisCaixa(){
   return terminaisPorTipo('Caixa').map(t => t.numero);
 }
@@ -1950,6 +1959,8 @@ const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Dep�
 // Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
 // soma "Saídas hoje" usada no débito do Batimento Gerencial.
 const ATIVIDADES_FORA_DEBITO_GERENCIAL = ['Bolão','Troca de caixa','Devolução bilhetes'];
+// Movimento interno (cofre -> caixa): já aparece na composição do terminal que recebeu. Não é saída da loja.
+const ATIVIDADES_INTERNAS_GERENCIA = ['Troco cofre'];
 // Atividades que disparam o fluxo de lançamento duplo (Terminal para).
 const ATIVIDADES_TRANSFERENCIA_TERMINAL = ['Troca de caixa','Envio dinheiro'];
 
@@ -2360,6 +2371,7 @@ async function entrarNoApp(achado){
   // corretos para o perfil já ficaram visíveis (evita o bug de "menu sumido").
   document.getElementById('nav-gerencia').classList.toggle('oculto', !EH_GERENCIA);
   document.getElementById('nav-saidas').classList.toggle('oculto', !EH_GERENCIA);
+  document.getElementById('nav-envios').classList.toggle('oculto', !EH_GERENCIA);
   document.getElementById('nav-admin').classList.toggle('oculto', !souAdmin);
   document.getElementById('nav-gestaofiado').classList.toggle('oculto', !souAdmin);
   document.getElementById('nav-dashboard').classList.toggle('oculto', !souAdmin);
@@ -2467,6 +2479,7 @@ function sair(){
   document.getElementById('nav-dashboard').classList.add('oculto');
   document.getElementById('nav-gerencia').classList.add('oculto');
   document.getElementById('nav-saidas').classList.add('oculto');
+  document.getElementById('nav-envios').classList.add('oculto');
   document.getElementById('inp-senha').value='';
   document.getElementById('sel-usuario').value='';
   mostrarLogin();
@@ -3836,6 +3849,7 @@ function montarEnvioTrocoLista(){
     <div class="composicao-linha">
       <span class="composicao-nome">${formatarDenominacao(v)}</span>
       <input type="number" min="0" step="1" class="composicao-qtd" id="envio-qtd-${idDenom(v)}" value="0" oninput="calcularEnvioTroco(); marcarFormularioSujo();">
+      <span style="font-size:11px;color:var(--texto-claro);" id="envio-disp-${idDenom(v)}"></span>
       <span class="composicao-subtotal" id="envio-subtotal-${idDenom(v)}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -3847,6 +3861,8 @@ function calcularEnvioTroco(){
     const qtd = parseFloat(document.getElementById('envio-qtd-'+id).value) || 0;
     const subtotal = qtd * v;
     document.getElementById('envio-subtotal-'+id).textContent = formatarMoeda(subtotal);
+    const dispT = document.getElementById('envio-disp-'+id);
+    if(dispT) dispT.textContent = 'cofre: ' + (parseFloat(document.getElementById('cofre-qtd-'+id).value) || 0);
     total += subtotal;
   });
   document.getElementById('total-envio-troco').textContent = formatarMoeda(total);
@@ -3863,12 +3879,20 @@ function atualizarAvisoDataGerencia(){
     el.innerHTML = passado ? '<span style="color:var(--laranja-caixa);font-weight:700;">⚠ Lançando em dia anterior: ' + dataBR(d) + '</span>' : '';
   });
 }
+async function abrirAbaEnvios(){
+  if(!EH_GERENCIA) return;
+  trocarAba('envios');
+  atualizarAvisoDataGerencia();
+  calcularEnvioTroco();
+  calcularEnvioProdutos();
+}
 async function mudarDataGerencia(valor){
   if(!valor) valor = hojeISO();
   document.getElementById('inp-data-gerencia').value = valor;
   document.querySelectorAll('.inp-data-gerencia-espelho').forEach(el => { el.value = valor; });
   atualizarAvisoDataGerencia();
   await carregarComposicaoGerenciaExistente();
+  if(document.getElementById('envio-troco-lista') && document.getElementById('envio-troco-lista').children.length){ calcularEnvioTroco(); calcularEnvioProdutos(); }
 }
 
 function obterDataGerencial(){
@@ -4139,6 +4163,7 @@ function montarEnvioProdutosLista(){
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
       <input type="number" min="0" step="1" class="composicao-qtd" id="envio-prod-qtd-${p.id}" value="0" oninput="calcularEnvioProdutos(); marcarFormularioSujo();">
+      <span style="font-size:11px;color:var(--texto-claro);" id="envio-prod-disp-${p.id}"></span>
       <span class="composicao-subtotal" id="envio-prod-subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -4149,6 +4174,8 @@ function calcularEnvioProdutos(){
     const qtd = parseFloat(document.getElementById('envio-prod-qtd-'+p.id).value) || 0;
     const subtotal = qtd * p.valor;
     document.getElementById('envio-prod-subtotal-'+p.id).textContent = formatarMoeda(subtotal);
+    const dispP = document.getElementById('envio-prod-disp-'+p.id);
+    if(dispP) dispP.textContent = 'estoque: ' + (parseFloat(document.getElementById('estoque-qtd-'+p.id).value) || 0);
     total += subtotal;
   });
   document.getElementById('total-envio-produtos').textContent = formatarMoeda(total);
@@ -4357,7 +4384,7 @@ async function abrirAbaSaidas(){
   if(!fim.value) fim.value = hoje;
   const selT = document.getElementById('saidas-terminal');
   const valT = selT.value;
-  selT.innerHTML = '<option value="__caixa">Terminais caixa</option><option value="__todos">Todos os terminais</option>' +
+  selT.innerHTML = '<option value="__caixa">Caixas + Gerência</option><option value="__todos">Todos os terminais</option>' +
     TERMINAIS_CADASTRADOS.map(t => `<option value="${escaparHtml(t.numero)}">${escaparHtml(rotuloTerminal(t.numero))}</option>`).join('');
   if(valT) selT.value = valT;
   const selF = document.getElementById('saidas-funcionaria');
@@ -4380,10 +4407,10 @@ async function renderizarAbaSaidas(){
   const termSel = document.getElementById('saidas-terminal').value || '__caixa';
   const funcSel = document.getElementById('saidas-funcionaria').value;
   const EXCLUIDAS = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
-  const caixas = numerosTerminaisCaixa();
+  const caixas = numerosTerminaisContabeis();
   const registros = (await carregarRegistros()).filter(r =>
     r.tipo==='Saida' && !r.excluido && r.data>=ini && r.data<=fim && !EXCLUIDAS.includes(r.atividade) &&
-    (termSel==='__todos' ? true : termSel==='__caixa' ? caixas.includes(r.caixa) : r.caixa===termSel) &&
+    (termSel==='__todos' ? true : termSel==='__caixa' ? (caixas.includes(r.caixa) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade)) : r.caixa===termSel) &&
     (!funcSel || r.usuario===funcSel));
   const porAtiv = {};
   registros.forEach(r => {
@@ -4496,7 +4523,7 @@ async function calcularBatimentoGerencial(){
 
   const ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
   const registrosHoje = (await carregarRegistros()).filter(r =>
-    r.data===hoje && r.tipo==='Saida' && !r.excluido && !ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL.includes(r.atividade) && numerosTerminaisCaixa().includes(r.caixa));
+    r.data===hoje && r.tipo==='Saida' && !r.excluido && !ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL.includes(r.atividade) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade) && numerosTerminaisContabeis().includes(r.caixa));
   const totalSaidas = registrosHoje.reduce((s,r) => s+r.valor, 0);
 
   const creditoGerencial = total2Gerencial + totalSaidas;
@@ -4533,7 +4560,7 @@ async function calcularBatimentoGerencial(){
       ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
       ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução', true)}
       ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
-      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + '), exceto Fiado, Bolão e Troca de caixas', totalSaidas, null)}
+      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência, exceto Fiado, Bolão, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
       ${linhaComFormula('Crédito Gerencial', creditoGerencial, 'TOTAL2 + Saídas hoje', true)}
     </tbody>
   </table>`;
@@ -6302,7 +6329,7 @@ async function atualizarFechamentoSaidasSocio(){
   semanas.forEach((s, i) => {
     const doPeriodo = registros.filter(r =>
       r.data >= s.inicio && r.data <= s.fim && r.tipo === 'Saida' && !r.excluido &&
-      r.atividade !== 'Fiado' && numerosTerminaisCaixa().includes(r.caixa));
+      r.atividade !== 'Fiado' && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade) && numerosTerminaisContabeis().includes(r.caixa));
     doPeriodo.forEach(r => {
       const chave = r.atividade || '(sem atividade)';
       atividadesEncontradas.add(chave);
