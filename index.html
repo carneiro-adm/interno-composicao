@@ -522,6 +522,7 @@
             <option value="Raspadinha premiada">Raspadinha premiada</option>
             <option value="Rede">Rede</option>
             <option value="Bolão">Bolão</option>
+            <option value="Bolão Especial">Bolão Especial</option>
             <option value="Troca de caixa">Troca de caixa</option>
             <option value="Troca Telesena">Troca Telesena</option>
             <option value="Outros">Outros</option>
@@ -1146,7 +1147,7 @@
         <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
 
         <h4 style="margin:18px 0 8px;">Saídas</h4>
-        <p class="aviso-fechamento">Saídas hoje — terminais caixa e gerência, exceto Fiado, Bolão, Troca de caixas, Devolução bilhetes e Troco cofre. Ordenado por atividade (A-Z).</p>
+        <p class="aviso-fechamento">Saídas hoje — terminais caixa e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre. Ordenado por atividade (A-Z).</p>
         <div class="tabela-historico-dias" id="detalhe-saidas-batimento"><div class="vazio">Calculando...</div></div>
       </div>
     </div>
@@ -1214,7 +1215,7 @@
     <div class="aba-conteudo oculto" id="aba-saidas">
       <div class="painel">
         <h3>Saídas</h3>
-        <p class="aviso-fechamento">Saídas do período, exceto Fiado, Bolão, Troca de caixas e Devolução bilhetes. Ordenado por atividade (A-Z). Clique na quantidade para ver os lançamentos.</p>
+        <p class="aviso-fechamento">Saídas do período, exceto Fiado, Bolão, Bolão Especial, Troca de caixas e Devolução bilhetes. Ordenado por atividade (A-Z). Clique na quantidade para ver os lançamentos.</p>
         <div class="historico-linha-filtro" style="flex-wrap:wrap;">
           <div class="campo"><label>Data inicial</label><input type="date" id="saidas-data-inicio" onchange="renderizarAbaSaidas()"></div>
           <div class="campo"><label>Data final</label><input type="date" id="saidas-data-fim" onchange="renderizarAbaSaidas()"></div>
@@ -1955,10 +1956,11 @@ function tipoDoTerminalAtual(){
 // Atividades de Saída disponíveis dependem do tipo do terminal do dia.
 const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes','Notas'];
 const CATEGORIAS_NOTAS = ['Escritório','Limpeza','Cozinha','Manutenção','Outros'];
-const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Troca de caixa','Troca Telesena','Outros'];
+const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Bolão Especial','Troca de caixa','Troca Telesena','Outros'];
 // Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
 // soma "Saídas hoje" usada no débito do Batimento Gerencial.
-const ATIVIDADES_FORA_DEBITO_GERENCIAL = ['Bolão','Troca de caixa','Devolução bilhetes'];
+// 'Bolão Especial' é só controle do caixa: entra na Saída do caixa/fechamento dele, mas fica fora das visões gerenciais.
+const ATIVIDADES_FORA_DEBITO_GERENCIAL = ['Bolão','Bolão Especial','Troca de caixa','Devolução bilhetes'];
 // Movimento interno (cofre -> caixa): já aparece na composição do terminal que recebeu. Não é saída da loja.
 const ATIVIDADES_INTERNAS_GERENCIA = ['Troco cofre'];
 // Atividades que disparam o fluxo de lançamento duplo (Terminal para).
@@ -2794,7 +2796,16 @@ async function cadastrarCliente(){
   }
 
   msg.innerHTML = '';
-  const novoId = 'CLI-' + String(clientes.length+1).padStart(4,'0');
+  // Código novo = maior número já usado + 1 (cadastros, lançamentos e pagamentos). Nunca "quantidade + 1":
+  // depois de excluir/unificar um cadastro isso repetia o código de outro cliente.
+  const regsParaCodigo = await carregarRegistros();
+  const pagsParaCodigo = await carregarPagamentosFiado();
+  let maiorCodigo = 0;
+  const lerCodigo = id => { const m = /^CLI-(\d+)$/.exec(String(id||'')); return m ? parseInt(m[1],10) : 0; };
+  clientes.forEach(c => { maiorCodigo = Math.max(maiorCodigo, lerCodigo(c.id)); });
+  regsParaCodigo.forEach(r => { maiorCodigo = Math.max(maiorCodigo, lerCodigo(r.clienteId)); });
+  pagsParaCodigo.forEach(pg => { maiorCodigo = Math.max(maiorCodigo, lerCodigo(pg.clienteId)); });
+  const novoId = 'CLI-' + String(maiorCodigo+1).padStart(4,'0');
   const novoCliente = {
     id: novoId,
     nome: nome,
@@ -4560,7 +4571,7 @@ async function calcularBatimentoGerencial(){
       ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
       ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução', true)}
       ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
-      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência, exceto Fiado, Bolão, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
+      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
       ${linhaComFormula('Crédito Gerencial', creditoGerencial, 'TOTAL2 + Saídas hoje', true)}
     </tbody>
   </table>`;
