@@ -166,6 +166,7 @@
 
   .badge-saida{background:#EAF7ED;color:var(--verde-venda);}
   .badge-troco{background:#FDEDEC;color:var(--vermelho-estorno);}
+  .badge-pgto-fiado{background:#E8F0FE;color:#0033A0;}
   .badge{font-size:10px;font-weight:700;padding:4px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;}
   .historico-item{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--cinza-borda);font-size:13px;}
   .historico-item:last-child{border-bottom:none;}
@@ -175,6 +176,7 @@
   .hist-valor{font-weight:800;white-space:nowrap;}
   .hist-valor.saida{color:var(--verde-venda);}
   .hist-valor.troco{color:var(--vermelho-estorno);}
+  .hist-valor.pgto-fiado{color:#0033A0;}
   .btn-excluir{background:none;border:none;color:var(--texto-claro);cursor:pointer;font-size:16px;padding:2px 6px;margin-left:4px;}
   .btn-excluir:hover{color:var(--vermelho-estorno);}
   .btn-excluir.restaurar{color:var(--azul-caixa);font-size:12px;font-weight:700;}
@@ -1955,6 +1957,7 @@ function tipoDoTerminalAtual(){
 
 // Atividades de Saída disponíveis dependem do tipo do terminal do dia.
 const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes','Notas'];
+const ATIVIDADE_PAGAMENTO_FIADO = 'Pagamento de fiado';
 const CATEGORIAS_NOTAS = ['Escritório','Limpeza','Cozinha','Manutenção','Outros'];
 const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Bolão Especial','Troca de caixa','Troca Telesena','Outros'];
 // Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
@@ -2095,8 +2098,13 @@ async function salvarClientes(lista){
   await window.storage.set('clientes_loterica', JSON.stringify(lista), true);
   invalidarCache('clientes');
 }
-async function carregarPagamentosFiado(){
+// Lista completa (inclui excluídos). Use SÓ para gravar ou para mostrar na lista de lançamentos.
+async function carregarPagamentosFiadoBruto(){
   return carregarComCache('pagamentosFiado', 'pagamentos_fiado_loterica', true);
+}
+// Pagamentos válidos (sem os excluídos): saldos, extratos, relatórios e exportações.
+async function carregarPagamentosFiado(){
+  return (await carregarPagamentosFiadoBruto()).filter(p => !p.excluido);
 }
 async function salvarPagamentosFiado(lista){
   await window.storage.set('pagamentos_fiado_loterica', JSON.stringify(lista), true);
@@ -2703,6 +2711,40 @@ async function registrarLancamento(){
   await atualizarTudo();
 }
 
+async function excluirPagamentoFiado(id){
+  const lista = await carregarPagamentosFiadoBruto();
+  const item = lista.find(p => p.id === id);
+  if(!item || String(item.id).startsWith('CARGA')) return;   // créditos da carga sistêmica não se excluem pela lista
+  item.excluido = !item.excluido;
+  if(item.excluido){ item.excluidoPor = USUARIO_LOGADO.usuario; item.excluidoEm = new Date().toISOString(); }
+  else { delete item.excluidoPor; delete item.excluidoEm; }
+  await salvarPagamentosFiado(lista);
+  await atualizarTudo();
+}
+
+function htmlItemPagamentoFiado(p, nomePorId){
+  const nomeCliente = (nomePorId && nomePorId[p.clienteId]) || p.clienteNome || '';
+  const detalheAdmin = (EH_ADMIN || p.usuario !== USUARIO_LOGADO.usuario) ? escaparHtml(p.nome || p.usuario || '') : '';
+  const detalhe = [ATIVIDADE_PAGAMENTO_FIADO, nomeCliente ? ('Cliente: ' + nomeCliente) : '', p.obs].filter(Boolean).map(escaparHtml).join(' · ');
+  const classeItem = p.excluido ? 'historico-item excluido' : 'historico-item';
+  const protegido = String(p.id).startsWith('CARGA');
+  const botao = protegido ? '' : `<button class="${p.excluido ? 'btn-excluir restaurar' : 'btn-excluir'}" onclick="excluirPagamentoFiado('${escaparHtml(p.id)}')" title="${p.excluido ? 'Restaurar' : 'Excluir'}">${p.excluido ? '↺' : '✕'}</button>`;
+  return `<div class="${classeItem}">
+    <div class="hist-esq">
+      <span class="badge badge-pgto-fiado">Pgto fiado</span>
+      <div class="hist-info">
+        ${detalheAdmin ? `<div class="caixa">${detalheAdmin}</div>` : ''}
+        <div class="caixa">${detalhe}</div>
+        <div class="hora">${(p.data||'').split('-').reverse().join('/')} · ${escaparHtml(p.hora||'')}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;">
+      <span class="hist-valor pgto-fiado">${formatarMoeda(p.valor)}</span>
+      ${botao}
+    </div>
+  </div>`;
+}
+
 async function excluirLancamento(id){
   let registros = await carregarRegistros();
   const item = registros.find(r => r.id === id);
@@ -2799,7 +2841,7 @@ async function cadastrarCliente(){
   // Código novo = maior número já usado + 1 (cadastros, lançamentos e pagamentos). Nunca "quantidade + 1":
   // depois de excluir/unificar um cadastro isso repetia o código de outro cliente.
   const regsParaCodigo = await carregarRegistros();
-  const pagsParaCodigo = await carregarPagamentosFiado();
+  const pagsParaCodigo = await carregarPagamentosFiadoBruto();
   let maiorCodigo = 0;
   const lerCodigo = id => { const m = /^CLI-(\d+)$/.exec(String(id||'')); return m ? parseInt(m[1],10) : 0; };
   clientes.forEach(c => { maiorCodigo = Math.max(maiorCodigo, lerCodigo(c.id)); });
@@ -3053,7 +3095,7 @@ async function registrarPagamentoFiado(){
   const clientes = await carregarClientes();
   const cliente = clientes.find(c => c.id === clienteId);
 
-  const pagamentos = await carregarPagamentosFiado();
+  const pagamentos = await carregarPagamentosFiadoBruto();
   const novoPagamento = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
     clienteId: clienteId,
@@ -4965,7 +5007,7 @@ async function atualizarTudo(){
   // (inclui variações como "Conta Loja - Água", então não é uma lista fixa no código).
   const selAtividadeHist = document.getElementById('filtro-hist-atividade');
   if(selAtividadeHist){
-    const atividadesExistentes = Array.from(new Set(registros.map(r => r.atividade).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const atividadesExistentes = Array.from(new Set(registros.map(r => r.atividade).filter(Boolean).concat([ATIVIDADE_PAGAMENTO_FIADO]))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
     const valorAtualFiltroAtividade = selAtividadeHist.value;
     const opcoesAtividade = '<option value="">Todas</option>' + atividadesExistentes.map(a => `<option value="${escaparHtml(a)}">${escaparHtml(a)}</option>`).join('');
     if(selAtividadeHist.innerHTML !== opcoesAtividade) selAtividadeHist.innerHTML = opcoesAtividade;
@@ -4989,11 +5031,27 @@ async function atualizarTudo(){
       && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist))
   ).sort((a,b) => b.timestamp - a.timestamp);
 
+  // Pagamentos de fiado também compõem a lista (com excluir/restaurar). Não entram nos totais de Saída/Entrada do caixa.
+  const pagamentosBrutos = await carregarPagamentosFiadoBruto();
+  const clientesLista = await carregarClientes();
+  const nomePorId = {}; clientesLista.forEach(c => { if(!(c.id in nomePorId)) nomePorId[c.id] = c.nome; });
+  const filtroUsuarioPg = verTudoHistorico ? (document.getElementById('filtro-hist-usuario')?.value || '') : '';
+  const filtroTerminalPg = verTudoHistorico ? (document.getElementById('filtro-hist-terminal')?.value || '') : '';
+  const pagamentosPeriodo = pagamentosBrutos.filter(p => p.data >= periodoInicio && p.data <= periodoFim
+    && !filtroTerminalPg   // pagamento de fiado não tem terminal
+    && (!filtroAtividadeHist || filtroAtividadeHist === ATIVIDADE_PAGAMENTO_FIADO)
+    && (verTudoHistorico ? (!filtroUsuarioPg || p.usuario === filtroUsuarioPg) : p.usuario === USUARIO_LOGADO.usuario));
+  const itensLista = meusPeriodo.map(r => ({k:'reg', r, ts:r.timestamp}))
+    .concat(pagamentosPeriodo.map(p => ({k:'pag', p, ts:p.timestamp})))
+    .sort((a,b) => (b.ts||0) - (a.ts||0));
+
   const lista = document.getElementById('lista-historico');
-  if(meusPeriodo.length === 0){
+  if(itensLista.length === 0){
     lista.innerHTML = '<div class="vazio">Nenhum lançamento registrado neste período.</div>';
   }else{
-    lista.innerHTML = meusPeriodo.map(r => {
+    lista.innerHTML = itensLista.map(item => {
+      if(item.k === 'pag') return htmlItemPagamentoFiado(item.p, nomePorId);
+      const r = item.r;
       const badgeClasse = r.tipo==='Saida' ? 'badge-saida' : 'badge-troco';
       const valorClasse = r.tipo==='Saida' ? 'saida' : 'troco';
       const rotuloTipo = r.tipo==='Saida' ? 'Saída' : 'Entrada';
