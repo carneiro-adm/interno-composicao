@@ -573,7 +573,7 @@
         </div>
         <div class="campo">
           <label>Valor (R$)</label>
-          <input type="number" id="inp-valor" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
+          <input type="number" inputmode="decimal" id="inp-valor" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
         </div>
         <div class="campo">
           <label>Data do lançamento</label>
@@ -597,7 +597,7 @@
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
             <label>Valor pago (R$)</label>
-            <input type="number" id="inp-valor-pagamento-fiado" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="inp-valor-pagamento-fiado" placeholder="0,00" step="0.01" min="0" onblur="formatarValorDecimal(this)">
           </div>
           <div class="campo" style="margin-bottom:0;">
             <label>Data do pagamento</label>
@@ -710,7 +710,7 @@
             <div class="titulo-bloco"><span class="letra-label">c</span> Troco terminal fechamento</div>
             <div class="campo" style="margin-bottom:0;">
               <label>Valor (R$)</label>
-              <input type="number" id="inp-fechamento-c" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+              <input type="number" inputmode="decimal" id="inp-fechamento-c" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
             </div>
           </div>
 
@@ -735,7 +735,7 @@
             <div class="titulo-bloco"><span class="letra-label">e</span> Bolão fechamento</div>
             <div class="campo" style="margin-bottom:0;">
               <label>Valor (R$)</label>
-              <input type="number" id="inp-fechamento-e" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+              <input type="number" inputmode="decimal" id="inp-fechamento-e" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
             </div>
           </div>
 
@@ -743,7 +743,7 @@
             <div class="titulo-bloco"><span class="letra-label">f</span> Valor do relatório terminal do dia</div>
             <div class="campo" style="margin-bottom:0;">
               <label>Valor (R$)</label>
-              <input type="number" id="inp-fechamento-f" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
+              <input type="number" inputmode="decimal" id="inp-fechamento-f" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotaisFechamento()" onblur="formatarValorDecimal(this); atualizarTotaisFechamento();">
             </div>
           </div>
         </div>
@@ -770,7 +770,7 @@
             <div class="titulo-bloco"><span class="letra-label">l</span> Gaveta bilhete</div>
             <div class="campo" style="margin-bottom:0;">
               <label>Valor (R$)</label>
-              <input type="number" id="inp-bilhetes-gaveta" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotalBilhetes()" onblur="formatarValorDecimal(this); atualizarTotalBilhetes();">
+              <input type="number" inputmode="decimal" id="inp-bilhetes-gaveta" placeholder="0,00" step="0.01" min="0" value="0" oninput="atualizarTotalBilhetes()" onblur="formatarValorDecimal(this); atualizarTotalBilhetes();">
             </div>
           </div>
 
@@ -837,7 +837,7 @@
           </div>
           <div class="campo">
             <label>Celular (opcional)</label>
-            <input type="text" id="cli-celular" placeholder="(DDD) 9XXXX-XXXX">
+            <input type="text" id="cli-celular" inputmode="tel" placeholder="(DDD) 9XXXX-XXXX">
           </div>
           <div class="campo">
             <label>Observação</label>
@@ -1044,7 +1044,7 @@
         <h3>Vitrine raspadinha</h3>
         <div class="campo" style="margin-bottom:0;">
           <label>Valor (R$)</label>
-          <input type="number" id="inp-vitrine-raspadinha" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
+          <input type="number" inputmode="decimal" id="inp-vitrine-raspadinha" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
         </div>
       </div>
 
@@ -1089,7 +1089,7 @@
         <h3>Bolões especiais</h3>
         <div class="campo" style="margin-bottom:0;">
           <label>Valor (R$)</label>
-          <input type="number" id="inp-quina-especial" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
+          <input type="number" inputmode="decimal" id="inp-quina-especial" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
         </div>
       </div>
 
@@ -1097,7 +1097,7 @@
         <h3>Gaveta Gerencial</h3>
         <div class="campo" style="margin-bottom:0;">
           <label>Valor (R$)</label>
-          <input type="number" id="inp-gaveta" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
+          <input type="number" inputmode="decimal" id="inp-gaveta" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this); calcularBatimentoGerencial();">
         </div>
       </div>
 
@@ -1244,7 +1244,7 @@
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
             <label>Número/Código do terminal</label>
-            <input type="text" id="novo-terminal-numero" placeholder="ex: 9943">
+            <input type="text" id="novo-terminal-numero" inputmode="numeric" placeholder="ex: 9943">
           </div>
           <div class="campo" style="margin-bottom:0;">
             <label>Tipo</label>
@@ -1499,29 +1499,29 @@
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
             <label>Jogos (Total Jogos)</label>
-            <input type="number" id="socio-jogos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-jogos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
           <div class="campo" style="margin-bottom:0;">
             <label>Contas (Total Contas)</label>
-            <input type="number" id="socio-contas" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-contas" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
         </div>
 
         <h4 style="margin:16px 0 8px;">Prêmios pagos</h4>
         <div class="campo">
           <label>Total Prêmios pagos</label>
-          <input type="number" id="socio-premios" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          <input type="number" inputmode="decimal" id="socio-premios" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
         </div>
 
         <h4 style="margin:16px 0 8px;">Crédito financeiro <span style="font-weight:400;font-size:11px;color:var(--texto-claro);">(Pagamentos + Saque)</span></h4>
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
             <label>Pagamentos</label>
-            <input type="number" id="socio-pagamentos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-pagamentos" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
           <div class="campo" style="margin-bottom:0;">
             <label>Saque</label>
-            <input type="number" id="socio-saque" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-saque" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
         </div>
 
@@ -1529,34 +1529,34 @@
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
             <label>Cartão de crédito</label>
-            <input type="number" id="socio-cartao-credito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-cartao-credito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
           <div class="campo" style="margin-bottom:0;">
             <label>Cartão de débito</label>
-            <input type="number" id="socio-cartao-debito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-cartao-debito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
         </div>
 
         <h4 style="margin:16px 0 8px;">Débitos financiados <span style="font-weight:400;font-size:11px;color:var(--texto-claro);">(Depósito)</span></h4>
         <div class="campo">
           <label>Depósito</label>
-          <input type="number" id="socio-deposito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          <input type="number" inputmode="decimal" id="socio-deposito" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
         </div>
 
         <h4 style="margin:16px 0 8px;">Pix <span style="font-weight:400;font-size:11px;color:var(--texto-claro);">((Pix Pagamento + Pix Saque) − Pix Devolvido)</span></h4>
         <div class="linha-form">
           <div class="campo" style="margin-bottom:0;">
             <label>Pix Pagamento</label>
-            <input type="number" id="socio-pix-pagamento" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-pix-pagamento" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
           <div class="campo" style="margin-bottom:0;">
             <label>Pix Saque</label>
-            <input type="number" id="socio-pix-saque" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+            <input type="number" inputmode="decimal" id="socio-pix-saque" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
           </div>
         </div>
         <div class="campo">
           <label>Pix Devolvido</label>
-          <input type="number" id="socio-pix-devolvido" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
+          <input type="number" inputmode="decimal" id="socio-pix-devolvido" placeholder="0,00" step="0.01" min="0" value="0" onblur="formatarValorDecimal(this)">
         </div>
 
         <button class="btn-primario" id="btn-registrar-vendas-socio" onclick="registrarVendasSocio()">Após validação, registrar dados no sistema</button>
@@ -3054,7 +3054,7 @@ function mostrarEdicaoCliente(id){
         </div>
         <div class="campo">
           <label>Celular</label>
-          <input type="text" id="edit-cli-celular" value="${escaparHtml(cliente.celular||'')}">
+          <input type="text" id="edit-cli-celular" inputmode="tel" value="${escaparHtml(cliente.celular||'')}">
         </div>
         <div class="campo">
           <label>Observação</label>
@@ -3488,7 +3488,7 @@ function montarVitrineBilhetesLista(){
   cont.innerHTML = PRODUTOS_VITRINE_BILHETES.map(p => `
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="vit-qtd-${p.id}" value="0" oninput="onVitrineBilhetesInput()">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="vit-qtd-${p.id}" value="0" oninput="onVitrineBilhetesInput()">
       <span class="composicao-subtotal" id="vit-subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -3570,7 +3570,7 @@ function montarComposicaoLista(){
   cont.innerHTML = PRODUTOS_FECHAMENTO.map(p => `
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="qtd-${p.id}" value="0" oninput="onComposicaoInput()">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="qtd-${p.id}" value="0" oninput="onComposicaoInput()">
       <span class="composicao-subtotal" id="subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -3898,7 +3898,7 @@ function montarEstoqueGerenciaLista(){
   cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="estoque-qtd-${p.id}" value="0" oninput="calcularEstoqueGerencia(); calcularBatimentoGerencial(); marcarFormularioSujo();">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="estoque-qtd-${p.id}" value="0" oninput="calcularEstoqueGerencia(); calcularBatimentoGerencial(); marcarFormularioSujo();">
       <span class="composicao-subtotal" id="estoque-subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -3921,7 +3921,7 @@ function montarTrocoCofreLista(){
   cont.innerHTML = DENOMINACOES_TROCO_COFRE.map(v => `
     <div class="composicao-linha">
       <span class="composicao-nome">${formatarDenominacao(v)}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="cofre-qtd-${idDenom(v)}" value="0" oninput="calcularTrocoCofre(); calcularBatimentoGerencial(); marcarFormularioSujo();">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="cofre-qtd-${idDenom(v)}" value="0" oninput="calcularTrocoCofre(); calcularBatimentoGerencial(); marcarFormularioSujo();">
       <span class="composicao-subtotal" id="cofre-subtotal-${idDenom(v)}">R$ 0,00</span>
     </div>`).join('');
 }
@@ -3945,7 +3945,7 @@ function montarEnvioTrocoLista(){
   cont.innerHTML = DENOMINACOES_TROCO_COFRE.map(v => `
     <div class="composicao-linha">
       <span class="composicao-nome">${formatarDenominacao(v)}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="envio-qtd-${idDenom(v)}" value="0" oninput="calcularEnvioTroco(); marcarFormularioSujo();">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="envio-qtd-${idDenom(v)}" value="0" oninput="calcularEnvioTroco(); marcarFormularioSujo();">
       <span style="font-size:11px;color:var(--texto-claro);" id="envio-disp-${idDenom(v)}"></span>
       <span class="composicao-subtotal" id="envio-subtotal-${idDenom(v)}">R$ 0,00</span>
     </div>`).join('');
@@ -4020,7 +4020,7 @@ function montarEntradaProdutosLista(){
   cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="entrada-prod-qtd-${p.id}" value="0" oninput="calcularEntradaProdutosForm(); marcarFormularioSujo();">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="entrada-prod-qtd-${p.id}" value="0" oninput="calcularEntradaProdutosForm(); marcarFormularioSujo();">
       <span class="composicao-subtotal" id="entrada-prod-subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
   calcularEntradaProdutosForm();
@@ -4163,7 +4163,7 @@ function montarEditorMovimento(e){
     const it = e.produtos.find(x => x.id === p.id);
     const q = it ? Math.abs(it.qtd) : 0;
     return `<div class="composicao-linha"><span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="edit-mov-qtd-${p.id}" value="${q}">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="edit-mov-qtd-${p.id}" value="${q}">
       <span class="composicao-subtotal"></span></div>`;
   }).join('');
   return `<div style="margin-top:10px;border-top:1px dashed var(--cinza-borda);padding-top:10px;">
@@ -4259,7 +4259,7 @@ function montarEnvioProdutosLista(){
   cont.innerHTML = PRODUTOS_ESTOQUE_GERENCIA.map(p => `
     <div class="composicao-linha">
       <span class="composicao-nome">${p.nome}</span>
-      <input type="number" min="0" step="1" class="composicao-qtd" id="envio-prod-qtd-${p.id}" value="0" oninput="calcularEnvioProdutos(); marcarFormularioSujo();">
+      <input type="number" inputmode="numeric" min="0" step="1" class="composicao-qtd" id="envio-prod-qtd-${p.id}" value="0" oninput="calcularEnvioProdutos(); marcarFormularioSujo();">
       <span style="font-size:11px;color:var(--texto-claro);" id="envio-prod-disp-${p.id}"></span>
       <span class="composicao-subtotal" id="envio-prod-subtotal-${p.id}">R$ 0,00</span>
     </div>`).join('');
