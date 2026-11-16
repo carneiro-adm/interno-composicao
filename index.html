@@ -781,6 +781,15 @@
             </div>
             <div class="num" id="bilhetes-total-final">R$ 0,00</div>
           </div>
+
+          <div class="total-card total3" style="margin-bottom:6px;">
+            <div>
+              <div class="nome">Batimento bilhete</div>
+              <div class="formula" id="bilhetes-batimento-formula">(Vitrine + Gaveta do último dia contábil) − Total bilhete hoje</div>
+            </div>
+            <div class="num" id="bilhetes-batimento-valor">—</div>
+          </div>
+          <p class="aviso-fechamento" id="bilhetes-batimento-ref" style="margin-bottom:16px;"></p>
         </div>
 
         <button class="btn-primario" id="btn-registrar-fechamento" onclick="registrarFechamento()">Registrar Fechamento Caixa</button>
@@ -1217,7 +1226,7 @@
     <div class="aba-conteudo oculto" id="aba-saidas">
       <div class="painel">
         <h3>Saídas</h3>
-        <p class="aviso-fechamento">Saídas do período, exceto Fiado, Bolão, Bolão Especial, Troca de caixas e Devolução bilhetes. Ordenado por atividade (A-Z). Clique na quantidade para ver os lançamentos.</p>
+        <p class="aviso-fechamento">Saídas do período, exceto Fiado, Bolão, Bolão Especial, Troca de caixas e Devolução bilhetes. Inclui Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes. Ordenado por atividade (A-Z). Clique na quantidade para ver os lançamentos.</p>
         <div class="historico-linha-filtro" style="flex-wrap:wrap;">
           <div class="campo"><label>Data inicial</label><input type="date" id="saidas-data-inicio" onchange="renderizarAbaSaidas()"></div>
           <div class="campo"><label>Data final</label><input type="date" id="saidas-data-fim" onchange="renderizarAbaSaidas()"></div>
@@ -1966,6 +1975,9 @@ const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Dep�
 const ATIVIDADES_FORA_DEBITO_GERENCIAL = ['Bolão','Bolão Especial','Troca de caixa','Devolução bilhetes'];
 // Movimento interno (cofre -> caixa): já aparece na composição do terminal que recebeu. Não é saída da loja.
 const ATIVIDADES_INTERNAS_GERENCIA = ['Troco cofre'];
+// Saídas do caixa Bilhetes que também entram no controle de Saídas (aba Saídas). Só a aba Saídas: o Batimento já conta
+// o caixa Bilhetes inteiro pelo "Total bilhete", então somar de novo lá seria contar em dobro.
+const ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS = ['Brindes/Descontos','Pix fora terminal','Rede'];
 // Atividades que disparam o fluxo de lançamento duplo (Terminal para).
 const ATIVIDADES_TRANSFERENCIA_TERMINAL = ['Troca de caixa','Envio dinheiro'];
 
@@ -3502,6 +3514,17 @@ function onVitrineBilhetesInput(){
   marcarFormularioSujo();
 }
 
+// Batimento do fechamento de bilhetes: (Vitrine + Gaveta do último dia contábil) − Total bilhete de hoje (d0).
+// Último dia contábil = último dia anterior com fechamento registrado neste terminal (pula domingos/feriados sem dados).
+async function calcularBatimentoBilhete(ctx, totalBilheteD0){
+  const fechamentos = (await carregarFechamentos()).filter(f => f.terminal === ctx.terminal && (f.k !== undefined || f.l !== undefined));
+  const dataPrev = ultimaDataComFechamento(fechamentos, null, ctx.data);
+  if(!dataPrev) return {dataPrev:null, k:0, l:0, kl:0, batimento:null};
+  const ult = fechamentos.filter(f => f.data === dataPrev).sort((a,b) => (b.timestamp||0) - (a.timestamp||0))[0];
+  const k = ult.k || 0, l = ult.l || 0;
+  return {dataPrev, k, l, kl:k+l, batimento:(k+l) - totalBilheteD0};
+}
+
 async function atualizarTotalBilhetes(){
   const ctx = obterContextoFechamento();
   if(!ctx.terminal) return 0;
@@ -3524,6 +3547,21 @@ async function atualizarTotalBilhetes(){
   if(elAB) elAB.textContent = formatarMoeda(j-b);
   const elTotal = document.getElementById('bilhetes-total-final');
   if(elTotal) elTotal.textContent = formatarMoeda(totalBilhete);
+  const bat = await calcularBatimentoBilhete(ctx, totalBilhete);
+  const elBatV = document.getElementById('bilhetes-batimento-valor');
+  const elBatF = document.getElementById('bilhetes-batimento-formula');
+  const elBatR = document.getElementById('bilhetes-batimento-ref');
+  if(elBatV){
+    if(bat.dataPrev){
+      elBatV.textContent = formatarMoeda(bat.batimento);
+      elBatF.textContent = 'Cálculo: (Vitrine ' + formatarMoeda(bat.k) + ' + Gaveta ' + formatarMoeda(bat.l) + ' de ' + dataBR(bat.dataPrev) + ' = ' + formatarMoeda(bat.kl) + ') − Total bilhete hoje ' + formatarMoeda(totalBilhete);
+      elBatR.textContent = 'Último dia contábil considerado: ' + dataBR(bat.dataPrev) + ' (último fechamento deste terminal antes de ' + dataBR(dataRef) + '; dias sem registro, como domingos e feriados, são pulados).';
+    }else{
+      elBatV.textContent = '—';
+      elBatF.textContent = '(Vitrine + Gaveta do último dia contábil) − Total bilhete hoje';
+      elBatR.textContent = 'Sem dia contábil anterior com fechamento de bilhetes registrado neste terminal: não há base para o batimento.';
+    }
+  }
   return totalBilhete;
 }
 
@@ -3696,6 +3734,7 @@ async function registrarFechamento(){
       return registros.filter(r => r.caixa===ctx.terminal && r.data===ctx.data && !r.excluido && r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
     })();
     const totalBilhete = j + k + l;
+    const batBilhete = await calcularBatimentoBilhete(ctx, totalBilhete);
 
     const registro = {
       id: idx>=0 ? fechamentos[idx].id : (Date.now()+'-'+Math.random().toString(36).slice(2,7)),
@@ -3709,6 +3748,9 @@ async function registrarFechamento(){
       produtosVitrine: produtosVitrine,
       j: j, k: k, l: l,
       total: totalBilhete,
+      batimentoBilhete: batBilhete.batimento,
+      dataRefBatimento: batBilhete.dataPrev,
+      vitrineGavetaAnterior: batBilhete.kl,
       timestamp: Date.now()
     };
     if(idx>=0) fechamentos[idx] = registro; else fechamentos.push(registro);
@@ -3726,6 +3768,8 @@ async function registrarFechamento(){
       k_vitrineBilhetes: registro.k,
       l_gavetaBilhete: registro.l,
       totalBilhete: registro.total,
+      batimentoBilhete: registro.batimentoBilhete,
+      dataRefBatimento: registro.dataRefBatimento,
       produtosVitrine: registro.produtosVitrine
     });
 
@@ -4437,7 +4481,7 @@ async function abrirAbaSaidas(){
   if(!fim.value) fim.value = hoje;
   const selT = document.getElementById('saidas-terminal');
   const valT = selT.value;
-  selT.innerHTML = '<option value="__caixa">Caixas + Gerência</option><option value="__todos">Todos os terminais</option>' +
+  selT.innerHTML = '<option value="__caixa">Caixas + Gerência (+ Brindes, Pix e Rede do Bilhetes)</option><option value="__todos">Todos os terminais</option>' +
     TERMINAIS_CADASTRADOS.map(t => `<option value="${escaparHtml(t.numero)}">${escaparHtml(rotuloTerminal(t.numero))}</option>`).join('');
   if(valT) selT.value = valT;
   const selF = document.getElementById('saidas-funcionaria');
@@ -4461,9 +4505,13 @@ async function renderizarAbaSaidas(){
   const funcSel = document.getElementById('saidas-funcionaria').value;
   const EXCLUIDAS = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
   const caixas = numerosTerminaisContabeis();
+  const bilhetes = terminaisPorTipo('Bilhetes').map(t => t.numero);
   const registros = (await carregarRegistros()).filter(r =>
     r.tipo==='Saida' && !r.excluido && r.data>=ini && r.data<=fim && !EXCLUIDAS.includes(r.atividade) &&
-    (termSel==='__todos' ? true : termSel==='__caixa' ? (caixas.includes(r.caixa) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade)) : r.caixa===termSel) &&
+    (termSel==='__todos' ? true : termSel==='__caixa'
+      ? ((caixas.includes(r.caixa) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade))
+         || (bilhetes.includes(r.caixa) && ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS.includes(r.atividade)))
+      : r.caixa===termSel) &&
     (!funcSel || r.usuario===funcSel));
   const porAtiv = {};
   registros.forEach(r => {
