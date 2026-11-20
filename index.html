@@ -1286,6 +1286,17 @@
         </div>
         <div id="admin-status-funcionario"></div>
         <div class="campo">
+          <label>Perfil de acesso</label>
+          <select id="admin-perfil-usuario">
+            <option value="caixa">Caixa (normal) — só os caixas</option>
+            <option value="gerencia">Gerência — caixas + produtos de gerência (sem Administração)</option>
+            <option value="gerencia_admin">Gerência + Administrador — gerência e Administração</option>
+            <option value="admin">Administrador — Administração (sem produtos de gerência)</option>
+            <option value="socio">Sócio — acesso isolado aos relatórios</option>
+          </select>
+        </div>
+        <button class="btn-secundario" style="margin-top:0;margin-bottom:12px;" onclick="adminSalvarPerfilUsuario()">Salvar perfil de acesso</button>
+        <div class="campo">
           <label>Nova senha</label>
           <input type="password" id="admin-reset-senha" placeholder="Nova senha">
         </div>
@@ -1295,6 +1306,8 @@
           <button class="btn-secundario" style="margin-top:0;color:var(--vermelho-estorno);border-color:var(--vermelho-estorno);" onclick="adminApagarUsuario()">Apagar usuário</button>
         </div>
         <div id="admin-reset-msg"></div>
+        <h4 style="margin:16px 0 8px;">Perfis de todos os usuários</h4>
+        <div id="admin-tabela-perfis"></div>
       </div>
 
       <div class="painel" id="painel-backup-admin">
@@ -1831,6 +1844,28 @@ function trocarAba(nome){
 }
 
 // ---------- Armazenamento ----------
+// ---------- Perfis de acesso por usuário ----------
+const PERFIS_ACESSO = {
+  caixa:          {rotulo:'Caixa (normal)',            admin:false, gerencia:false, socio:false},
+  gerencia:       {rotulo:'Gerência',                  admin:false, gerencia:true,  socio:false},
+  gerencia_admin: {rotulo:'Gerência + Administrador',  admin:true,  gerencia:true,  socio:false},
+  admin:          {rotulo:'Administrador',             admin:true,  gerencia:false, socio:false},
+  socio:          {rotulo:'Sócio (acesso isolado)',    admin:false, gerencia:false, socio:true}
+};
+// Fonte da verdade: campo 'perfil' (definido na Administração). Usuários antigos, sem 'perfil',
+// mantêm exatamente o acesso que já tinham (gerência antiga = gerência + administrador).
+function perfilDoUsuario(u){
+  if(!u) return 'caixa';
+  if(u.usuario === 'admin') return 'admin';
+  if(u.perfil && PERFIS_ACESSO[u.perfil]) return u.perfil;
+  if(u.socio === true) return 'socio';
+  if(u.gerencia === true) return 'gerencia_admin';
+  if(u.admin === true) return 'admin';
+  return 'caixa';
+}
+function usuarioEhAdmin(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].admin; }
+function usuarioEhGerencia(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].gerencia; }
+
 async function carregarUsuarios(){
   return carregarComCache('usuarios', 'usuarios_loterica', true);
 }
@@ -2246,7 +2281,8 @@ async function cadastrarUsuario(){
     erro.classList.remove('oculto');
     return;
   }
-  usuarios.push({usuario, senha, nome, admin, gerencia, socio, pergunta, resposta});
+  const perfilNovo = socio ? 'socio' : (gerencia && admin ? 'gerencia_admin' : (gerencia ? 'gerencia_admin' : (admin ? 'admin' : 'caixa')));
+  usuarios.push({usuario, senha, nome, admin, gerencia, socio, perfil: perfilNovo, pergunta, resposta});
   await salvarUsuarios(usuarios);
   erro.classList.add('oculto');
   document.getElementById('cad-nome').value='';
@@ -2302,7 +2338,7 @@ async function fazerLogin(){
   const ultimoTerminal = historicoUsuario.length > 0 ? historicoUsuario[0].terminal : '';
 
   await recarregarTerminaisCache();
-  const ehAdminLogin = achado.admin === true || achado.usuario === 'admin';
+  const ehAdminLogin = usuarioEhAdmin(achado);
 
   // Apenas o Administrador pode entrar sem terminal cadastrado (para poder cadastrar os terminais).
   // Usuários normais e Gerência continuam exigidos a selecionar um terminal.
@@ -2378,9 +2414,9 @@ async function trocarTerminalDia(){
 async function entrarNoApp(achado){
   USUARIO_LOGADO = achado;
   FORM_DIRTY = false;
-  const souAdmin = achado.admin === true || achado.gerencia === true || achado.usuario === 'admin';
+  const souAdmin = usuarioEhAdmin(achado);
   EH_ADMIN = souAdmin;
-  EH_GERENCIA = achado.gerencia === true;
+  EH_GERENCIA = usuarioEhGerencia(achado);
   const hoje = hojeISO();
 
   document.getElementById('tela-login').classList.add('oculto');
@@ -2453,6 +2489,7 @@ async function entrarNoApp(achado){
       document.getElementById('admin-data-fim').value = hoje;
       document.getElementById('admin-reset-usuario').innerHTML = '<option value="">Selecione...</option>' +
         TODOS_USUARIOS.map(u => `<option value="${u.usuario}">${u.nome}</option>`).join('');
+      await renderizarTabelaPerfis();
       await consultarPainelAdmin();
 
       document.getElementById('fech-admin-usuario').innerHTML = opcoesUsuarios;
@@ -5442,6 +5479,7 @@ async function atualizarStatusFuncionarioAdmin(){
   const usuario = document.getElementById('admin-reset-usuario').value;
   const cont = document.getElementById('admin-status-funcionario');
   const btnBloquear = document.getElementById('btn-bloquear-usuario');
+  await renderizarTabelaPerfis();
   if(!usuario){
     cont.innerHTML = '';
     btnBloquear.textContent = 'Bloquear';
@@ -5450,9 +5488,50 @@ async function atualizarStatusFuncionarioAdmin(){
   const usuarios = await carregarUsuarios();
   const u = usuarios.find(x => x.usuario === usuario);
   if(!u){ cont.innerHTML = ''; return; }
+  document.getElementById('admin-perfil-usuario').value = perfilDoUsuario(u);
   const bloqueado = u.bloqueado === true;
   cont.innerHTML = `<span class="status-pill ${bloqueado ? 'inativo' : 'ativo'}"><span class="ponto"></span> ${bloqueado ? 'Bloqueado' : 'Ativo'}</span>`;
   btnBloquear.textContent = bloqueado ? 'Desbloquear' : 'Bloquear';
+}
+
+async function renderizarTabelaPerfis(){
+  const cont = document.getElementById('admin-tabela-perfis');
+  if(!cont) return;
+  const usuarios = await carregarUsuarios();
+  const linhas = usuarios.slice().sort((a,b)=>(a.nome||a.usuario).localeCompare(b.nome||b.usuario,'pt-BR')).map(u =>
+    `<tr><td>${escaparHtml(u.nome || u.usuario)}<div style="font-size:11px;color:var(--cinza-texto,#777);">${escaparHtml(u.usuario)}</div></td>`+
+    `<td>${escaparHtml(PERFIS_ACESSO[perfilDoUsuario(u)].rotulo)}${u.bloqueado===true?' <em>(bloqueado)</em>':''}</td></tr>`).join('');
+  cont.innerHTML = `<table style="width:100%;font-size:13px;border-collapse:collapse;"><thead><tr><th style="text-align:left;">Usuário</th><th style="text-align:left;">Perfil</th></tr></thead><tbody>${linhas}</tbody></table>`;
+}
+
+async function adminSalvarPerfilUsuario(){
+  const usuario = document.getElementById('admin-reset-usuario').value;
+  const novo = document.getElementById('admin-perfil-usuario').value;
+  const msg = document.getElementById('admin-reset-msg');
+  if(!usuario){ msg.innerHTML = '<div class="msg-erro">Selecione um funcionário.</div>'; return; }
+  if(!PERFIS_ACESSO[novo]){ msg.innerHTML = '<div class="msg-erro">Perfil inválido.</div>'; return; }
+  const usuarios = await carregarUsuarios();
+  const idx = usuarios.findIndex(u => u.usuario === usuario);
+  if(idx < 0){ msg.innerHTML = '<div class="msg-erro">Usuário não encontrado.</div>'; return; }
+  if(usuario === 'admin' && !PERFIS_ACESSO[novo].admin){
+    msg.innerHTML = '<div class="msg-erro">O usuário "admin" precisa continuar Administrador.</div>'; return;
+  }
+  if(usuario === USUARIO_LOGADO.usuario && !PERFIS_ACESSO[novo].admin){
+    msg.innerHTML = '<div class="msg-erro">Você não pode retirar o seu próprio acesso de Administrador. Peça a outro administrador.</div>'; return;
+  }
+  const depois = usuarios.map((u,i) => i===idx ? Object.assign({}, u, {perfil:novo}) : u);
+  if(!depois.some(u => u.bloqueado !== true && usuarioEhAdmin(u))){
+    msg.innerHTML = '<div class="msg-erro">Precisa existir pelo menos um Administrador ativo.</div>'; return;
+  }
+  const f = PERFIS_ACESSO[novo];
+  usuarios[idx].perfil = novo;
+  usuarios[idx].admin = f.admin;
+  usuarios[idx].gerencia = f.gerencia;
+  usuarios[idx].socio = f.socio;
+  await salvarUsuarios(usuarios);
+  await renderizarTabelaPerfis();
+  msg.innerHTML = `<div class="msg-ok">Perfil de ${escaparHtml(usuarios[idx].nome || usuario)} alterado para "${escaparHtml(f.rotulo)}". Vale a partir do próximo login dessa pessoa.</div>`;
+  setTimeout(()=>{msg.innerHTML='';}, 4000);
 }
 
 async function adminAlternarBloqueioUsuario(){
