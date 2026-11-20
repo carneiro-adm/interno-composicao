@@ -415,7 +415,7 @@
       </div>
       <div class="checkbox-linha">
         <input type="checkbox" id="cad-admin">
-        <label for="cad-admin">Cadastrar como Administrador(a)</label>
+        <label for="cad-admin">Cadastrar como Administrador(a) (inclui Gerência)</label>
       </div>
       <div class="checkbox-linha">
         <input type="checkbox" id="cad-gerencia">
@@ -423,7 +423,7 @@
       </div>
       <div class="checkbox-linha">
         <input type="checkbox" id="cad-socio">
-        <label for="cad-socio">Cadastrar como Sócio (acesso exclusivo e isolado, sem visão do restante do app)</label>
+        <label for="cad-socio">Cadastrar como Sócio (acesso total: Sócio, Administrador, Gerência e Caixas)</label>
       </div>
       <button class="btn-primario" onclick="cadastrarUsuario()">Cadastrar</button>
       <button class="btn-secundario" onclick="mostrarLogin()">Voltar ao login</button>
@@ -549,6 +549,10 @@
             <option value="TV">TV</option>
             <option value="Outros">Outros</option>
           </select>
+        </div>
+        <div class="campo oculto" id="campo-pix-anterior">
+          <label>Data do Pix (opcional)</label>
+          <input type="date" id="inp-data-pix-anterior">
         </div>
         <div class="campo oculto" id="campo-notas-categoria">
           <label>Categoria da nota</label>
@@ -1078,7 +1082,7 @@
 
       <div class="painel">
         <h3>Bilhete gerencial</h3>
-        <p class="aviso-fechamento">Soma do valor de "Gaveta bilhete" de todos os terminais tipo Bilhetes hoje.</p>
+        <p class="aviso-fechamento">Soma de "Vitrine de bilhetes" (k) + "Gaveta bilhete" (l) do fechamento de todos os terminais tipo Bilhetes na data.</p>
         <div class="composicao-total" style="width:100%;align-items:flex-start;">
           <span class="rotulo">Bilhete gerencial</span>
           <span class="valor" id="bilhete-gerencial">R$ 0,00</span>
@@ -1158,7 +1162,7 @@
         <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
 
         <h4 style="margin:18px 0 8px;">Saídas</h4>
-        <p class="aviso-fechamento">Saídas hoje — terminais caixa e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre. Ordenado por atividade (A-Z).</p>
+        <p class="aviso-fechamento">Saídas hoje — terminais caixa e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre. Inclui Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes. Ordenado por atividade (A-Z).</p>
         <div class="tabela-historico-dias" id="detalhe-saidas-batimento"><div class="vazio">Calculando...</div></div>
       </div>
     </div>
@@ -1290,9 +1294,8 @@
           <select id="admin-perfil-usuario">
             <option value="caixa">Caixa (normal) — só os caixas</option>
             <option value="gerencia">Gerência — caixas + produtos de gerência (sem Administração)</option>
-            <option value="gerencia_admin">Gerência + Administrador — gerência e Administração</option>
-            <option value="admin">Administrador — Administração (sem produtos de gerência)</option>
-            <option value="socio">Sócio — acesso isolado aos relatórios</option>
+            <option value="admin">Administrador — Administração + todas as visões de Gerência + caixas</option>
+            <option value="socio">Sócio — acesso total: Sócio + Administrador + Gerência + caixas</option>
           </select>
         </div>
         <button class="btn-secundario" style="margin-top:0;margin-bottom:12px;" onclick="adminSalvarPerfilUsuario()">Salvar perfil de acesso</button>
@@ -1390,6 +1393,7 @@
     <button class="nav-btn" data-aba="historico" onclick="trocarAba('historico')"><span class="icone">📅</span><span>Histórico</span></button>
     <button class="nav-btn" data-aba="geral" onclick="abrirAbaGeral()"><span class="icone">👥</span><span>Geral</span></button>
     <button class="nav-btn oculto" id="nav-dashboard" data-aba="dashboard" onclick="abrirDashboard()"><span class="icone">📊</span><span>Dashboard</span></button>
+    <button class="nav-btn oculto" id="nav-socio" onclick="abrirModuloSocio()"><span class="icone">🤝</span><span>Sócio</span></button>
     <button class="nav-btn oculto" id="nav-admin" data-aba="admin" onclick="trocarAba('admin')"><span class="icone">⚙️</span><span>Admin</span></button>
   </nav>
 </div>
@@ -1404,6 +1408,7 @@
         <p>Acesso Sócio</p>
       </div>
     </div>
+    <button class="btn-secundario" id="btn-voltar-app-socio" style="margin:0 8px 0 0;width:auto;" onclick="voltarDoModuloSocio()">← Voltar ao app</button>
     <button class="btn-sair" onclick="sair()">Sair</button>
   </header>
 
@@ -1846,25 +1851,25 @@ function trocarAba(nome){
 // ---------- Armazenamento ----------
 // ---------- Perfis de acesso por usuário ----------
 const PERFIS_ACESSO = {
-  caixa:          {rotulo:'Caixa (normal)',            admin:false, gerencia:false, socio:false},
-  gerencia:       {rotulo:'Gerência',                  admin:false, gerencia:true,  socio:false},
-  gerencia_admin: {rotulo:'Gerência + Administrador',  admin:true,  gerencia:true,  socio:false},
-  admin:          {rotulo:'Administrador',             admin:true,  gerencia:false, socio:false},
-  socio:          {rotulo:'Sócio (acesso isolado)',    admin:false, gerencia:false, socio:true}
+  caixa:    {rotulo:'Caixa (normal)',                                   admin:false, gerencia:false, socio:false},
+  gerencia: {rotulo:'Gerência',                                         admin:false, gerencia:true,  socio:false},
+  admin:    {rotulo:'Administrador (inclui Gerência)',                   admin:true,  gerencia:true,  socio:false},
+  socio:    {rotulo:'Sócio (acesso total: Sócio + Administrador + Gerência + Caixas)', admin:true, gerencia:true, socio:true}
 };
-// Fonte da verdade: campo 'perfil' (definido na Administração). Usuários antigos, sem 'perfil',
-// mantêm exatamente o acesso que já tinham (gerência antiga = gerência + administrador).
+// Fonte da verdade: campo 'perfil' (definido na Administração). Cada perfil superior inclui tudo do anterior.
+// Usuários antigos, sem 'perfil': sócio -> Sócio; gerência ou admin -> Administrador (que agora inclui Gerência).
 function perfilDoUsuario(u){
   if(!u) return 'caixa';
   if(u.usuario === 'admin') return 'admin';
+  if(u.perfil === 'gerencia_admin') return 'admin';
   if(u.perfil && PERFIS_ACESSO[u.perfil]) return u.perfil;
   if(u.socio === true) return 'socio';
-  if(u.gerencia === true) return 'gerencia_admin';
-  if(u.admin === true) return 'admin';
+  if(u.gerencia === true || u.admin === true) return 'admin';
   return 'caixa';
 }
 function usuarioEhAdmin(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].admin; }
 function usuarioEhGerencia(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].gerencia; }
+function usuarioEhSocio(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].socio; }
 
 async function carregarUsuarios(){
   return carregarComCache('usuarios', 'usuarios_loterica', true);
@@ -2003,7 +2008,7 @@ function tipoDoTerminalAtual(){
 const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes','Notas'];
 const ATIVIDADE_PAGAMENTO_FIADO = 'Pagamento de fiado';
 const CATEGORIAS_NOTAS = ['Escritório','Limpeza','Cozinha','Manutenção','Outros'];
-const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Bolão Especial','Troca de caixa','Troca Telesena','Outros'];
+const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix anterior','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Bolão Especial','Troca de caixa','Troca Telesena','Outros'];
 // Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
 // soma "Saídas hoje" usada no débito do Batimento Gerencial.
 // 'Bolão Especial' é só controle do caixa: entra na Saída do caixa/fechamento dele, mas fica fora das visões gerenciais.
@@ -2013,6 +2018,14 @@ const ATIVIDADES_INTERNAS_GERENCIA = ['Troco cofre'];
 // Saídas do caixa Bilhetes que também entram no controle de Saídas (aba Saídas). Só a aba Saídas: o Batimento já conta
 // o caixa Bilhetes inteiro pelo "Total bilhete", então somar de novo lá seria contar em dobro.
 const ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS = ['Brindes/Descontos','Pix fora terminal','Rede'];
+// Critério ÚNICO de "saída gerencial" (usado no Batimento Gerencial): saídas dos caixas/gerência (exceto Fiado, atividades
+// fora do débito e Troco cofre) + Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes. A aba Saídas usa a mesma regra.
+function saidaContaNoControleGerencial(r, ctx){
+  if(r.tipo!=='Saida' || r.excluido) return false;
+  if(r.atividade==='Fiado' || ATIVIDADES_FORA_DEBITO_GERENCIAL.includes(r.atividade) || ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade)) return false;
+  if(ctx.caixas.includes(r.caixa)) return true;
+  return ctx.bilhetes.includes(r.caixa) && ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS.includes(r.atividade);
+}
 // Atividades que disparam o fluxo de lançamento duplo (Terminal para).
 const ATIVIDADES_TRANSFERENCIA_TERMINAL = ['Troca de caixa','Envio dinheiro'];
 
@@ -2281,8 +2294,9 @@ async function cadastrarUsuario(){
     erro.classList.remove('oculto');
     return;
   }
-  const perfilNovo = socio ? 'socio' : (gerencia && admin ? 'gerencia_admin' : (gerencia ? 'gerencia_admin' : (admin ? 'admin' : 'caixa')));
-  usuarios.push({usuario, senha, nome, admin, gerencia, socio, perfil: perfilNovo, pergunta, resposta});
+  const perfilNovo = socio ? 'socio' : ((admin || gerencia) ? 'admin' : 'caixa');
+  const fl = PERFIS_ACESSO[perfilNovo];
+  usuarios.push({usuario, senha, nome, admin: fl.admin, gerencia: fl.gerencia, socio: fl.socio, perfil: perfilNovo, pergunta, resposta});
   await salvarUsuarios(usuarios);
   erro.classList.add('oculto');
   document.getElementById('cad-nome').value='';
@@ -2325,10 +2339,7 @@ async function fazerLogin(){
   }
 
   // Perfil Sócio: acesso exclusivo e isolado, sem terminal do dia e sem o restante do app.
-  if(achado.socio === true){
-    await entrarComoSocio(achado);
-    return;
-  }
+  // (Sócio agora tem acesso total: entra no app completo e abre o módulo Sócio pelo menu.)
 
   // Busca o último terminal usado por esse usuário (histórico), para pré-preencher.
   // Se nunca escolheu nenhum terminal antes, o campo fica em branco.
@@ -2417,6 +2428,8 @@ async function entrarNoApp(achado){
   const souAdmin = usuarioEhAdmin(achado);
   EH_ADMIN = souAdmin;
   EH_GERENCIA = usuarioEhGerencia(achado);
+  const souSocio = usuarioEhSocio(achado);
+  document.getElementById('nav-socio').classList.toggle('oculto', !souSocio);
   const hoje = hojeISO();
 
   document.getElementById('tela-login').classList.add('oculto');
@@ -2533,6 +2546,7 @@ function sair(){
   document.getElementById('tela-app').classList.add('oculto');
   document.getElementById('tela-socio').classList.add('oculto');
   document.getElementById('tela-login').classList.remove('oculto');
+  document.getElementById('nav-socio').classList.add('oculto');
   document.getElementById('nav-admin').classList.add('oculto');
   document.getElementById('nav-gestaofiado').classList.add('oculto');
   document.getElementById('nav-dashboard').classList.add('oculto');
@@ -2710,6 +2724,18 @@ async function registrarLancamento(){
     obsFinal = '[' + categoriaNotas + ']' + (obs ? ' ' + obs : '');
   }
 
+  let dataPix = '';
+  if(atividade === 'Pix anterior'){
+    dataPix = document.getElementById('inp-data-pix-anterior').value || '';
+    if(dataPix){
+      if(dataPix > dataLancamento){
+        msg.innerHTML = '<div class="msg-erro">A data do Pix não pode ser posterior à data do lançamento.</div>';
+        return;
+      }
+      obsFinal = '[Pix de ' + dataPix.split('-').reverse().join('/') + ']' + (obs ? ' ' + obs : '');
+    }
+  }
+
   const registros = await carregarRegistros();
   const novoRegistro = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
@@ -2721,6 +2747,7 @@ async function registrarLancamento(){
     tipo: 'Saida',
     atividade: atividadeFinal,
     categoriaNotas: categoriaNotas,
+    dataPix: dataPix || undefined,
     clienteId: clienteId,
     clienteNome: clienteNome,
     valor: valor,
@@ -2751,6 +2778,8 @@ async function registrarLancamento(){
   }
   const selNotas = document.getElementById('sel-notas-categoria');
   if(selNotas) selNotas.value = '';
+  const inpPixAnt = document.getElementById('inp-data-pix-anterior');
+  if(inpPixAnt) inpPixAnt.value = '';
   document.getElementById('inp-valor').value='';
   document.getElementById('inp-obs').value='';
   msg.innerHTML = '<div class="msg-ok">Lançamento registrado com sucesso.</div>';
@@ -2854,6 +2883,8 @@ function atualizarCampoClienteFiado(){
   campoContaLoja.classList.toggle('oculto', atividade !== 'Conta Loja');
   const campoNotas = document.getElementById('campo-notas-categoria');
   if(campoNotas) campoNotas.classList.toggle('oculto', atividade !== 'Notas');
+  const campoPixAnt = document.getElementById('campo-pix-anterior');
+  if(campoPixAnt) campoPixAnt.classList.toggle('oculto', atividade !== 'Pix anterior');
 
   if(ATIVIDADES_TRANSFERENCIA_TERMINAL.includes(atividade)){
     campoTerminalNormal.classList.add('oculto');
@@ -4500,7 +4531,10 @@ async function calcularBilheteGerencial(){
   const dataRef = obterDataGerencial();
   const terminaisBilhetes = terminaisPorTipo('Bilhetes').map(t => t.numero);
   const fechamentos = (await carregarFechamentos()).filter(f => f.data===dataRef && terminaisBilhetes.includes(f.terminal));
-  const total = fechamentos.reduce((s,f) => s + (f.l || 0), 0);
+  // Vitrine (k) e Gaveta (l) são fotografias do dia: vale o último fechamento de cada terminal de bilhetes.
+  const ultimoPorTerminal = {};
+  fechamentos.forEach(f => { const c = ultimoPorTerminal[f.terminal]; if(!c || (f.timestamp||0) >= (c.timestamp||0)) ultimoPorTerminal[f.terminal] = f; });
+  const total = Object.values(ultimoPorTerminal).reduce((s,f) => s + (f.k || 0) + (f.l || 0), 0);
   el.textContent = formatarMoeda(total);
   return total;
 }
@@ -4546,8 +4580,7 @@ async function renderizarAbaSaidas(){
   const registros = (await carregarRegistros()).filter(r =>
     r.tipo==='Saida' && !r.excluido && r.data>=ini && r.data<=fim && !EXCLUIDAS.includes(r.atividade) &&
     (termSel==='__todos' ? true : termSel==='__caixa'
-      ? ((caixas.includes(r.caixa) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade))
-         || (bilhetes.includes(r.caixa) && ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS.includes(r.atividade)))
+      ? saidaContaNoControleGerencial(r, {caixas, bilhetes})
       : r.caixa===termSel) &&
     (!funcSel || r.usuario===funcSel));
   const porAtiv = {};
@@ -4659,9 +4692,8 @@ async function calcularBatimentoGerencial(){
   const total2Gerencial = totalEstoque + vitrineRaspadinha + trocoCofreTotal + caixaGerencial
                          + bilheteGerencial + boloesEspeciais + gaveta + fiadoTotal;
 
-  const ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
-  const registrosHoje = (await carregarRegistros()).filter(r =>
-    r.data===hoje && r.tipo==='Saida' && !r.excluido && !ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL.includes(r.atividade) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade) && numerosTerminaisContabeis().includes(r.caixa));
+  const ctxSaidas = {caixas: numerosTerminaisContabeis(), bilhetes: terminaisPorTipo('Bilhetes').map(t => t.numero)};
+  const registrosHoje = (await carregarRegistros()).filter(r => r.data===hoje && saidaContaNoControleGerencial(r, ctxSaidas));
   const totalSaidas = registrosHoje.reduce((s,r) => s+r.valor, 0);
 
   const creditoGerencial = total2Gerencial + totalSaidas;
@@ -4697,8 +4729,8 @@ async function calcularBatimentoGerencial(){
       ${linhaComFormula('Total Relatórios (f) — terminais caixa (' + rotuloTerminaisCaixa + ')', totalRelatorios, null)}
       ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
       ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução', true)}
-      ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
-      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
+      ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial (Vitrine + Gaveta de bilhetes) + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
+      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência + Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes; exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
       ${linhaComFormula('Crédito Gerencial', creditoGerencial, 'TOTAL2 + Saídas hoje', true)}
     </tbody>
   </table>`;
@@ -6128,6 +6160,15 @@ async function exportarExcelPeriodoAdmin(){
 // ---------- Perfil Sócio (acesso exclusivo e isolado) ----------
 let SOCIO_IMAGEM_BASE64 = null;
 let SOCIO_IMAGEM_TIPO = 'imagem'; // 'imagem' ou 'pdf'
+
+async function abrirModuloSocio(){
+  if(!USUARIO_LOGADO || !usuarioEhSocio(USUARIO_LOGADO)) return;
+  await entrarComoSocio(USUARIO_LOGADO);
+}
+function voltarDoModuloSocio(){
+  document.getElementById('tela-socio').classList.add('oculto');
+  document.getElementById('tela-app').classList.remove('oculto');
+}
 
 async function entrarComoSocio(achado){
   USUARIO_LOGADO = achado;
