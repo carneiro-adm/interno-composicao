@@ -4250,11 +4250,12 @@ async function registrarEntradaProdutos(){
   setTimeout(()=>{msg.innerHTML='';}, 3000);
 }
 
-async function calcularEntradaProdutosGerencial(){
-  const el = document.getElementById('entrada-produtos-gerencial-total');
-  const dataRef = obterDataGerencial();
+async function calcularEntradaProdutosGerencial(dataParam){
+  const el = dataParam ? null : document.getElementById('entrada-produtos-gerencial-total');
+  const dataRef = dataParam || obterDataGerencial();
   const entradas = await carregarEntradasProdutosGerencia();
-  const doDia = entradas.filter(e => !e.excluido && e.usuario===USUARIO_LOGADO.usuario && e.data===dataRef);
+  // Todas as entradas da data (de qualquer usuário): o indicador não pode mudar conforme quem está logado.
+  const doDia = entradas.filter(e => !e.excluido && e.data===dataRef);
   const totalEntradas = doDia.reduce((s,e) => s+e.total, 0);
   // Devolução de bilhete = lançamentos "Devolução bilhetes" do caixa Bilhetes na data, com valor negativo.
   const terminaisBilhetes = terminaisPorTipo('Bilhetes').map(t => t.numero);
@@ -4266,6 +4267,7 @@ async function calcularEntradaProdutosGerencial(){
     el.textContent = formatarMoeda(total);
     el.style.color = total < 0 ? 'var(--vermelho-estorno)' : '';
   }
+  if(dataParam) return total;
   const elDet = document.getElementById('entrada-produtos-gerencial-detalhe');
   if(elDet) elDet.textContent = 'Entradas ' + formatarMoeda(totalEntradas) + ' − Devoluções de bilhete ' + formatarMoeda(totalDevolucoes);
   renderizarMovimentosProdutos(doDia);
@@ -4566,12 +4568,14 @@ async function enviarProdutosGerencia(){
   await calcularBatimentoGerencial();
 }
 
-async function calcularCaixaGerencial(){
+// dataParam: quando informada, calcula para ESSA data e NÃO escreve na tela do formulário (usado pelo Batimento, que tem data própria).
+async function calcularCaixaGerencial(dataParam){
+  const modoPuro = !!dataParam;
   const contTotal = document.getElementById('caixa-gerencial-total');
   const contDetalhe = document.getElementById('caixa-gerencial-detalhe');
-  if(!contTotal || !contDetalhe) return;
+  if(!modoPuro && (!contTotal || !contDetalhe)) return;
 
-  const dataRef = obterDataGerencial();
+  const dataRef = dataParam || obterDataGerencial();
   await recarregarTerminaisCache();
   const terminaisCaixa = numerosTerminaisCaixa();
 
@@ -4589,6 +4593,7 @@ async function calcularCaixaGerencial(){
   const linhas = Object.values(porTerminal).map(t => ({...t, total: t.c+t.d+t.e}))
                         .sort((a,b) => a.terminal.localeCompare(b.terminal, undefined, {numeric:true}));
   const totalGeral = linhas.reduce((s,t) => s+t.total, 0);
+  if(modoPuro) return totalGeral;
   contTotal.textContent = formatarMoeda(totalGeral);
 
   if(linhas.length === 0){
@@ -4610,15 +4615,15 @@ async function calcularCaixaGerencial(){
   return totalGeral;
 }
 
-async function calcularBilheteGerencial(){
-  const el = document.getElementById('bilhete-gerencial');
-  if(!el) return 0;
-  const dataRef = obterDataGerencial();
+async function calcularBilheteGerencial(dataParam){
+  const el = dataParam ? null : document.getElementById('bilhete-gerencial');
+  if(!dataParam && !el) return 0;
+  const dataRef = dataParam || obterDataGerencial();
   const terminaisBilhetes = terminaisPorTipo('Bilhetes').map(t => t.numero);
   const fechamentos = (await carregarFechamentos()).filter(f => f.data===dataRef && terminaisBilhetes.includes(f.terminal));
   // Bilhete gerencial = apenas "Gaveta bilhete" (l). A Vitrine (k) NÃO entra aqui (só no Total bilhete e no batimento do fechamento).
   const total = fechamentos.reduce((s,f) => s + (f.l || 0), 0);
-  el.textContent = formatarMoeda(total);
+  if(el) el.textContent = formatarMoeda(total);
   return total;
 }
 
@@ -4726,9 +4731,29 @@ function fecharDetalheSaidasAtividade(){
   document.getElementById('modal-detalhe-saidas').classList.add('oculto');
 }
 
+// Componentes da Composição para a data do Batimento. Se a data é a mesma do formulário, vale o que está na tela
+// (inclui edições ainda não salvas); se for outra, usa a composição SALVA daquela data (ou o último saldo anterior),
+// nunca os campos da tela, que pertencem a outra data.
+async function componentesComposicaoDaData(data){
+  if(data === obterDataGerencial()){
+    return {origem:'tela', estoque: calcularEstoqueGerencia(),
+      vitrine: parseFloat(document.getElementById('inp-vitrine-raspadinha').value) || 0,
+      cofre: calcularTrocoCofre(),
+      boloes: parseFloat(document.getElementById('inp-quina-especial').value) || 0,
+      gaveta: parseFloat(document.getElementById('inp-gaveta').value) || 0};
+  }
+  const lista = await carregarComposicaoGerencia();
+  const ex = lista.find(c => c.data === data);
+  if(ex) return {origem:'salva', estoque: ex.totalEstoque||0, vitrine: ex.vitrineRaspadinha||0, cofre: ex.trocoCofreTotal||0, boloes: ex.quinaEspecial||0, gaveta: ex.gaveta||0};
+  const ant = await obterSaldoProdutosAntesDe(data);
+  return {origem:'anterior', estoque: ant ? (ant.totalEstoque||0) : 0, vitrine:0, cofre: ant ? (ant.trocoCofreTotal||0) : 0, boloes:0, gaveta:0};
+}
+let SEQ_BATIMENTO = 0;
+
 async function calcularBatimentoGerencial(){
   const elDebito = document.getElementById('debito-gerencial-valor');
   if(!elDebito) return;
+  const minhaExecucao = ++SEQ_BATIMENTO;   // uma execução mais nova invalida a mais antiga (não sobrescreve a tela)
 
   const hoje = obterDataBatimento();
 
@@ -4760,19 +4785,21 @@ async function calcularBatimentoGerencial(){
     .filter(f => numerosTerminaisCaixa().includes(f.terminal))
     .reduce((s,f) => s + (f.f||0), 0);
 
-  const entradaProdutos = await calcularEntradaProdutosGerencial();
+  const entradaProdutos = await calcularEntradaProdutosGerencial(hoje);
 
   const debitoGerencial = total1Gerencial + totalRelatorios + entradaProdutos;
 
-  // ---- CRÉDITO GERENCIAL ----
-  const totalEstoque = calcularEstoqueGerencia();
-  const vitrineRaspadinha = parseFloat(document.getElementById('inp-vitrine-raspadinha').value) || 0;
-  const trocoCofreTotal = calcularTrocoCofre();
-  const caixaGerencial = await calcularCaixaGerencial();
-  const bilheteGerencial = await calcularBilheteGerencial();
-  const boloesEspeciais = parseFloat(document.getElementById('inp-quina-especial').value) || 0;
-  const gaveta = parseFloat(document.getElementById('inp-gaveta').value) || 0;
-  const fiadoTotal = await atualizarFiadoTotalGerencia();
+  // ---- CRÉDITO GERENCIAL (tudo calculado para a DATA DO BATIMENTO) ----
+  const comp = await componentesComposicaoDaData(hoje);
+  const totalEstoque = comp.estoque;
+  const vitrineRaspadinha = comp.vitrine;
+  const trocoCofreTotal = comp.cofre;
+  const caixaGerencial = await calcularCaixaGerencial(hoje);
+  const bilheteGerencial = await calcularBilheteGerencial(hoje);
+  const boloesEspeciais = comp.boloes;
+  const gaveta = comp.gaveta;
+  const fiadoTotal = await atualizarFiadoTotalGerencia(hoje);
+  const origemComp = {tela:'valores da tela (data da Composição)', salva:'Composição salva desta data', anterior:'sem Composição salva nesta data: estoque e troco cofre do último dia anterior'}[comp.origem];
 
   const total2Gerencial = totalEstoque + vitrineRaspadinha + trocoCofreTotal + caixaGerencial
                          + bilheteGerencial + boloesEspeciais + gaveta + fiadoTotal;
@@ -4785,6 +4812,8 @@ async function calcularBatimentoGerencial(){
 
   // ---- DIFERENÇA GERENCIAL ----
   const diferencaGerencial = creditoGerencial - debitoGerencial;
+
+  if(minhaExecucao !== SEQ_BATIMENTO) return;   // chegou uma execução mais nova: descarta esta
 
   document.getElementById('debito-gerencial-valor').textContent = formatarMoeda(debitoGerencial);
   document.getElementById('credito-gerencial-valor').textContent = formatarMoeda(creditoGerencial);
@@ -4814,7 +4843,7 @@ async function calcularBatimentoGerencial(){
       ${linhaComFormula('Total Relatórios (f) — terminais caixa (' + rotuloTerminaisCaixa + ')', totalRelatorios, null)}
       ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
       ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução', true)}
-      ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial (Gaveta bilhete) + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
+      ${linhaComFormula('TOTAL2 — Composição de caixa (' + dataBR(hoje) + ') gerencial — base: ' + origemComp, total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial (Gaveta bilhete) + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
       ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência + Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes; exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
       ${linhaComFormula('Crédito Gerencial', creditoGerencial, 'TOTAL2 + Saídas hoje', true)}
     </tbody>
@@ -4890,12 +4919,12 @@ async function calcularSaldosClientes(dataLimite){
   return {linhas: todasLinhas, totalGeral};
 }
 
-async function atualizarFiadoTotalGerencia(){
-  const el = document.getElementById('fiado-total-gerencia');
-  if(!el) return;
-  const dataRef = obterDataGerencial();
+async function atualizarFiadoTotalGerencia(dataParam){
+  const el = dataParam ? null : document.getElementById('fiado-total-gerencia');
+  if(!dataParam && !el) return;
+  const dataRef = dataParam || obterDataGerencial();
   const {totalGeral} = await calcularSaldosClientes(dataRef);
-  el.textContent = formatarMoeda(totalGeral);
+  if(el) el.textContent = formatarMoeda(totalGeral);
   return totalGeral;
 }
 
