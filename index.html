@@ -4777,6 +4777,15 @@ async function calcularBatimentoGerencial(){
   }
 
   const rotuloTotal1 = ontem ? dataBR(ontem) : 'sem dia anterior com dados';
+  // Conferência: TOTAL1 é o TOTAL2 SALVO na Composição do dia anterior. Se algo do dia anterior mudou depois de salvar
+  // (fechamento, bilhete, fiado), o salvo fica diferente do que a própria tela daquele dia mostra hoje. Mostramos os dois.
+  let total1Recalculado = null, horaSalvaTotal1 = '';
+  if(composicaoOntem && composicaoOntem.total2Gerencial != null){
+    horaSalvaTotal1 = composicaoOntem.hora || '';
+    const cOnt = await componentesComposicaoDaData(ontem);
+    total1Recalculado = cOnt.estoque + cOnt.vitrine + cOnt.cofre + cOnt.boloes + cOnt.gaveta
+      + await calcularCaixaGerencial(ontem) + await calcularBilheteGerencial(ontem) + await atualizarFiadoTotalGerencia(ontem);
+  }
   const elF = document.getElementById('formula-debito-gerencial');
   if(elF) elF.textContent = 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução';
 
@@ -4840,6 +4849,10 @@ async function calcularBatimentoGerencial(){
     <thead><tr><th>Componente</th><th>Valor</th></tr></thead>
     <tbody>
       ${linhaComFormula('TOTAL1 — Composição de caixa (último dia contábil com dados: ' + rotuloTotal1 + ')', total1Gerencial, 'TOTAL2 de ' + rotuloTotal1)}
+      ${(total1Recalculado !== null && Math.abs(total1Recalculado - total1Gerencial) > 0.005)
+        ? linhaComFormula('⚠ TOTAL2 de ' + rotuloTotal1 + ' recalculado agora (diferente do salvo)', total1Recalculado,
+            'diferença de ' + formatarMoeda(total1Recalculado - total1Gerencial) + ' em relação ao TOTAL1 salvo' + (horaSalvaTotal1 ? ' às ' + horaSalvaTotal1 : '') + '. Algo de ' + rotuloTotal1 + ' mudou depois de salvar a Composição. Para o TOTAL1 acompanhar, abra a Composição em ' + rotuloTotal1 + ' e clique em Atualizar')
+        : ''}
       ${linhaComFormula('Total Relatórios (f) — terminais caixa (' + rotuloTerminaisCaixa + ')', totalRelatorios, null)}
       ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
       ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução', true)}
