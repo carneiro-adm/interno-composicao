@@ -74,6 +74,15 @@
     border-radius:9px;font-size:14.5px;background:#fff;transition:border-color .15s;
   }
   .campo select:focus, .campo input:focus{outline:none;border-color:var(--azul-caixa);}
+  .ms-wrap{position:relative;}
+  .ms-btn{width:100%;text-align:left;background:#fff;border:1.5px solid #d5dbe5;border-radius:10px;padding:12px 14px;font:inherit;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;color:inherit;}
+  .ms-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ms-btn:focus{outline:none;border-color:var(--azul-caixa);}
+  .ms-painel{position:absolute;z-index:60;left:0;right:0;min-width:220px;max-height:260px;overflow:auto;background:#fff;border:1.5px solid #d5dbe5;border-radius:10px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:6px;}
+  .ms-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;font-size:14px;cursor:pointer;margin:0;font-weight:400;text-transform:none;letter-spacing:0;color:#222;}
+  .ms-item:hover{background:rgba(0,0,0,.05);}
+  .ms-item input{width:auto;margin:0;}
+  .ms-limpar{font-weight:700;border-bottom:1px solid #e5e9f0;border-radius:8px 8px 0 0;margin-bottom:4px;}
   .btn-primario{
     width:100%;padding:13px;background:var(--laranja-caixa);color:#fff;border:none;
     border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;
@@ -415,7 +424,7 @@
       </div>
       <div class="checkbox-linha">
         <input type="checkbox" id="cad-admin">
-        <label for="cad-admin">Cadastrar como Administrador(a)</label>
+        <label for="cad-admin">Cadastrar como Administrador(a) (inclui Gerência)</label>
       </div>
       <div class="checkbox-linha">
         <input type="checkbox" id="cad-gerencia">
@@ -423,7 +432,7 @@
       </div>
       <div class="checkbox-linha">
         <input type="checkbox" id="cad-socio">
-        <label for="cad-socio">Cadastrar como Sócio (acesso exclusivo e isolado, sem visão do restante do app)</label>
+        <label for="cad-socio">Cadastrar como Sócio (acesso total: Sócio, Administrador, Gerência e Caixas)</label>
       </div>
       <button class="btn-primario" onclick="cadastrarUsuario()">Cadastrar</button>
       <button class="btn-secundario" onclick="mostrarLogin()">Voltar ao login</button>
@@ -550,6 +559,10 @@
             <option value="Outros">Outros</option>
           </select>
         </div>
+        <div class="campo oculto" id="campo-pix-anterior">
+          <label>Data do Pix (opcional)</label>
+          <input type="date" id="inp-data-pix-anterior">
+        </div>
         <div class="campo oculto" id="campo-notas-categoria">
           <label>Categoria da nota</label>
           <select id="sel-notas-categoria">
@@ -625,7 +638,7 @@
         <div class="historico-linha-filtro oculto" id="filtro-hist-admin-extra">
           <div class="campo">
             <label>Funcionária</label>
-            <select id="filtro-hist-usuario" onchange="atualizarTudo()"><option value="">Todas</option></select>
+            <select id="filtro-hist-usuario" data-ms-vazio="Todas" onchange="atualizarTudo()"><option value="">Todas</option></select>
           </div>
           <div class="campo">
             <label>Terminal</label>
@@ -1078,7 +1091,7 @@
 
       <div class="painel">
         <h3>Bilhete gerencial</h3>
-        <p class="aviso-fechamento">Soma do valor de "Gaveta bilhete" de todos os terminais tipo Bilhetes hoje.</p>
+        <p class="aviso-fechamento">Soma de "Gaveta bilhete" (l) do fechamento de todos os terminais tipo Bilhetes na data.</p>
         <div class="composicao-total" style="width:100%;align-items:flex-start;">
           <span class="rotulo">Bilhete gerencial</span>
           <span class="valor" id="bilhete-gerencial">R$ 0,00</span>
@@ -1158,7 +1171,7 @@
         <div class="tabela-historico-dias" id="detalhe-batimento-gerencial"><div class="vazio">Calculando...</div></div>
 
         <h4 style="margin:18px 0 8px;">Saídas</h4>
-        <p class="aviso-fechamento">Saídas hoje — terminais caixa e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre. Ordenado por atividade (A-Z).</p>
+        <p class="aviso-fechamento">Saídas hoje — terminais caixa e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre. Inclui Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes. Ordenado por atividade (A-Z).</p>
         <div class="tabela-historico-dias" id="detalhe-saidas-batimento"><div class="vazio">Calculando...</div></div>
       </div>
     </div>
@@ -1230,8 +1243,8 @@
         <div class="historico-linha-filtro" style="flex-wrap:wrap;">
           <div class="campo"><label>Data inicial</label><input type="date" id="saidas-data-inicio" onchange="renderizarAbaSaidas()"></div>
           <div class="campo"><label>Data final</label><input type="date" id="saidas-data-fim" onchange="renderizarAbaSaidas()"></div>
-          <div class="campo"><label>Terminal</label><select id="saidas-terminal" onchange="renderizarAbaSaidas()"></select></div>
-          <div class="campo"><label>Funcionária</label><select id="saidas-funcionaria" onchange="renderizarAbaSaidas()"></select></div>
+          <div class="campo"><label>Terminal</label><select id="saidas-terminal" data-ms-vazio="Caixas + Gerência (+ Brindes, Pix e Rede do Bilhetes)" data-ms-exclusivos="__todos" onchange="renderizarAbaSaidas()"></select></div>
+          <div class="campo"><label>Funcionária</label><select id="saidas-funcionaria" data-ms-vazio="Todas" onchange="renderizarAbaSaidas()"></select></div>
         </div>
         <div id="saidas-resultado" style="margin-top:14px;"></div>
       </div>
@@ -1290,9 +1303,8 @@
           <select id="admin-perfil-usuario">
             <option value="caixa">Caixa (normal) — só os caixas</option>
             <option value="gerencia">Gerência — caixas + produtos de gerência (sem Administração)</option>
-            <option value="gerencia_admin">Gerência + Administrador — gerência e Administração</option>
-            <option value="admin">Administrador — Administração (sem produtos de gerência)</option>
-            <option value="socio">Sócio — acesso isolado aos relatórios</option>
+            <option value="admin">Administrador — Administração + todas as visões de Gerência + caixas</option>
+            <option value="socio">Sócio — acesso total: Sócio + Administrador + Gerência + caixas</option>
           </select>
         </div>
         <button class="btn-secundario" style="margin-top:0;margin-bottom:12px;" onclick="adminSalvarPerfilUsuario()">Salvar perfil de acesso</button>
@@ -1390,6 +1402,7 @@
     <button class="nav-btn" data-aba="historico" onclick="trocarAba('historico')"><span class="icone">📅</span><span>Histórico</span></button>
     <button class="nav-btn" data-aba="geral" onclick="abrirAbaGeral()"><span class="icone">👥</span><span>Geral</span></button>
     <button class="nav-btn oculto" id="nav-dashboard" data-aba="dashboard" onclick="abrirDashboard()"><span class="icone">📊</span><span>Dashboard</span></button>
+    <button class="nav-btn oculto" id="nav-socio" onclick="abrirModuloSocio()"><span class="icone">🤝</span><span>Sócio</span></button>
     <button class="nav-btn oculto" id="nav-admin" data-aba="admin" onclick="trocarAba('admin')"><span class="icone">⚙️</span><span>Admin</span></button>
   </nav>
 </div>
@@ -1404,6 +1417,7 @@
         <p>Acesso Sócio</p>
       </div>
     </div>
+    <button class="btn-secundario" id="btn-voltar-app-socio" style="margin:0 8px 0 0;width:auto;" onclick="voltarDoModuloSocio()">← Voltar ao app</button>
     <button class="btn-sair" onclick="sair()">Sair</button>
   </header>
 
@@ -1846,25 +1860,25 @@ function trocarAba(nome){
 // ---------- Armazenamento ----------
 // ---------- Perfis de acesso por usuário ----------
 const PERFIS_ACESSO = {
-  caixa:          {rotulo:'Caixa (normal)',            admin:false, gerencia:false, socio:false},
-  gerencia:       {rotulo:'Gerência',                  admin:false, gerencia:true,  socio:false},
-  gerencia_admin: {rotulo:'Gerência + Administrador',  admin:true,  gerencia:true,  socio:false},
-  admin:          {rotulo:'Administrador',             admin:true,  gerencia:false, socio:false},
-  socio:          {rotulo:'Sócio (acesso isolado)',    admin:false, gerencia:false, socio:true}
+  caixa:    {rotulo:'Caixa (normal)',                                   admin:false, gerencia:false, socio:false},
+  gerencia: {rotulo:'Gerência',                                         admin:false, gerencia:true,  socio:false},
+  admin:    {rotulo:'Administrador (inclui Gerência)',                   admin:true,  gerencia:true,  socio:false},
+  socio:    {rotulo:'Sócio (acesso total: Sócio + Administrador + Gerência + Caixas)', admin:true, gerencia:true, socio:true}
 };
-// Fonte da verdade: campo 'perfil' (definido na Administração). Usuários antigos, sem 'perfil',
-// mantêm exatamente o acesso que já tinham (gerência antiga = gerência + administrador).
+// Fonte da verdade: campo 'perfil' (definido na Administração). Cada perfil superior inclui tudo do anterior.
+// Usuários antigos, sem 'perfil': sócio -> Sócio; gerência ou admin -> Administrador (que agora inclui Gerência).
 function perfilDoUsuario(u){
   if(!u) return 'caixa';
   if(u.usuario === 'admin') return 'admin';
+  if(u.perfil === 'gerencia_admin') return 'admin';
   if(u.perfil && PERFIS_ACESSO[u.perfil]) return u.perfil;
   if(u.socio === true) return 'socio';
-  if(u.gerencia === true) return 'gerencia_admin';
-  if(u.admin === true) return 'admin';
+  if(u.gerencia === true || u.admin === true) return 'admin';
   return 'caixa';
 }
 function usuarioEhAdmin(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].admin; }
 function usuarioEhGerencia(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].gerencia; }
+function usuarioEhSocio(u){ return PERFIS_ACESSO[perfilDoUsuario(u)].socio; }
 
 async function carregarUsuarios(){
   return carregarComCache('usuarios', 'usuarios_loterica', true);
@@ -2003,7 +2017,7 @@ function tipoDoTerminalAtual(){
 const ATIVIDADES_SAIDA_BILHETES = ['Envio dinheiro','Fiado','Brindes/Descontos','Pix fora terminal','Rede','Devolução bilhetes','Notas'];
 const ATIVIDADE_PAGAMENTO_FIADO = 'Pagamento de fiado';
 const CATEGORIAS_NOTAS = ['Escritório','Limpeza','Cozinha','Manutenção','Outros'];
-const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Bolão Especial','Troca de caixa','Troca Telesena','Outros'];
+const ATIVIDADES_SAIDA_PADRAO = ['Brindes/Descontos','Cheque','Conta Loja','Depósito 003','Envio cofre antes do carro forte','Envio cofre depois do carro forte','Fiado','Market Place','Notas','Pix anterior','Pix fora terminal','Prêmios','Raspadinha premiada','Rede','Bolão','Bolão Especial','Troca de caixa','Troca Telesena','Outros'];
 // Atividades que, mesmo sendo Saída legítima do terminal/funcionária, NÃO entram na
 // soma "Saídas hoje" usada no débito do Batimento Gerencial.
 // 'Bolão Especial' é só controle do caixa: entra na Saída do caixa/fechamento dele, mas fica fora das visões gerenciais.
@@ -2013,6 +2027,14 @@ const ATIVIDADES_INTERNAS_GERENCIA = ['Troco cofre'];
 // Saídas do caixa Bilhetes que também entram no controle de Saídas (aba Saídas). Só a aba Saídas: o Batimento já conta
 // o caixa Bilhetes inteiro pelo "Total bilhete", então somar de novo lá seria contar em dobro.
 const ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS = ['Brindes/Descontos','Pix fora terminal','Rede'];
+// Critério ÚNICO de "saída gerencial" (usado no Batimento Gerencial): saídas dos caixas/gerência (exceto Fiado, atividades
+// fora do débito e Troco cofre) + Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes. A aba Saídas usa a mesma regra.
+function saidaContaNoControleGerencial(r, ctx){
+  if(r.tipo!=='Saida' || r.excluido) return false;
+  if(r.atividade==='Fiado' || ATIVIDADES_FORA_DEBITO_GERENCIAL.includes(r.atividade) || ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade)) return false;
+  if(ctx.caixas.includes(r.caixa)) return true;
+  return ctx.bilhetes.includes(r.caixa) && ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS.includes(r.atividade);
+}
 // Atividades que disparam o fluxo de lançamento duplo (Terminal para).
 const ATIVIDADES_TRANSFERENCIA_TERMINAL = ['Troca de caixa','Envio dinheiro'];
 
@@ -2043,10 +2065,86 @@ function opcoesTerminaisHTML(opts){
 function popularSelectTerminais(id, opts){
   const el = document.getElementById(id);
   if(!el) return;
+  if(el.multiple){
+    const antes = valoresMulti(id);
+    el.innerHTML = opcoesTerminaisHTML(opts);
+    definirValoresMulti(id, antes);
+    return;
+  }
   const valorAtual = el.value;
   el.innerHTML = opcoesTerminaisHTML(opts);
   if(valorAtual && el.querySelector('option[value="'+valorAtual+'"]')) el.value = valorAtual;
 }
+
+// ---------- Filtro com seleção múltipla (checkboxes) ----------
+// Transforma um <select> em lista com várias marcações. Nenhuma marcada = padrão (ex.: "Todos").
+// Atributos opcionais no select: data-ms-vazio (texto do padrão) e data-ms-exclusivos (valores que não combinam com outros).
+function valoresMulti(id){
+  const el = document.getElementById(id);
+  if(!el) return [];
+  return Array.from(el.options).filter(o => o.selected && o.value !== '').map(o => o.value);
+}
+function definirValoresMulti(id, valores){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const set = new Set(valores || []);
+  Array.from(el.options).forEach(o => { o.selected = o.value !== '' && set.has(o.value); });
+  if(el._msRender) el._msRender();
+}
+function criarMultiSelect(id){
+  const sel = document.getElementById(id);
+  if(!sel || sel.dataset.ms) return;
+  sel.dataset.ms = '1';
+  sel.multiple = true;
+  sel.style.display = 'none';
+  const exclusivos = (sel.dataset.msExclusivos || '').split(',').filter(Boolean);
+  const wrap = document.createElement('div');
+  wrap.className = 'ms-wrap';
+  wrap.innerHTML = '<button type="button" class="ms-btn"><span></span><span>▾</span></button><div class="ms-painel oculto"></div>';
+  sel.parentNode.insertBefore(wrap, sel.nextSibling);
+  const btn = wrap.querySelector('.ms-btn');
+  const painel = wrap.querySelector('.ms-painel');
+  const vazio = () => sel.dataset.msVazio || (sel.getAttribute('data-ms-vazio')) || 'Todos';
+  function rotulo(){
+    const marc = Array.from(sel.options).filter(o => o.selected && o.value !== '');
+    btn.firstElementChild.textContent = marc.length === 0 ? vazio() : (marc.length === 1 ? marc[0].textContent : marc.length + ' selecionados');
+  }
+  function render(){
+    const opts = Array.from(sel.options).filter(o => o.value !== '');
+    painel.innerHTML = '<label class="ms-item ms-limpar"><input type="checkbox" data-limpar ' + (valoresMulti(id).length === 0 ? 'checked' : '') + '> ' + escaparHtml(vazio()) + '</label>' +
+      opts.map(o => '<label class="ms-item"><input type="checkbox" value="' + escaparHtml(o.value) + '" ' + (o.selected ? 'checked' : '') + '> ' + escaparHtml(o.textContent) + '</label>').join('');
+    rotulo();
+  }
+  sel._msRender = render;
+  painel.addEventListener('change', e => {
+    const cb = e.target;
+    if(cb.hasAttribute('data-limpar')){
+      Array.from(sel.options).forEach(o => { o.selected = false; });
+    }else{
+      const opt = Array.from(sel.options).find(o => o.value === cb.value);
+      if(opt){
+        opt.selected = cb.checked;
+        if(cb.checked){
+          if(exclusivos.includes(opt.value)) Array.from(sel.options).forEach(o => { if(o !== opt) o.selected = false; });
+          else Array.from(sel.options).forEach(o => { if(exclusivos.includes(o.value)) o.selected = false; });
+        }
+      }
+    }
+    render();
+    sel.dispatchEvent(new Event('change'));
+  });
+  btn.addEventListener('click', () => {
+    const abrir = painel.classList.contains('oculto');
+    document.querySelectorAll('.ms-painel').forEach(x => x.classList.add('oculto'));
+    if(abrir) painel.classList.remove('oculto');
+  });
+  document.addEventListener('click', e => { if(!wrap.contains(e.target)) painel.classList.add('oculto'); });
+  new MutationObserver(render).observe(sel, {childList:true});
+  render();
+}
+window.addEventListener('DOMContentLoaded', () => {
+  ['filtro-hist-usuario','filtro-hist-terminal','fech-admin-usuario','fech-admin-terminal','dash-terminal','saidas-terminal','saidas-funcionaria'].forEach(criarMultiSelect);
+});
 
 async function cadastrarTerminal(){
   const numero = document.getElementById('novo-terminal-numero').value.trim();
@@ -2281,8 +2379,9 @@ async function cadastrarUsuario(){
     erro.classList.remove('oculto');
     return;
   }
-  const perfilNovo = socio ? 'socio' : (gerencia && admin ? 'gerencia_admin' : (gerencia ? 'gerencia_admin' : (admin ? 'admin' : 'caixa')));
-  usuarios.push({usuario, senha, nome, admin, gerencia, socio, perfil: perfilNovo, pergunta, resposta});
+  const perfilNovo = socio ? 'socio' : ((admin || gerencia) ? 'admin' : 'caixa');
+  const fl = PERFIS_ACESSO[perfilNovo];
+  usuarios.push({usuario, senha, nome, admin: fl.admin, gerencia: fl.gerencia, socio: fl.socio, perfil: perfilNovo, pergunta, resposta});
   await salvarUsuarios(usuarios);
   erro.classList.add('oculto');
   document.getElementById('cad-nome').value='';
@@ -2325,10 +2424,7 @@ async function fazerLogin(){
   }
 
   // Perfil Sócio: acesso exclusivo e isolado, sem terminal do dia e sem o restante do app.
-  if(achado.socio === true){
-    await entrarComoSocio(achado);
-    return;
-  }
+  // (Sócio agora tem acesso total: entra no app completo e abre o módulo Sócio pelo menu.)
 
   // Busca o último terminal usado por esse usuário (histórico), para pré-preencher.
   // Se nunca escolheu nenhum terminal antes, o campo fica em branco.
@@ -2417,6 +2513,8 @@ async function entrarNoApp(achado){
   const souAdmin = usuarioEhAdmin(achado);
   EH_ADMIN = souAdmin;
   EH_GERENCIA = usuarioEhGerencia(achado);
+  const souSocio = usuarioEhSocio(achado);
+  document.getElementById('nav-socio').classList.toggle('oculto', !souSocio);
   const hoje = hojeISO();
 
   document.getElementById('tela-login').classList.add('oculto');
@@ -2533,6 +2631,7 @@ function sair(){
   document.getElementById('tela-app').classList.add('oculto');
   document.getElementById('tela-socio').classList.add('oculto');
   document.getElementById('tela-login').classList.remove('oculto');
+  document.getElementById('nav-socio').classList.add('oculto');
   document.getElementById('nav-admin').classList.add('oculto');
   document.getElementById('nav-gestaofiado').classList.add('oculto');
   document.getElementById('nav-dashboard').classList.add('oculto');
@@ -2710,6 +2809,18 @@ async function registrarLancamento(){
     obsFinal = '[' + categoriaNotas + ']' + (obs ? ' ' + obs : '');
   }
 
+  let dataPix = '';
+  if(atividade === 'Pix anterior'){
+    dataPix = document.getElementById('inp-data-pix-anterior').value || '';
+    if(dataPix){
+      if(dataPix > dataLancamento){
+        msg.innerHTML = '<div class="msg-erro">A data do Pix não pode ser posterior à data do lançamento.</div>';
+        return;
+      }
+      obsFinal = '[Pix de ' + dataPix.split('-').reverse().join('/') + ']' + (obs ? ' ' + obs : '');
+    }
+  }
+
   const registros = await carregarRegistros();
   const novoRegistro = {
     id: Date.now() + '-' + Math.random().toString(36).slice(2,7),
@@ -2721,6 +2832,7 @@ async function registrarLancamento(){
     tipo: 'Saida',
     atividade: atividadeFinal,
     categoriaNotas: categoriaNotas,
+    dataPix: dataPix || undefined,
     clienteId: clienteId,
     clienteNome: clienteNome,
     valor: valor,
@@ -2751,6 +2863,8 @@ async function registrarLancamento(){
   }
   const selNotas = document.getElementById('sel-notas-categoria');
   if(selNotas) selNotas.value = '';
+  const inpPixAnt = document.getElementById('inp-data-pix-anterior');
+  if(inpPixAnt) inpPixAnt.value = '';
   document.getElementById('inp-valor').value='';
   document.getElementById('inp-obs').value='';
   msg.innerHTML = '<div class="msg-ok">Lançamento registrado com sucesso.</div>';
@@ -2854,6 +2968,8 @@ function atualizarCampoClienteFiado(){
   campoContaLoja.classList.toggle('oculto', atividade !== 'Conta Loja');
   const campoNotas = document.getElementById('campo-notas-categoria');
   if(campoNotas) campoNotas.classList.toggle('oculto', atividade !== 'Notas');
+  const campoPixAnt = document.getElementById('campo-pix-anterior');
+  if(campoPixAnt) campoPixAnt.classList.toggle('oculto', atividade !== 'Pix anterior');
 
   if(ATIVIDADES_TRANSFERENCIA_TERMINAL.includes(atividade)){
     campoTerminalNormal.classList.add('oculto');
@@ -3398,12 +3514,12 @@ async function atualizarDashboard(){
   if(!EH_ADMIN) return;
   const dataIni = document.getElementById('dash-data-inicio').value;
   const dataFim = document.getElementById('dash-data-fim').value;
-  const filtroTerminal = document.getElementById('dash-terminal').value;
+  const filtroTerminal = valoresMulti('dash-terminal');
   const filtroTipo = document.getElementById('dash-tipo').value;
   if(!dataIni || !dataFim) return;
 
   let registros = (await carregarRegistros()).filter(r => !r.excluido && r.data >= dataIni && r.data <= dataFim);
-  if(filtroTerminal) registros = registros.filter(r => r.caixa === filtroTerminal);
+  if(filtroTerminal.length) registros = registros.filter(r => filtroTerminal.includes(r.caixa));
   if(filtroTipo) registros = registros.filter(r => r.tipo === filtroTipo);
 
   const totalSaidas = registros.filter(r => r.tipo==='Saida').reduce((s,r)=>s+r.valor,0);
@@ -3873,8 +3989,8 @@ async function consultarFechamentosAdmin(){
   if(!EH_ADMIN) return;
   const dataIni = document.getElementById('fech-admin-inicio').value;
   const dataFim = document.getElementById('fech-admin-fim').value;
-  const filtroUsuario = document.getElementById('fech-admin-usuario').value;
-  const filtroTerminal = document.getElementById('fech-admin-terminal').value;
+  const filtroUsuario = valoresMulti('fech-admin-usuario');
+  const filtroTerminal = valoresMulti('fech-admin-terminal');
   const cont = document.getElementById('resultado-fechamentos-admin');
 
   if(!dataIni || !dataFim){
@@ -3883,8 +3999,8 @@ async function consultarFechamentosAdmin(){
   }
 
   let fechamentos = (await carregarFechamentos()).filter(f => f.data >= dataIni && f.data <= dataFim);
-  if(filtroUsuario) fechamentos = fechamentos.filter(f => f.usuario === filtroUsuario);
-  if(filtroTerminal) fechamentos = fechamentos.filter(f => f.terminal === filtroTerminal);
+  if(filtroUsuario.length) fechamentos = fechamentos.filter(f => filtroUsuario.includes(f.usuario));
+  if(filtroTerminal.length) fechamentos = fechamentos.filter(f => filtroTerminal.includes(f.terminal));
   fechamentos.sort((a,b) => b.timestamp - a.timestamp);
 
   if(fechamentos.length === 0){
@@ -4500,6 +4616,7 @@ async function calcularBilheteGerencial(){
   const dataRef = obterDataGerencial();
   const terminaisBilhetes = terminaisPorTipo('Bilhetes').map(t => t.numero);
   const fechamentos = (await carregarFechamentos()).filter(f => f.data===dataRef && terminaisBilhetes.includes(f.terminal));
+  // Bilhete gerencial = apenas "Gaveta bilhete" (l). A Vitrine (k) NÃO entra aqui (só no Total bilhete e no batimento do fechamento).
   const total = fechamentos.reduce((s,f) => s + (f.l || 0), 0);
   el.textContent = formatarMoeda(total);
   return total;
@@ -4517,17 +4634,17 @@ async function abrirAbaSaidas(){
   if(!ini.value) ini.value = hoje;
   if(!fim.value) fim.value = hoje;
   const selT = document.getElementById('saidas-terminal');
-  const valT = selT.value;
-  selT.innerHTML = '<option value="__caixa">Caixas + Gerência (+ Brindes, Pix e Rede do Bilhetes)</option><option value="__todos">Todos os terminais</option>' +
+  const valT = valoresMulti('saidas-terminal');
+  selT.innerHTML = '<option value="__todos">Todos os terminais</option>' +
     TERMINAIS_CADASTRADOS.map(t => `<option value="${escaparHtml(t.numero)}">${escaparHtml(rotuloTerminal(t.numero))}</option>`).join('');
-  if(valT) selT.value = valT;
+  definirValoresMulti('saidas-terminal', valT);
   const selF = document.getElementById('saidas-funcionaria');
-  const valF = selF.value;
+  const valF = valoresMulti('saidas-funcionaria');
   const usuarios = await carregarUsuarios();
   selF.innerHTML = '<option value="">Todas</option>' +
     usuarios.slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR'))
       .map(u => `<option value="${escaparHtml(u.usuario)}">${escaparHtml(u.nome||u.usuario)}</option>`).join('');
-  if(valF) selF.value = valF;
+  definirValoresMulti('saidas-funcionaria', valF);
   await renderizarAbaSaidas();
 }
 
@@ -4538,18 +4655,19 @@ async function renderizarAbaSaidas(){
   let ini = document.getElementById('saidas-data-inicio').value || hoje;
   let fim = document.getElementById('saidas-data-fim').value || hoje;
   if(ini > fim){ const t = ini; ini = fim; fim = t; }
-  const termSel = document.getElementById('saidas-terminal').value || '__caixa';
-  const funcSel = document.getElementById('saidas-funcionaria').value;
+  const termSelArr = valoresMulti('saidas-terminal');
+  const funcSelArr = valoresMulti('saidas-funcionaria');
+  const modoTodos = termSelArr.includes('__todos');
+  const modoPadrao = termSelArr.length === 0;
   const EXCLUIDAS = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
   const caixas = numerosTerminaisContabeis();
   const bilhetes = terminaisPorTipo('Bilhetes').map(t => t.numero);
   const registros = (await carregarRegistros()).filter(r =>
     r.tipo==='Saida' && !r.excluido && r.data>=ini && r.data<=fim && !EXCLUIDAS.includes(r.atividade) &&
-    (termSel==='__todos' ? true : termSel==='__caixa'
-      ? ((caixas.includes(r.caixa) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade))
-         || (bilhetes.includes(r.caixa) && ATIVIDADES_BILHETES_NO_CONTROLE_SAIDAS.includes(r.atividade)))
-      : r.caixa===termSel) &&
-    (!funcSel || r.usuario===funcSel));
+    (modoTodos ? true : modoPadrao
+      ? saidaContaNoControleGerencial(r, {caixas, bilhetes})
+      : termSelArr.includes(r.caixa)) &&
+    (funcSelArr.length === 0 || funcSelArr.includes(r.usuario)));
   const porAtiv = {};
   registros.forEach(r => {
     const k = r.atividade || '(sem atividade)';
@@ -4659,9 +4777,8 @@ async function calcularBatimentoGerencial(){
   const total2Gerencial = totalEstoque + vitrineRaspadinha + trocoCofreTotal + caixaGerencial
                          + bilheteGerencial + boloesEspeciais + gaveta + fiadoTotal;
 
-  const ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL = ['Fiado', ...ATIVIDADES_FORA_DEBITO_GERENCIAL];
-  const registrosHoje = (await carregarRegistros()).filter(r =>
-    r.data===hoje && r.tipo==='Saida' && !r.excluido && !ATIVIDADES_EXCLUIDAS_SAIDAS_GERENCIAL.includes(r.atividade) && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade) && numerosTerminaisContabeis().includes(r.caixa));
+  const ctxSaidas = {caixas: numerosTerminaisContabeis(), bilhetes: terminaisPorTipo('Bilhetes').map(t => t.numero)};
+  const registrosHoje = (await carregarRegistros()).filter(r => r.data===hoje && saidaContaNoControleGerencial(r, ctxSaidas));
   const totalSaidas = registrosHoje.reduce((s,r) => s+r.valor, 0);
 
   const creditoGerencial = total2Gerencial + totalSaidas;
@@ -4697,8 +4814,8 @@ async function calcularBatimentoGerencial(){
       ${linhaComFormula('Total Relatórios (f) — terminais caixa (' + rotuloTerminaisCaixa + ')', totalRelatorios, null)}
       ${linhaComFormula('Entrada Produtos - devolução', entradaProdutos, 'Total da entrada de produtos dessa data - devoluções de bilhete')}
       ${linhaComFormula('Débito Gerencial', debitoGerencial, 'TOTAL1 (' + rotuloTotal1 + ') + Total Relatórios + Entrada Produtos - devolução', true)}
-      ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
-      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência, exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
+      ${linhaComFormula('TOTAL2 — Composição de caixa (hoje) gerencial', total2Gerencial, 'Estoque de produtos gerencial + Vitrine raspadinha + Troco cofre + Caixa gerencial + Bilhete gerencial (Gaveta bilhete) + Gaveta Gerencial + Bolões especiais + Fiado total (até a data contábil exibida)')}
+      ${linhaComFormula('Saídas hoje — terminais caixa (' + rotuloTerminaisCaixa + ') e gerência + Brindes/Descontos, Pix fora terminal e Rede do caixa Bilhetes; exceto Fiado, Bolão, Bolão Especial, Troca de caixas, Devolução bilhetes e Troco cofre', totalSaidas, null)}
       ${linhaComFormula('Crédito Gerencial', creditoGerencial, 'TOTAL2 + Saídas hoje', true)}
     </tbody>
   </table>`;
@@ -4750,13 +4867,22 @@ async function calcularSaldosClientes(dataLimite){
   const registros = await carregarRegistros();
   const pagamentos = await carregarPagamentosFiado();
 
-  const todasLinhas = clientes.map(c => {
-    const totalFiado = registros
-      .filter(r => r.clienteId===c.id && r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && !r.legado && (!dataLimite || r.data <= dataLimite))
-      .reduce((s,r)=>s+r.valor,0);
-    const totalPago = pagamentos
-      .filter(p => p.clienteId===c.id && (!dataLimite || p.data <= dataLimite))
-      .reduce((s,p)=>s+p.valor,0);
+  // Blindagem: cada código de cliente conta UMA vez (cadastro duplicado não infla o total) e movimentos de código sem cadastro
+  // entram numa linha "(sem cadastro)" — assim a soma dos saldos sempre bate com a linha do tempo de Fiado (Σ fiado − Σ pagamentos).
+  const fiadosValidos = registros.filter(r => r.tipo==='Saida' && r.atividade==='Fiado' && !r.excluido && !r.legado && (!dataLimite || r.data <= dataLimite));
+  const pagsValidos = pagamentos.filter(p => !dataLimite || p.data <= dataLimite);
+  const vistos = new Set();
+  const base = [];
+  clientes.forEach(c => { if(vistos.has(c.id)) return; vistos.add(c.id); base.push({id:c.id, nome:c.nome}); });
+  const idsMov = new Set([...fiadosValidos.map(r => r.clienteId || ''), ...pagsValidos.map(p => p.clienteId || '')]);
+  idsMov.forEach(id => {
+    if(vistos.has(id)) return;
+    const ref = fiadosValidos.find(r => (r.clienteId || '') === id) || pagsValidos.find(p => (p.clienteId || '') === id) || {};
+    base.push({id, nome: '⚠ ' + (ref.clienteNome || id || 'sem cliente') + ' (sem cadastro)'});
+  });
+  const todasLinhas = base.map(c => {
+    const totalFiado = fiadosValidos.filter(r => (r.clienteId || '') === c.id).reduce((s,r)=>s+r.valor,0);
+    const totalPago = pagsValidos.filter(p => (p.clienteId || '') === c.id).reduce((s,p)=>s+p.valor,0);
     return {id:c.id, nome:c.nome, saldo: totalFiado - totalPago, totalFiado, totalPago};
   }).filter(c => c.totalFiado > 0 || c.totalPago > 0);
 
@@ -5101,11 +5227,11 @@ async function atualizarTudo(){
   const filtroAtividadeHist = selAtividadeHist ? selAtividadeHist.value : '';
 
   const meusPeriodo = (verTudoHistorico ? (() => {
-    const filtroUsuario = document.getElementById('filtro-hist-usuario')?.value || '';
-    const filtroTerminal = document.getElementById('filtro-hist-terminal')?.value || '';
+    const filtroUsuario = valoresMulti('filtro-hist-usuario');
+    const filtroTerminal = valoresMulti('filtro-hist-terminal');
     return registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
-      && (!filtroUsuario || r.usuario === filtroUsuario)
-      && (!filtroTerminal || r.caixa === filtroTerminal)
+      && (!filtroUsuario.length || filtroUsuario.includes(r.usuario))
+      && (!filtroTerminal.length || filtroTerminal.includes(r.caixa))
       && (!filtroAtividadeHist || r.atividade === filtroAtividadeHist));
   })() : registros.filter(r => r.data >= periodoInicio && r.data <= periodoFim
       // Regra simples e determinística: só mostra o que aconteceu no terminal ATUAL
@@ -5120,12 +5246,12 @@ async function atualizarTudo(){
   const pagamentosBrutos = await carregarPagamentosFiadoBruto();
   const clientesLista = await carregarClientes();
   const nomePorId = {}; clientesLista.forEach(c => { if(!(c.id in nomePorId)) nomePorId[c.id] = c.nome; });
-  const filtroUsuarioPg = verTudoHistorico ? (document.getElementById('filtro-hist-usuario')?.value || '') : '';
-  const filtroTerminalPg = verTudoHistorico ? (document.getElementById('filtro-hist-terminal')?.value || '') : '';
+  const filtroUsuarioPg = verTudoHistorico ? valoresMulti('filtro-hist-usuario') : [];
+  const filtroTerminalPg = verTudoHistorico ? valoresMulti('filtro-hist-terminal') : [];
   const pagamentosPeriodo = pagamentosBrutos.filter(p => p.data >= periodoInicio && p.data <= periodoFim
-    && !filtroTerminalPg   // pagamento de fiado não tem terminal
+    && !filtroTerminalPg.length   // pagamento de fiado não tem terminal
     && (!filtroAtividadeHist || filtroAtividadeHist === ATIVIDADE_PAGAMENTO_FIADO)
-    && (verTudoHistorico ? (!filtroUsuarioPg || p.usuario === filtroUsuarioPg) : p.usuario === USUARIO_LOGADO.usuario));
+    && (verTudoHistorico ? (!filtroUsuarioPg.length || filtroUsuarioPg.includes(p.usuario)) : p.usuario === USUARIO_LOGADO.usuario));
   const itensLista = meusPeriodo.map(r => ({k:'reg', r, ts:r.timestamp}))
     .concat(pagamentosPeriodo.map(p => ({k:'pag', p, ts:p.timestamp})))
     .sort((a,b) => (b.ts||0) - (a.ts||0));
@@ -5187,6 +5313,52 @@ async function abrirAbaGeral(){
   await atualizarPainelGeral();
 }
 
+// ---------- Linhas por terminal (usado em Totais gerais e no painel Admin) ----------
+// Total1/Total3 são indicadores do TERMINAL no dia (último dia contábil com dados), nunca da funcionária:
+// com 2+ linhas no mesmo terminal (ex.: funcionária + "sem funcionária associada") aparecem só no subtotal, para não contar Total1 em dobro.
+function linhasPorTerminalHtml(blocos, todosFechamentos, dataRef){
+  const rotuloFunc = nome => (/^Terminal .* \(sem funcionária associada\)$/.test(nome || ''))
+    ? '<span style="color:var(--texto-claro);font-style:italic;">(sem funcionária associada)</span>' : escaparHtml(nome || '');
+  const celTotal3 = v => `<td style="font-weight:800;color:${v<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${formatarMoeda(v)}</td>`;
+  const celTotal1 = (v, datas) => `<td style="font-weight:700;">${formatarMoeda(v)}<div style="font-size:10px;font-weight:400;color:var(--texto-claro);">ref. ${datas}</div></td>`;
+  const traco = '<td style="color:var(--texto-claro);">—</td>';
+  const estiloSub = 'font-size:11px;color:var(--texto-claro);background:rgba(0,0,0,0.03);border-top:1px dashed rgba(0,0,0,0.15);';
+  let html = '', soma1 = 0, soma2 = 0, soma3 = 0;
+  blocos.forEach(({terminal, lista}) => {
+    lista = lista.slice().sort((x,y) => x.nome.localeCompare(y.nome, 'pt-BR'));
+    const dRef = ultimaDataComFechamento(todosFechamentos, [terminal], dataRef);
+    const total1 = todosFechamentos.filter(f => f.terminal===terminal && f.data===dRef)
+      .reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
+    const datas = dRef ? dataBR(dRef) : 'sem dia anterior';
+    const t = lista.reduce((acc,g) => { ['saidas','troco','c','d','e','f','total2'].forEach(k => acc[k] += g[k]); return acc; },
+      {saidas:0,troco:0,c:0,d:0,e:0,f:0,total2:0});
+    const total3 = (t.total2 - total1) - t.f;
+    soma1 += total1; soma2 += t.total2; soma3 += total3;
+    const unica = lista.length === 1;
+    html += lista.map(g => `<tr>
+        <td>${escaparHtml(terminal)}</td>
+        <td>${rotuloFunc(g.nome)}</td>
+        <td style="color:var(--verde-venda);font-weight:700;">${formatarMoeda(g.saidas)}</td>
+        <td style="color:var(--vermelho-estorno);font-weight:700;">${formatarMoeda(g.troco)}</td>
+        <td>${formatarMoeda(g.c)}</td><td>${formatarMoeda(g.d)}</td><td>${formatarMoeda(g.e)}</td><td>${formatarMoeda(g.f)}</td>
+        <td style="font-weight:700;">${formatarMoeda(g.total2)}</td>
+        ${unica ? celTotal1(total1, datas) : traco}
+        ${unica ? celTotal3(total3) : traco}
+      </tr>`).join('');
+    if(!unica){
+      html += `<tr style="${estiloSub}">
+        <td style="${estiloSub}"></td><td style="${estiloSub}">Subtotal terminal ${escaparHtml(terminal)}</td>
+        <td style="${estiloSub}">${formatarMoeda(t.saidas)}</td><td style="${estiloSub}">${formatarMoeda(t.troco)}</td>
+        <td style="${estiloSub}">${formatarMoeda(t.c)}</td><td style="${estiloSub}">${formatarMoeda(t.d)}</td><td style="${estiloSub}">${formatarMoeda(t.e)}</td><td style="${estiloSub}">${formatarMoeda(t.f)}</td>
+        <td style="${estiloSub}">${formatarMoeda(t.total2)}</td>
+        <td style="${estiloSub}">${formatarMoeda(total1)} <span style="font-size:10px;">ref. ${datas}</span></td>
+        <td style="${estiloSub}">${formatarMoeda(total3)}</td>
+      </tr>`;
+    }
+  });
+  return {html, total1: soma1, total2: soma2, total3: soma3};
+}
+
 async function atualizarPainelGeral(){
   const cont = document.getElementById('tabela-geral-conteudo');
   if(!cont || !USUARIO_LOGADO) return;
@@ -5206,66 +5378,47 @@ async function atualizarPainelGeral(){
     fechamentosDoDia = fechamentosDoDia.filter(f => f.terminal === TERMINAL_DO_DIA);
   }
 
-  const porFuncionario = {};
-  function pegarFunc(nome){
-    if(!porFuncionario[nome]) porFuncionario[nome] = {nome, saidas:0, troco:0, c:0, d:0, e:0, f:0, terminais:new Set()};
-    return porFuncionario[nome];
+  // Uma linha por (terminal, funcionária). Ordenado por terminal; linha de subtotal discreta quando o terminal tem 2+ linhas
+  // (ex.: funcionária + "sem funcionária associada"). Total1/Total3 são do TERMINAL (último dia contábil com dados),
+  // então só aparecem na linha quando o terminal tem uma linha só, ou no subtotal.
+  const grupos = {};
+  function pegarGrupo(terminal, nome){
+    const k = terminal + '||' + nome;
+    if(!grupos[k]) grupos[k] = {terminal, nome, saidas:0, troco:0, c:0, d:0, e:0, f:0};
+    return grupos[k];
   }
   doDia.forEach(r => {
-    const g = pegarFunc(r.nome);
-    g.terminais.add(r.caixa);
-    if(r.tipo==='Saida') g.saidas += r.valor;
-    else g.troco += r.valor;
+    const g = pegarGrupo(r.caixa, r.nome);
+    if(r.tipo==='Saida') g.saidas += r.valor; else g.troco += r.valor;
   });
   fechamentosDoDia.forEach(f => {
-    const g = pegarFunc(f.nome);
-    g.terminais.add(f.terminal);
+    const g = pegarGrupo(f.terminal, f.nome);
     g.c += f.c || 0;
     g.d += (f.d != null ? f.d : (f.total || 0));
     g.e += f.e || 0;
     g.f += f.f || 0;
   });
+  Object.values(grupos).forEach(g => { g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e; });
 
-  const linhas = Object.values(porFuncionario).map(g => {
-    g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e;
-    g.total1 = 0;
-    g.datasTotal1 = new Set();
-    g.terminais.forEach(term => {
-      const dRef = ultimaDataComFechamento(todosFechamentos, [term], dataSelecionada);
-      if(dRef) g.datasTotal1.add(dRef);
-      g.total1 += todosFechamentos.filter(f => f.terminal===term && f.data===dRef)
-        .reduce((s,f) => s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
-    });
-    g.total3 = (g.total2 - g.total1) - g.f;
-    return g;
-  }).sort((a,b) => a.nome.localeCompare(b.nome));
-
-  if(linhas.length === 0){
+  const porTerminal = {};
+  Object.values(grupos).forEach(g => { (porTerminal[g.terminal] = porTerminal[g.terminal] || []).push(g); });
+  const terminaisOrdenados = Object.keys(porTerminal).sort((x,y) => String(x).localeCompare(String(y), undefined, {numeric:true}));
+  if(terminaisOrdenados.length === 0){
     cont.innerHTML = '<div class="vazio">Nenhum lançamento nesta data.</div>';
     return;
   }
+
+  const linhasHtml = linhasPorTerminalHtml(terminaisOrdenados.map(t => ({terminal:t, lista:porTerminal[t]})), todosFechamentos, dataSelecionada).html;
+
   cont.innerHTML = `<div class="tabela-historico-dias"><table>
     <thead><tr>
-      <th>Funcionário(a)</th>
+      <th>Terminal</th><th>Funcionário(a)</th>
       <th>a) Saídas</th><th>b) Entradas</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
       <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
     </tr></thead>
-    <tbody>
-      ${linhas.map(g => `<tr>
-        <td>${escaparHtml(g.nome)}</td>
-        <td style="color:var(--verde-venda);font-weight:700;">${formatarMoeda(g.saidas)}</td>
-        <td style="color:var(--vermelho-estorno);font-weight:700;">${formatarMoeda(g.troco)}</td>
-        <td>${formatarMoeda(g.c)}</td>
-        <td>${formatarMoeda(g.d)}</td>
-        <td>${formatarMoeda(g.e)}</td>
-        <td>${formatarMoeda(g.f)}</td>
-        <td style="font-weight:700;">${formatarMoeda(g.total2)}</td>
-        <td style="font-weight:700;">${formatarMoeda(g.total1)}<div style="font-size:10px;font-weight:400;color:var(--texto-claro);">ref. ${[...g.datasTotal1].sort().map(dataBR).join(' / ') || 'sem dia anterior'}</div></td>
-        <td style="font-weight:800;color:${g.total3<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${formatarMoeda(g.total3)}</td>
-      </tr>`).join('')}
-    </tbody>
+    <tbody>${linhasHtml}</tbody>
   </table></div>
-  <p class="aviso-fechamento" style="margin-top:8px;">Total1 considera o último dia contábil com dados registrados antes de ${dataBR(dataSelecionada)} (a data usada aparece em "ref." em cada linha).</p>`;
+  <p class="aviso-fechamento" style="margin-top:8px;">Ordenado por terminal. Total1 considera o último dia contábil com dados registrados do terminal antes de ${dataBR(dataSelecionada)} (data em "ref."). Quando o terminal tem mais de uma linha (ex.: funcionária + sem funcionária associada), Total1 e Total3 aparecem só no subtotal do terminal.</p>`;
 }
 
 // ---------- Histórico de dias anteriores ----------
@@ -5398,19 +5551,24 @@ async function consultarPainelAdmin(){
     g.f += f.f || 0;
   });
 
-  const linhas = Object.values(grupos).map(g => {
-    g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e;
-    const ontemG = ultimaDataComFechamento(todosFechamentos, [g.terminal], g.data);
-    g.dataTotal1 = ontemG;
-    g.total1 = todosFechamentos.filter(f => f.terminal===g.terminal && f.data===ontemG)
-                 .reduce((s,f)=> s + (f.c||0) + (f.d!=null?f.d:(f.total||0)) + (f.e||0), 0);
-    g.total3 = (g.total2 - g.total1) - g.f;
-    return g;
-  }).sort((a,b) => (a.data+a.nome+a.terminal).localeCompare(b.data+b.nome+b.terminal)).reverse();
+  Object.values(grupos).forEach(g => { g.total2 = (g.saidas - g.troco) + g.c + g.d + g.e; });
+  const linhas = Object.values(grupos);
 
-  const somaTotal2 = linhas.reduce((s,g)=>s+g.total2,0);
-  const somaTotal1 = linhas.reduce((s,g)=>s+g.total1,0);
-  const somaTotal3 = linhas.reduce((s,g)=>s+g.total3,0);
+  // Agrupa por dia e terminal. Total1/Total2/Total3 do período = soma dos TERMINAIS-dia (cada Total1 entra uma vez só).
+  const porData = {};
+  linhas.forEach(g => {
+    if(!porData[g.data]) porData[g.data] = {};
+    (porData[g.data][g.terminal] = porData[g.data][g.terminal] || []).push(g);
+  });
+  const datasOrdenadas = Object.keys(porData).sort().reverse();
+  let somaTotal1 = 0, somaTotal2 = 0, somaTotal3 = 0;
+  const htmlPorData = {};
+  datasOrdenadas.forEach(data => {
+    const terminais = Object.keys(porData[data]).sort((x,y) => String(x).localeCompare(String(y), undefined, {numeric:true}));
+    const r = linhasPorTerminalHtml(terminais.map(t => ({terminal:t, lista:porData[data][t]})), todosFechamentos, data);
+    htmlPorData[data] = r.html;
+    somaTotal1 += r.total1; somaTotal2 += r.total2; somaTotal3 += r.total3;
+  });
 
   document.getElementById('admin-total-total2').textContent = formatarMoeda(somaTotal2);
   document.getElementById('admin-total-total1').textContent = formatarMoeda(somaTotal1);
@@ -5421,40 +5579,16 @@ async function consultarPainelAdmin(){
     return;
   }
 
-  const porData = {};
-  linhas.forEach(g => {
-    if(!porData[g.data]) porData[g.data] = [];
-    porData[g.data].push(g);
-  });
-  const datasOrdenadas = Object.keys(porData).sort().reverse();
-
-  cont.innerHTML = datasOrdenadas.map(data => {
-    const linhasDoDia = porData[data].sort((a,b) => (a.nome+a.terminal).localeCompare(b.nome+b.terminal));
-    return `
+  cont.innerHTML = datasOrdenadas.map(data => `
       <h4 style="margin:18px 0 8px;color:var(--azul-escuro);font-size:13px;">${data.split('-').reverse().join('/')}</h4>
       <div class="tabela-historico-dias" style="margin-bottom:6px;"><table>
         <thead><tr>
-          <th>Funcionária</th><th>Terminal</th>
+          <th>Terminal</th><th>Funcionária</th>
           <th>a) Saídas</th><th>b) Entradas</th><th>c) Troco Term.</th><th>d) Composição</th><th>e) Bolão</th><th>f) Relatório</th>
           <th>Total2</th><th>Total1</th><th>Total3 Batimento</th>
         </tr></thead>
-        <tbody>
-          ${linhasDoDia.map(g => `<tr>
-            <td>${escaparHtml(g.nome)}</td>
-            <td>${escaparHtml(g.terminal)}</td>
-            <td style="color:var(--verde-venda);">${formatarMoeda(g.saidas)}</td>
-            <td style="color:var(--vermelho-estorno);">${formatarMoeda(g.troco)}</td>
-            <td>${formatarMoeda(g.c)}</td>
-            <td>${formatarMoeda(g.d)}</td>
-            <td>${formatarMoeda(g.e)}</td>
-            <td>${formatarMoeda(g.f)}</td>
-            <td style="font-weight:700;">${formatarMoeda(g.total2)}</td>
-            <td style="font-weight:700;">${formatarMoeda(g.total1)}<div style="font-size:10px;font-weight:400;color:var(--texto-claro);">ref. ${g.dataTotal1 ? dataBR(g.dataTotal1) : 'sem dia anterior'}</div></td>
-            <td style="font-weight:800;color:${g.total3<0?'var(--vermelho-estorno)':'var(--verde-venda)'};">${formatarMoeda(g.total3)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div>`;
-  }).join('');
+        <tbody>${htmlPorData[data]}</tbody>
+      </table></div>`).join('');
 }
 
 async function adminRedefinirSenha(){
@@ -6129,6 +6263,15 @@ async function exportarExcelPeriodoAdmin(){
 let SOCIO_IMAGEM_BASE64 = null;
 let SOCIO_IMAGEM_TIPO = 'imagem'; // 'imagem' ou 'pdf'
 
+async function abrirModuloSocio(){
+  if(!USUARIO_LOGADO || !usuarioEhSocio(USUARIO_LOGADO)) return;
+  await entrarComoSocio(USUARIO_LOGADO);
+}
+function voltarDoModuloSocio(){
+  document.getElementById('tela-socio').classList.add('oculto');
+  document.getElementById('tela-app').classList.remove('oculto');
+}
+
 async function entrarComoSocio(achado){
   USUARIO_LOGADO = achado;
   FORM_DIRTY = false;
@@ -6522,10 +6665,10 @@ async function atualizarFechamentoSaidasSocio(){
   const somaPorSemanaEAtividade = semanas.map(() => ({}));
   const atividadesEncontradas = new Set();
 
+  const ctxSaidasSocio = {caixas: numerosTerminaisContabeis(), bilhetes: terminaisPorTipo('Bilhetes').map(t => t.numero)};
   semanas.forEach((s, i) => {
     const doPeriodo = registros.filter(r =>
-      r.data >= s.inicio && r.data <= s.fim && r.tipo === 'Saida' && !r.excluido &&
-      r.atividade !== 'Fiado' && !ATIVIDADES_INTERNAS_GERENCIA.includes(r.atividade) && numerosTerminaisContabeis().includes(r.caixa));
+      r.data >= s.inicio && r.data <= s.fim && saidaContaNoControleGerencial(r, ctxSaidasSocio));
     doPeriodo.forEach(r => {
       const chave = r.atividade || '(sem atividade)';
       atividadesEncontradas.add(chave);
